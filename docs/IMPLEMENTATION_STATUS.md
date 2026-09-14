@@ -2,7 +2,7 @@
 
 **FRAMEWORK BUILDS AND LOCAL API CHECKPOINT VERIFIED. NOT PRODUCTION READY. NOT FULLY END-TO-END OR UI VERIFIED.**
 
-On 15 September 2026 the current increment02 source compiled with Java 21, produced a fresh debug APK, validated Flyway V1/V2 on the existing PostgreSQL 18.6 development database, and passed the available local HTTP suites. This is meaningful framework/API evidence, but it does not establish device behavior, every acceptance scenario, a fresh-database/V1-clone upgrade path, complete 203-route parity, or live provider integrations.
+On 15 September 2026 the current increment02 source compiled with Java 21, produced a fresh debug APK, validated Flyway V1/V2/V3 on the existing PostgreSQL 18.6 development database, and passed the available local HTTP suites. This is meaningful framework/API evidence, but it does not establish device behavior, every acceptance scenario, a fresh-database/V1-clone upgrade path, complete 203-route parity, or live provider integrations.
 
 ## Verified local checkpoint — 15 September 2026
 
@@ -10,10 +10,10 @@ On 15 September 2026 the current increment02 source compiled with Java 21, produ
 - `backend\mvnw.cmd package`: **BUILD SUCCESS**, executable `0.2.0-SNAPSHOT` jar produced.
 - Android clean debug build with the repository-prepared Gradle 8.13 runtime: **BUILD SUCCESS**, 41 tasks executed and a fresh debug APK produced.
 - Android `:app:testDebugUnitTest`: **2 tests passed** for authenticated/unauthenticated HTTP failure routing policy.
-- PostgreSQL `partmentpilotai_dev` reported version **18.6**. Flyway successfully validated three history entries, schema version **2**, with no migration pending.
+- PostgreSQL `partmentpilotai_dev` reported version **18.6**. Flyway successfully validated four history entries and additively migrated the existing schema from version **2** to **3**.
 - `/actuator/health`: `UP`; `/api/v1/status`: version `0.2.0`, local registration enabled, `releaseReady: false`.
 - `Test-Local-Api.ps1`: **50/50 HTTP checks passed**, including finance previews, reminder idempotency, rejection persistence and atomic two-payment approval.
-- `Test-Operations.ps1 -Concurrency`: **74/74 checks passed**, including selected-flat contribution preview/create/retry, transparency privacy enforcement and one-winner concurrent booking approval.
+- `Test-Operations.ps1 -Concurrency`: **86/86 checks passed**, including confirmed scheduled publication, notice preview/schedule boundaries, selected-flat contribution preview/create/retry, transparency privacy enforcement and one-winner concurrent booking approval.
 - The local backend used port **8081** because port 8080 was occupied by the system `AgentService`; the checked-in Android endpoint was not changed.
 - Test suites intentionally retained their clearly labelled synthetic tenants for inspection. No database records were deleted.
 
@@ -21,7 +21,9 @@ The first post-build Android module is now source-complete and clean-build verif
 
 The maintenance review flow now has dedicated native `bulk-approval`, `bulk-review`, `payment-reject`, `outstanding`, `reminder-preview` and `bill-preview` destinations. Server-backed previews derive eligible flats, effective rates/overrides, existing bills, balances and recipients from the authenticated tenant. Manual reminders are request-key idempotent and create only in-app inbox records; external push remains `NOT_CONFIGURED`. These routes clean-build successfully but remain device-runtime and light/dark visual-parity unverified.
 
-The contribution flow now has a dedicated native `contribution-preview` destination. The backend resolves only active flats inside the authenticated tenant, validates selected comma-separated labels or a single parent-checked flat ID, returns the exact count/total for review, and creates the frozen selection idempotently. The native `transparency` destination previews actual monthly totals and edits the full server settings document; disabling visibility now denies resident aggregate reports as well as individual expense rows. The expanded 74-check live suite passed these boundaries, while both native routes remain device-runtime and visual-parity unverified.
+The contribution flow now has a dedicated native `contribution-preview` destination. The backend resolves only active flats inside the authenticated tenant, validates selected comma-separated labels or a single parent-checked flat ID, returns the exact count/total for review, and creates the frozen selection idempotently. The native `transparency` destination previews actual monthly totals and edits the full server settings document; disabling visibility now denies resident aggregate reports as well as individual expense rows. The expanded 86-check live suite passed these boundaries, while both native routes remain device-runtime and visual-parity unverified.
+
+Notice authoring now has dedicated native `notice-templates` and `notice-preview` destinations. Additive V3 stores type/category/phone intent and separates a future draft timestamp from explicit idempotent schedule confirmation. Preview recipients are resolved by the backend within the authenticated tenant, residents and foreign tenants cannot open the preview, and automation only publishes confirmed schedules. External phone delivery is explicitly `NOT_CONFIGURED`; successful publishing means authenticated in-app inbox delivery only. The expanded 86-check live suite passed these server boundaries, including a due confirmed schedule becoming resident-visible and clearing its scheduled state, while the two native routes remain device-runtime and visual-parity unverified.
 
 ## Written and connected at source level
 

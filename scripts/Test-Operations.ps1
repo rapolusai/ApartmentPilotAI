@@ -121,6 +121,24 @@ try {
  $staffReport=Api 'GET' "/reports/monthly?month=$month" $null $ta;Check ($staffReport.Status -eq 200) 'Transparency setting does not hide staff financial totals'
  $privacyOn=Api 'POST' '/ops/settings' (SettingsPayload $settings.Body $true) $ta;Check ($privacyOn.Status -eq 200) 'Admin restores resident expense transparency'
  $restoredReport=Api 'GET' "/reports/monthly?month=$month" $null $tr;Check ($restoredReport.Status -eq 200) 'Resident totals return after transparency is restored'
+ $noticeDraft=PostCommand '/notices' @{title='TEST02 Power interruption';body='Synthetic template-shaped notice';noticeType='SERVICE_ALERT';category='Power';audience='SELECTED';audienceValue='A-101';phoneNotify=$true;acknowledge=$true;pinned=$false;publish=$false} $ta
+ Check ($noticeDraft.Status -eq 200) 'Template-shaped notice is saved as an unpublished draft'
+ $residentPreview=Api 'GET' "/notices/$($noticeDraft.Body.id)/preview" $null $tr;Check ($residentPreview.Status -eq 403) 'Resident cannot open staff notice preview'
+ $foreignPreview=Api 'GET' "/notices/$($noticeDraft.Body.id)/preview" $null $tb;Check ($foreignPreview.Status -eq 404) 'Another apartment cannot preview a guessed notice ID'
+ $noticePreview=Api 'GET' "/notices/$($noticeDraft.Body.id)/preview" $null $ta
+ Check ($noticePreview.Status -eq 200 -and $noticePreview.Body.status -eq 'DRAFT' -and $noticePreview.Body.noticeType -eq 'SERVICE_ALERT' -and $noticePreview.Body.category -eq 'Power' -and $noticePreview.Body.recipientCount -eq 2 -and $noticePreview.Body.externalDeliveryStatus -eq 'NOT_CONFIGURED') 'Notice preview uses authoritative recipients and truthful delivery status'
+ $noticeAt=[DateTime]::UtcNow.AddSeconds(8).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
+ $scheduledDraft=PostCommand '/notices' @{title='TEST02 Scheduled meeting';body='Synthetic future notice';noticeType='GENERAL';category='Other';audience='ALL';audienceValue='';phoneNotify=$false;acknowledge=$false;pinned=$false;scheduledAt=$noticeAt;publish=$false} $ta
+ Check ($scheduledDraft.Status -eq 200) 'Future notice remains a draft before schedule confirmation'
+ $scheduledPreview=Api 'GET' "/notices/$($scheduledDraft.Body.id)/preview" $null $ta;Check ($scheduledPreview.Status -eq 200 -and !$scheduledPreview.Body.scheduleConfirmed) 'Preview shows future draft is not yet scheduled'
+ $scheduleBody=@{requestKey=(Key)}
+ $residentSchedule=Api 'POST' "/notices/$($scheduledDraft.Body.id)/schedule" $scheduleBody $tr;Check ($residentSchedule.Status -eq 403) 'Resident cannot schedule a notice'
+ $scheduled=Api 'POST' "/notices/$($scheduledDraft.Body.id)/schedule" $scheduleBody $ta;Check ($scheduled.Status -eq 200 -and $scheduled.Body.status -eq 'SCHEDULED' -and $scheduled.Body.externalDeliveryStatus -eq 'NOT_CONFIGURED') 'Staff explicitly confirms in-app notice schedule'
+ $scheduledAgain=Api 'POST' "/notices/$($scheduledDraft.Body.id)/schedule" $scheduleBody $ta;Check ($scheduledAgain.Body.id -eq $scheduled.Body.id) 'Notice schedule retry is idempotent'
+ $confirmedPreview=Api 'GET' "/notices/$($scheduledDraft.Body.id)/preview" $null $ta;Check ($confirmedPreview.Status -eq 200 -and $confirmedPreview.Body.scheduleConfirmed) 'Confirmed schedule persists for automation'
+ Start-Sleep -Seconds 9
+ $automationRun=Api 'POST' '/ops/automation/run' @{} $ta;Check ($automationRun.Status -eq 200) 'Staff automation processes due confirmed schedules'
+ $publishedSchedule=Api 'GET' "/notices/$($scheduledDraft.Body.id)" $null $tr;Check ($publishedSchedule.Status -eq 200 -and $publishedSchedule.Body.status -eq 'PUBLISHED' -and !$publishedSchedule.Body.scheduleConfirmed -and $publishedSchedule.Body.deliveryMode -eq 'IN_APP_ONLY') 'Scheduled notice publishes to resident in-app and clears scheduled state'
  $notice=PostCommand '/notices' @{title='TEST02 Selected notice';body='Synthetic notification';audience='SELECTED';audienceValue='A-101';publish=$true;acknowledge=$true} $ta
  Check ($notice.Status -eq 200) 'Publish targeted notice';$nid=$notice.Body.id
  $nRead=Api 'GET' "/notices/$nid" $null $tr;Check ($nRead.Status -eq 200) 'Selected resident sees notice'

@@ -52,14 +52,14 @@
     }
   ],
   "reference_routes": 203,
-  "native_route_identifiers": 147,
+  "native_route_identifiers": 149,
   "coverage_status_counts": {
-    "CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED": 124,
+    "CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED": 126,
     "PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED": 58,
-    "NOT_IMPLEMENTED_AS_REFERENCE_ROUTE": 13,
+    "NOT_IMPLEMENTED_AS_REFERENCE_ROUTE": 11,
     "REFERENCE_ONLY_NOT_A_PRODUCTION_FEATURE": 8
   },
   "xml_files": 44,
-  "checked_at": "2026-09-14T19:27:32.6801543+00:00",
+  "checked_at": "2026-09-14T19:46:45.0981211+00:00",
   "note": "Static source checks only. Not framework compile, PostgreSQL execution or Android runtime."
 }

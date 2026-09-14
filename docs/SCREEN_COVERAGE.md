@@ -169,8 +169,8 @@ Reference routes: 203. UI parity and runtime acceptance remain unverified for in
 | `committee-member` | `committee-form` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `committee-form` | `committee-form` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `approval-inbox` | `approval-inbox` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `notice-templates` | `—` | NOT_IMPLEMENTED_AS_REFERENCE_ROUTE |
-| `notice-preview` | `—` | NOT_IMPLEMENTED_AS_REFERENCE_ROUTE |
+| `notice-templates` | `notice-templates` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
+| `notice-preview` | `notice-preview` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `notice-delivery` | `notice` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `rate-history` | `rate-history` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `rate-overrides` | `rate-overrides` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |

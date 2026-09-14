@@ -128,6 +128,10 @@ import java.util.*;
             break;
             case "notice-form":noticeForm();
             break;
+            case "notice-templates":noticeTemplates();
+            break;
+            case "notice-preview":noticePreview();
+            break;
             case "documents":documents();
             break;
             case "document":document();
@@ -1086,13 +1090,14 @@ import java.util.*;
     }
     private void notices() {
         title("Notices");
-        if(h.isStaff())u.button(b,"Send notice",R.drawable.ic_notice,true,()->go("notice-form"));
+        if(h.isStaff())u.button(b,"Send notice",R.drawable.ic_notice,true,()->go("notice-templates"));
         get("/notices",r-> {
             JSONArray arr=(JSONArray)r;
             if(arr.length()==0)u.empty(b,"No notices yet","Updates from your apartment team.");
             for(int i=0; i<arr.length(); i++) {
                 JSONObject n=arr.getJSONObject(i);
-                row(card(),(n.optBoolean("pinned")?"★ ":"")+n.optString("title"),friendly(n.optString("audience"))+" · "+friendly(n.optString("status")),R.drawable.ic_notice,"notice",n.optString("id"));
+                String status=n.optBoolean("scheduleConfirmed")?"Scheduled":friendly(n.optString("status"));
+                row(card(),(n.optBoolean("pinned")?"★ ":"")+n.optString("title"),friendly(n.optString("audience"))+" · "+status,R.drawable.ic_notice,"notice",n.optString("id"));
             }
         }
         );
@@ -1109,9 +1114,10 @@ import java.util.*;
             if(h.isStaff()) {
                 if(n.optString("status").equals("DRAFT")) {
                     u.button(b,"Edit draft",R.drawable.ic_settings,false,()->go("notice-form",id));
-                    if(n.isNull("scheduledAt"))u.button(b,"Preview & publish",R.drawable.ic_notice,true,()->u.confirm("Publish notice?","Notify the selected apartment accounts in their app inbox.","Publish",()->h.requestApi("POST","/notices/"+id+"/publish",obj(),x->h.refreshPage())));
-                    else u.note(b,"Scheduled · "+local(n.optString("scheduledAt"))+" IST");
+                    if(!n.optBoolean("scheduleConfirmed"))u.button(b,"Preview notice",R.drawable.ic_notice,true,()->go("notice-preview",id));
+                    else u.note(b,"Scheduled · "+local(n.optString("scheduledAt"))+" IST · in-app delivery");
                 } else u.button(b,n.optBoolean("pinned")?"Unpin":"Pin notice",R.drawable.ic_notice,false,()->h.requestApi("POST","/notices/"+id+"/pin",obj("pinned",!n.optBoolean("pinned")),x->h.refreshPage()));
+                if(n.optBoolean("phoneNotify"))u.note(b,"Phone notification requested · "+n.optString("externalDeliveryStatus","NOT_CONFIGURED"));
                 JSONArray recipients=n.optJSONArray("recipients");
                 if(recipients!=null) {
                     u.heading(b,"Audience · "+recipients.length());
@@ -1127,13 +1133,31 @@ import java.util.*;
         }
         );
     }
+    private void noticeTemplates() {
+        title("Choose a notice");
+        u.button(b,"Water",R.drawable.ic_water,false,()->useNoticeTemplate("Water supply interruption","Water supply will be paused between the announced hours. Please store water in advance.","SERVICE_ALERT","Water"));
+        u.button(b,"Power",R.drawable.ic_power,false,()->useNoticeTemplate("Power interruption","Common-area power is temporarily unavailable. Updates will follow here.","SERVICE_ALERT","Power"));
+        u.button(b,"Meeting",R.drawable.ic_users,false,()->useNoticeTemplate("Apartment meeting","Please join the apartment meeting at the common area.","GENERAL","Other"));
+        u.button(b,"Maintenance",R.drawable.ic_receipt,false,()->useNoticeTemplate("Maintenance reminder","Please pay your outstanding maintenance and submit the payment reference in the app.","MAINTENANCE","Other"));
+        u.button(b,"Write a notice",R.drawable.ic_plus,true,()-> {
+            h.clearPageDraft("noticeTemplate");
+            go("notice-form");
+        });
+    }
+    private void useNoticeTemplate(String title,String body,String type,String category) {
+        h.savePageDraft("noticeTemplate",obj("title",title,"body",body,"noticeType",type,"category",category));
+        go("notice-form");
+    }
     private void noticeForm() {
-        title("Create notice");
+        title("Send notice");
         FeatureHost.Reply build=r-> {
-            JSONObject n=(JSONObject)r;
+            JSONObject loaded=(JSONObject)r;
+            JSONObject n=id.isEmpty()&&!loaded.has("title")?h.pageDraft("noticeTemplate"):loaded;
             Ui.Fields f=h.newFields();
             f.field("title","Title",val(n,"title"),TEXT);
             f.field("body","Message",val(n,"body"),TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+            pick(f,"noticeType","Type",new String[] {"GENERAL","MAINTENANCE","SERVICE_ALERT","EMERGENCY"},n.optString("noticeType","GENERAL"));
+            pick(f,"category","Category",CATEGORIES,n.optString("category","Other"));
             pick(f,"audience","Send to",new String[] {
                 "ALL","BLOCK","SELECTED","UNPAID"
             }
@@ -1142,16 +1166,19 @@ import java.util.*;
             f.field("scheduledAt","Schedule · IST YYYY-MM-DDTHH:mm · optional",val(n,"scheduledAt").trim().isEmpty()?"":local(val(n,"scheduledAt")),TEXT);
             f.check("acknowledge","Request acknowledgement",n.optBoolean("acknowledge"));
             f.check("pinned","Pin notice",n.optBoolean("pinned"));
-            f.check("publish","Publish now",false);
-            u.note(b,"Save a draft first to attach a file. Published messages cannot be silently rewritten.");
-            submit("Preview & save",()-> {
+            f.check("phoneNotify","Notify on phone · external delivery not configured",n.optBoolean("phoneNotify"));
+            u.note(b,"Preview first. Publishing creates only authenticated in-app inbox records. Phone delivery remains NOT_CONFIGURED.");
+            submit("Preview notice",()-> {
                 JSONObject body=f.values();
                 try {
                     body.put("scheduledAt",f.get("scheduledAt").trim().isEmpty()?JSONObject.NULL:instant(f.get("scheduledAt")));
                 } catch(JSONException e) {
                     throw new IllegalArgumentException(e);
                 }
-                u.confirm(f.checked("publish")?"Publish notice?":"Save draft?",f.get("title")+"\n\n"+f.get("body"),"Confirm",()->write("/notices"+(id.isEmpty()?"":"/"+id),body,x->go("notice",((JSONObject)x).getString("id"))));
+                write("/notices"+(id.isEmpty()?"":"/"+id),body,x-> {
+                    h.clearPageDraft("noticeTemplate");
+                    go("notice-preview",((JSONObject)x).getString("id"));
+                });
             }
             );
         };
@@ -1164,6 +1191,27 @@ import java.util.*;
         }
         );
         else get("/notices/"+id,build);
+    }
+    private void noticePreview() {
+        title("Preview notice");
+        get("/notices/"+id+"/preview",r-> {
+            JSONObject n=(JSONObject)r;
+            LinearLayout cover=card();
+            u.kv(cover,"Type",friendly(n.optString("noticeType","GENERAL")));
+            cover.addView(u.text(n.optString("title"),24,true,R.color.ap_ink));
+            cover.addView(u.text(n.optString("body"),15,false,R.color.ap_sub));
+            LinearLayout delivery=card();
+            u.kv(delivery,"Audience",friendly(n.optString("audience")));
+            u.kv(delivery,"Recipients",n.optInt("recipientCount")+" active accounts");
+            u.kv(delivery,"Phone notification",n.optBoolean("phoneNotify")?"Requested · "+n.optString("externalDeliveryStatus","NOT_CONFIGURED"):"Off");
+            u.kv(delivery,"Acknowledgement",n.optBoolean("acknowledge")?"Required":"Not requested");
+            u.kv(delivery,"Publish",n.isNull("scheduledAt")?"Now":local(n.optString("scheduledAt"))+" IST");
+            u.note(b,"Delivery mode: authenticated in-app inbox only. A phone request is not proof of external delivery.");
+            u.button(b,"Edit",R.drawable.ic_settings,false,()->go("notice-form",id));
+            if(n.isNull("scheduledAt"))submit("Publish",()->u.confirm("Publish notice?","Send this immutable message to the reviewed in-app audience.","Publish",()->h.requestApi("POST","/notices/"+id+"/publish",obj(),x->go("notice",id))));
+            else submit("Schedule",()->u.confirm("Schedule notice?","The local backend will publish it at "+local(n.optString("scheduledAt"))+" IST.","Schedule",()->write("/notices/"+id+"/schedule",obj(),x->go("notice",id))));
+            u.button(b,"Keep draft",R.drawable.ic_report,false,()->go("notices"));
+        });
     }
     private void documents() {
         title("Documents");

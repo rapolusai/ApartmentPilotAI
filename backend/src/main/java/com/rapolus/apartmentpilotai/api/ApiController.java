@@ -131,6 +131,9 @@ import org.springframework.transaction.annotation.Transactional;
     @GetMapping("/notices/{id}") Object notice(@AuthenticationPrincipal Account a,@PathVariable UUID id) {
         return noticeService.get(a,id);
     }
+    @GetMapping("/notices/{id}/preview") Object noticePreview(@AuthenticationPrincipal Account a,@PathVariable UUID id) {
+        return noticeService.preview(a,id);
+    }
     @PostMapping("/notices") Object createNotice(@AuthenticationPrincipal Account a,@RequestBody Map<String,Object> r) {
         if(!r.containsKey("requestKey"))r.put("requestKey",UUID.randomUUID().toString());
         return noticeService.save(a,null,r);
@@ -140,6 +143,9 @@ import org.springframework.transaction.annotation.Transactional;
     }
     @PostMapping("/notices/{id}/publish") Object publish(@AuthenticationPrincipal Account a,@PathVariable UUID id) {
         return noticeService.publish(a,id);
+    }
+    @PostMapping("/notices/{id}/schedule") Object schedule(@AuthenticationPrincipal Account a,@PathVariable UUID id,@RequestBody Map<String,Object> r) {
+        return noticeService.schedule(a,id,r);
     }
     @PostMapping("/notices/{id}/read") Object noticeRead(@AuthenticationPrincipal Account a,@PathVariable UUID id,@RequestBody Map<String,Object> r) {
         return noticeService.read(a,id,com.rapolus.apartmentpilotai.operations.V.bool(r,"acknowledge",false));

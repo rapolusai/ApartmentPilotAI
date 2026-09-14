@@ -37,9 +37,11 @@ All ordinary APIs derive tenant/role from a bearer session. JSON bodies contain 
 | GET | `/api/v1/reports/monthly` | `ApiController.java` |
 | GET | `/api/v1/notices` | `ApiController.java` |
 | GET | `/api/v1/notices/{id}` | `ApiController.java` |
+| GET | `/api/v1/notices/{id}/preview` | `ApiController.java` |
 | POST | `/api/v1/notices` | `ApiController.java` |
 | POST | `/api/v1/notices/{id}` | `ApiController.java` |
 | POST | `/api/v1/notices/{id}/publish` | `ApiController.java` |
+| POST | `/api/v1/notices/{id}/schedule` | `ApiController.java` |
 | POST | `/api/v1/notices/{id}/read` | `ApiController.java` |
 | POST | `/api/v1/notices/{id}/pin` | `ApiController.java` |
 | GET | `/api/v1/notifications` | `ApiController.java` |
@@ -147,6 +149,8 @@ All ordinary APIs derive tenant/role from a bearer session. JSON bodies contain 
 `POST /ops/files`: kind DOCUMENT/TICKET/NOTICE/PAYMENT/EXPENSE,parentId,name,content (base64). No local filesystem path is sent. Content allowlist is PNG/JPEG/PDF; max5MB/max5 attachments per parent. Signature check is not a malware scan.
 
 `POST /notices`: title,body,audience ALL/BLOCK/SELECTED/UNPAID,audienceValue,pinned,acknowledge,optional scheduledAt,publish,requestKey. Selected value is comma-separated existing flat labels; Block is an existing block label. Published notices are immutable except pin/read/acknowledgement.
+
+Notice drafts also accept `noticeType` GENERAL/MAINTENANCE/SERVICE_ALERT/EMERGENCY, category and `phoneNotify`. `GET /notices/{id}/preview` is staff-only and returns the exact active-account recipient count derived inside the authenticated tenant plus `deliveryMode: IN_APP_ONLY` and `externalDeliveryStatus: NOT_CONFIGURED`. A future `scheduledAt` remains an unconfirmed draft until `POST /notices/{id}/schedule` receives a UUID `requestKey`; scheduling retries are idempotent. Only confirmed schedules are eligible for automation. Phone intent never reports external delivery success.
 
 `POST /ops/settings`: full control set (payee,upi,bank,account,ifsc,billVacant,lateEnabled,lateFee,graceDays,dueNotify,reminders,reminderDays,expensesVisible,proofRequired,quietStart,quietEnd,bookingRules). This endpoint is not a partial PATCH. Read settings first before submitting an edited full body.
 

@@ -48,7 +48,7 @@ import java.util.*;
                 reminded++;
             }
         }
-        for(var n:db.rows("select id from ap_notice where tenant_id=? and status='DRAFT' and scheduled_at is not null and scheduled_at<=now()",a.tenantId())) {
+        for(var n:db.rows("select id from ap_notice where tenant_id=? and status='DRAFT' and schedule_confirmed=true and scheduled_at is not null and scheduled_at<=now()",a.tenantId())) {
             notices.publish(a,(UUID)n.get("id"));
             published++;
         }

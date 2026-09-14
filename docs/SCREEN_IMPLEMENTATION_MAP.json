@@ -3871,15 +3871,15 @@
     "ui_parity": "NOT_VERIFIED",
     "end_to_end_test": "NOT_EXECUTED_FOR_INCREMENT_02",
     "release_ready": false,
-    "implementation_status": "NOT_IMPLEMENTED_AS_REFERENCE_ROUTE",
-    "native_route": null,
-    "notes": "No dedicated, matched native route. Shared validation/loading/empty/error components may cover an operational state but do not establish reference parity.",
-    "source_implemented": false,
-    "backend_api_status": "NOT_CONNECTED",
+    "implementation_status": "CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED",
+    "native_route": "notice-templates",
+    "notes": "Dedicated native Water, Power, Meeting, Maintenance and blank-notice chooser prefills the connected authoring form. Android device/runtime and visual parity remain unverified.",
+    "source_implemented": true,
+    "backend_api_status": "CONNECTED_SOURCE",
     "runtime_tested": false,
     "light_parity_tested": false,
     "dark_parity_tested": false,
-    "external_integration_status": "NOT_APPLICABLE"
+    "external_integration_status": "NOT_CONFIGURED"
   },
   {
     "number": 167,
@@ -3894,15 +3894,15 @@
     "ui_parity": "NOT_VERIFIED",
     "end_to_end_test": "NOT_EXECUTED_FOR_INCREMENT_02",
     "release_ready": false,
-    "implementation_status": "NOT_IMPLEMENTED_AS_REFERENCE_ROUTE",
-    "native_route": null,
-    "notes": "No dedicated, matched native route. Shared validation/loading/empty/error components may cover an operational state but do not establish reference parity.",
-    "source_implemented": false,
-    "backend_api_status": "NOT_CONNECTED",
+    "implementation_status": "CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED",
+    "native_route": "notice-preview",
+    "notes": "Dedicated native preview uses server-derived active recipients, explicit publish/schedule confirmation and in-app-only delivery. Tenant/role/retry behavior passed live HTTP; Android device/runtime and visual parity remain unverified.",
+    "source_implemented": true,
+    "backend_api_status": "CONNECTED_SOURCE",
     "runtime_tested": false,
     "light_parity_tested": false,
     "dark_parity_tested": false,
-    "external_integration_status": "NOT_APPLICABLE"
+    "external_integration_status": "NOT_CONFIGURED"
   },
   {
     "number": 168,
