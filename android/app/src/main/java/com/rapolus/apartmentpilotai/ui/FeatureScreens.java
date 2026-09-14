@@ -624,21 +624,37 @@ import java.util.*;
     }
     private void joinRequests() {
         title("Join requests");
+        String selected=h.pageDraft("joinRequests").optString("status","PENDING");
+        if(!Arrays.asList("PENDING","ACTIVE","REJECTED").contains(selected))selected="PENDING";
+        final String status=selected;
+        LinearLayout filters=u.row();
+        for(String option:new String[] {"PENDING","ACTIVE","REJECTED"}) {
+            String label=option.equals("ACTIVE")?"Approved":option.substring(0,1)+option.substring(1).toLowerCase(Locale.ROOT);
+            Button button=u.button(filters,label,0,option.equals(status),()-> {
+                h.savePageDraft("joinRequests",obj("status",option));
+                h.refreshPage();
+            });
+            LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(0,-2,1);
+            params.setMarginEnd(u.dp(6));
+            button.setLayoutParams(params);
+        }
+        b.addView(filters);
         get("/members",value-> {
             JSONArray rows=(JSONArray)value;
-            int pending=0,requestCount=0;
+            int requestCount=0;
             for(int i=0;i<rows.length();i++) {
                 JSONObject member=rows.getJSONObject(i);
-                if(!"RESIDENT".equals(member.optString("role")))continue;
+                if(val(member,"flatLabel").isEmpty()||!status.equals(member.optString("status")))continue;
                 requestCount++;
-                if("PENDING".equals(member.optString("status")))pending++;
             }
-            u.hero(b,pending+" pending","Resident access","Verify the person and requested flat before approval.");
-            if(requestCount==0)u.empty(b,"No join requests","New resident requests will appear here.");
+            if(status.equals("PENDING"))u.note(b,"Verify the person and requested flat before approval.");
+            if(requestCount==0)u.empty(b,"No "+(status.equals("ACTIVE")?"approved":status.toLowerCase(Locale.ROOT))+" requests","Resident requests in this state will appear here.");
             for(int i=0;i<rows.length();i++) {
                 JSONObject member=rows.getJSONObject(i);
-                if(!"RESIDENT".equals(member.optString("role")))continue;
-                row(card(),member.optString("name"),val(member,"flatLabel")+" · "+friendly(member.optString("status")),R.drawable.ic_users,"join-review",member.optString("id"));
+                if(val(member,"flatLabel").isEmpty()||!status.equals(member.optString("status")))continue;
+                String requested=val(member,"createdAt");
+                if(requested.length()>=10)requested=requested.substring(0,10);
+                row(card(),member.optString("name"),val(member,"flatLabel")+" · "+friendly(member.optString("residentType"))+(requested.isEmpty()?"":" · "+requested),R.drawable.ic_users,"join-review",member.optString("id"));
             }
         });
     }
@@ -647,7 +663,7 @@ import java.util.*;
         get("/members/"+id,value-> {
             JSONObject member=(JSONObject)value;
             u.hero(b,val(member,"flatLabel"),member.optString("name"),friendly(member.optString("status")));
-            details(member,"flatLabel","Requested flat","mobile","Mobile","role","Requested role","status","Status");
+            details(member,"flatLabel","Requested flat","mobile","Mobile","residentType","Resident type","createdAt","Requested","status","Status");
             if("PENDING".equals(member.optString("status"))) {
                 u.note(b,"Approve only after verifying the person and their connection to this flat.");
                 u.button(b,"Reject",R.drawable.ic_error,false,()->go("join-reject",id));
@@ -666,7 +682,12 @@ import java.util.*;
             u.hero(b,val(member,"flatLabel"),member.optString("name"),"Explain what the resident should correct.");
             Ui.Fields f=h.newFields();
             f.field("reason","Reason for resident","",TEXT);
-            submit("Reject request",()->h.requestApi("POST","/members/"+id+"/reject",obj("reason",f.get("reason")),x->go("join-review",id)));
+            submit("Reject request",()-> {
+                String reason=f.get("reason");
+                if(reason.isEmpty())throw new IllegalArgumentException("Explain what the resident should correct.");
+                if(reason.length()>300)throw new IllegalArgumentException("Keep the reason within 300 characters.");
+                h.requestApi("POST","/members/"+id+"/reject",obj("reason",reason),x->go("join-review",id));
+            });
         });
     }
     private void contacts(String kind) {

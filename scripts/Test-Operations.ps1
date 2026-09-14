@@ -58,7 +58,7 @@ try {
  Check ($b.Status -eq 200) 'Create independent apartment B';$tb=$b.Body.token
  $invite=Api 'POST' '/invites' @{} $ta;Check ($invite.Status -eq 200) 'Create resident invite'
  $rm=Mobile
- $joined=Api 'POST' '/auth/join' @{invite=$invite.Body.code;flatLabel='A-101';name='TEST02 Resident';mobile=$rm;pin=$pin}
+ $joined=Api 'POST' '/auth/join' @{invite=$invite.Body.code;flatLabel='A-101';name='TEST02 Resident';mobile=$rm;pin=$pin;residentType='OWNER'}
  Check ($joined.Body.status -eq 'PENDING') 'Resident signup does not grant access'
  $all=Api 'GET' '/members' $null $ta;$member=@($all.Body|Where-Object {$_.mobile -eq $rm})[0]
  $approve=Api 'POST' "/members/$($member.id)/approve" @{} $ta;Check ($approve.Status -eq 200) 'Admin verifies resident'
@@ -66,10 +66,12 @@ try {
  $flats=Api 'GET' '/ops/flats' $null $ta;$flat=@($flats.Body|Where-Object {$_.label -eq 'A-101'})[0]
  $own=Api 'GET' '/ops/flats' $null $tr;Check (@($own.Body).Count -eq 1) 'Resident flat selector is limited to own flat'
  $rejectMobile=Mobile
- $rejectJoin=Api 'POST' '/auth/join' @{invite=$invite.Body.code;flatLabel='A-102';name='TEST02 Rejected Resident';mobile=$rejectMobile;pin=$pin}
+ $invalidResidentType=Api 'POST' '/auth/join' @{invite=$invite.Body.code;flatLabel='A-102';name='TEST02 Invalid Type';mobile=$rejectMobile;pin=$pin;residentType='GUEST'}
+ Check ($invalidResidentType.Status -eq 400) 'Join request rejects an unsupported resident type'
+ $rejectJoin=Api 'POST' '/auth/join' @{invite=$invite.Body.code;flatLabel='A-102';name='TEST02 Rejected Resident';mobile=$rejectMobile;pin=$pin;residentType='TENANT'}
  Check ($rejectJoin.Status -eq 200 -and $rejectJoin.Body.status -eq 'PENDING') 'Second resident creates a pending join request'
  $joinMembers=Api 'GET' '/members' $null $ta;$rejectMember=@($joinMembers.Body|Where-Object {$_.mobile -eq $rejectMobile})[0]
- $joinDetail=Api 'GET' "/members/$($rejectMember.id)" $null $ta;Check ($joinDetail.Status -eq 200 -and $joinDetail.Body.status -eq 'PENDING' -and $joinDetail.Body.flatLabel -eq 'A-102') 'Admin loads tenant-scoped join-review details'
+ $joinDetail=Api 'GET' "/members/$($rejectMember.id)" $null $ta;Check ($joinDetail.Status -eq 200 -and $joinDetail.Body.status -eq 'PENDING' -and $joinDetail.Body.flatLabel -eq 'A-102' -and $joinDetail.Body.residentType -eq 'TENANT' -and $joinDetail.Body.createdAt) 'Admin loads complete tenant-scoped join-review details'
  $joinResidentDenied=Api 'GET' "/members/$($rejectMember.id)" $null $tr;Check ($joinResidentDenied.Status -eq 403) 'Resident cannot inspect join-review details'
  $joinForeign=Api 'GET' "/members/$($rejectMember.id)" $null $tb;Check ($joinForeign.Status -eq 404) 'Another apartment cannot inspect a guessed join request ID'
  $blankReject=Api 'POST' "/members/$($rejectMember.id)/reject" @{reason=' '} $ta;Check ($blankReject.Status -eq 400) 'Join rejection requires a reason'

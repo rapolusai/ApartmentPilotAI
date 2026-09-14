@@ -145,7 +145,7 @@ All ordinary APIs derive tenant/role from a bearer session. JSON bodies contain 
 - `/auth/register` and `/auth/join` require the explicit local profile. These are not verified production signup paths.
 
 ## Important shapes
-`GET /members/{id}` and the resident approval/rejection commands are Admin-only and tenant-scoped. Rejection requires a nonblank reason of at most 300 characters, moves only a pending request to `REJECTED`, retains the explanation, prevents sign-in and releases the flat for a corrected request. A repeated decision conflicts rather than silently rewriting the review.
+`POST /auth/join` requires `residentType` as `OWNER` or `TENANT` and persists it with the pending account. `GET /members/{id}` returns the scoped flat, resident type, request timestamp and current decision state. Member detail and approval/rejection commands are Admin-only and tenant-scoped. Rejection requires a nonblank reason of at most 300 characters, moves only a pending request to `REJECTED`, retains the explanation, prevents sign-in and releases the flat for a corrected request. A repeated decision conflicts rather than silently rewriting the review.
 
 `POST /ops/blocks` and `POST /ops/blocks/{id}`: name (1–8 characters),requestKey. Both are Admin-only and tenant-scoped. A rename cascades the block membership stored on flats but never rewrites a flat label; duplicate names are rejected. `POST /ops/flats` and `/ops/flats/{id}` require the supplied block to exist in the authenticated tenant.
 

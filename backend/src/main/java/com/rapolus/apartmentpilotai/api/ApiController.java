@@ -58,7 +58,7 @@ import org.springframework.transaction.annotation.Transactional;
     }
     @GetMapping("/members") Object members(@AuthenticationPrincipal Account a) {
         a.requireAdmin();
-        return db.rows("select u.id,u.name,u.mobile,u.role,u.status,u.rejection_reason,f.label as flat_label from ap_user u left join ap_flat f on f.tenant_id=u.tenant_id and f.id=u.flat_id where u.tenant_id=? order by u.status desc,u.name",a.tenantId());
+        return db.rows("select u.id,u.name,u.mobile,u.role,u.status,u.resident_type,u.rejection_reason,u.created_at,f.label as flat_label from ap_user u left join ap_flat f on f.tenant_id=u.tenant_id and f.id=u.flat_id where u.tenant_id=? order by u.created_at desc",a.tenantId());
     }
     @GetMapping("/members/{id}") Object member(@AuthenticationPrincipal Account a,@PathVariable UUID id) {
         return auth.member(a,id);

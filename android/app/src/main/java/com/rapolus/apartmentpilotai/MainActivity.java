@@ -609,6 +609,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         formStart();
         fields.field("name","Your name","",TEXT);
         fields.field("mobile","Mobile number","",InputType.TYPE_CLASS_PHONE);
+        fields.select("residentType","I am an",new String[] {"Owner","Tenant"},new String[] {"OWNER","TENANT"});
         fields.field("pin","Create PIN","",NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);
         fields.check("consent","I agree to share my details with the apartment admin.",false);
         ui.button(content,"Choose flat",R.drawable.ic_arrow_right,true,()-> {
@@ -640,7 +641,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         ui.state(content,R.drawable.ic_home,"Make yourself at home.","One resident account per flat.",R.color.ap_green,R.color.ap_mint);
         formStart();
         fields.select("flatLabel","Choose flat",labels,labels);
-        ui.button(content,"Request to join",R.drawable.ic_users,true,()->request("POST","/auth/join",json("invite",inviteCode,"name",signupDraft.optString("name"),"mobile",signupDraft.optString("mobile"),"pin",signupDraft.optString("pin"),"flatLabel",fields.get("flatLabel")),r-> {
+        ui.button(content,"Request to join",R.drawable.ic_users,true,()->request("POST","/auth/join",json("invite",inviteCode,"name",signupDraft.optString("name"),"mobile",signupDraft.optString("mobile"),"pin",signupDraft.optString("pin"),"residentType",signupDraft.optString("residentType"),"flatLabel",fields.get("flatLabel")),r-> {
             signupDraft=new JSONObject();
             ((PilotApplication)getApplication()).transientSignup=signupDraft;
             go("signup-pending");

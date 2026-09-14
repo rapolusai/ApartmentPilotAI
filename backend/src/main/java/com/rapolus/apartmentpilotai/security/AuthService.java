@@ -74,7 +74,7 @@ import org.springframework.transaction.annotation.Transactional;
         db.one("select id from ap_invite where tenant_id=? and code_hash=? and active=true and expires_at>now()",tenant,Tokens.digest(r.invite().trim().toUpperCase(Locale.ROOT)));
         UUID flat=UUID.fromString(db.one("select id from ap_flat where tenant_id=? and label=? and active=true",tenant,r.flatLabel().trim().toUpperCase(Locale.ROOT)).get("id").toString());
         UUID user=UUID.randomUUID();
-        db.update("insert into ap_user(id,tenant_id,flat_id,name,mobile,pin_hash,role,status) values(?,?,?,?,?,?,'RESIDENT','PENDING')",user,tenant,flat,r.name().trim(),r.mobile(),encoder.encode(r.pin()));
+        db.update("insert into ap_user(id,tenant_id,flat_id,name,mobile,pin_hash,role,status,resident_type) values(?,?,?,?,?,?,'RESIDENT','PENDING',?)",user,tenant,flat,r.name().trim(),r.mobile(),encoder.encode(r.pin()),r.residentType());
         db.audit(tenant,user,"RESIDENT_REQUESTED",flat,null,"Pending");
         db.rows("select id from ap_user where tenant_id=? and role='ADMIN' and status='ACTIVE'",tenant).forEach(u->db.notify(tenant,(UUID)u.get("id"),"JOIN:"+user,"Join request",r.flatLabel()+" · "+r.name(),"members"));
         return Map.of("status","PENDING","message","Request submitted. Sign in after admin approval.");
@@ -89,7 +89,7 @@ import org.springframework.transaction.annotation.Transactional;
     }
     public Map<String,Object> member(Account a,UUID id) {
         a.requireAdmin();
-        return db.one("select u.id,u.name,u.mobile,u.role,u.status,u.rejection_reason,f.label as flat_label from ap_user u left join ap_flat f on f.tenant_id=u.tenant_id and f.id=u.flat_id where u.tenant_id=? and u.id=?",a.tenantId(),id);
+        return db.one("select u.id,u.name,u.mobile,u.role,u.status,u.resident_type,u.rejection_reason,u.created_at,f.label as flat_label from ap_user u left join ap_flat f on f.tenant_id=u.tenant_id and f.id=u.flat_id where u.tenant_id=? and u.id=?",a.tenantId(),id);
     }
     @Transactional public void reject(Account a,UUID id,String reason) {
         a.requireAdmin();

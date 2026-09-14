@@ -24,7 +24,7 @@ Check ($b.Status -eq 200) 'Create isolated apartment B';$tokenB=$b.Body.token
 $wrong=Api 'POST' '/auth/login' @{mobile=$mobileA;pin=$pin;role='TREASURER'};Check ($wrong.Status -eq 401) 'Choosing a different login card does not grant its role'
 $invite=Api 'POST' '/invites' @{} $tokenA;Check ($invite.Status -eq 200) 'Admin creates resident invite'
 $preview=Api 'GET' "/auth/invites/$($invite.Body.code)";Check ($preview.Body.flats.Count -eq 5) 'Invite lists available flats'
-$j=Api 'POST' '/auth/join' @{invite=$invite.Body.code;flatLabel='A-101';name='TEST Resident';mobile=$mobileR;pin=$pin};Check ($j.Body.status -eq 'PENDING') 'Resident starts pending, not active'
+$j=Api 'POST' '/auth/join' @{invite=$invite.Body.code;flatLabel='A-101';name='TEST Resident';mobile=$mobileR;pin=$pin;residentType='OWNER'};Check ($j.Body.status -eq 'PENDING') 'Resident starts pending, not active'
 $preLogin=Api 'POST' '/auth/login' @{mobile=$mobileR;pin=$pin;role='RESIDENT'};Check ($preLogin.Status -eq 403) 'Pending member cannot sign in'
 $members=Api 'GET' '/members' $null $tokenA;$member=$members.Body|Where-Object {$_.mobile -eq $mobileR}
 $approved=Api 'POST' "/members/$($member.id)/approve" @{} $tokenA;Check ($approved.Status -eq 200) 'Admin approves resident'

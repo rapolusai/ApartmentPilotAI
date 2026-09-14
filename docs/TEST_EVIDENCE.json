@@ -128,17 +128,17 @@
       "port_note": "Port 8080 was occupied by the system AgentService; checked-in Android endpoint was not changed.",
       "local_api_checks": 50,
       "local_api_status": "PASSED",
-      "local_api_run": "3274c19f",
-      "operations_checks": 111,
+      "local_api_run": "d6de74c8",
+      "operations_checks": 112,
       "operations_status": "PASSED_WITH_CONCURRENCY",
-      "operations_evidence": "test-results/operations-1ccd970e.json"
+      "operations_evidence": "test-results/operations-bcb91bec.json"
     },
     "android": {
       "clean_assemble_debug": "PASSED",
       "tasks_executed": 41,
       "apk": "android/app/build/outputs/apk/debug/app-debug.apk",
-      "apk_bytes": 6463456,
-      "apk_sha256": "154A438CACFD35962805D6E3E509752D745DC2654DD5445EA6BD9D983712DF6D",
+      "apk_bytes": 6464188,
+      "apk_sha256": "7D7387C398932497AED6729517C76BE70A6143BCE5CD8663387F4D5D3D581F76",
       "unit_test_task": "PASSED",
       "unit_tests": 2,
       "unit_test_failures": 0,

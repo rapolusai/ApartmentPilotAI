@@ -11,7 +11,7 @@ public final class Requests {
     }
     public record Register(@NotBlank @Size(max=80) String name,@Pattern(regexp="[6-9][0-9]{9}") @NotNull String mobile, @Pattern(regexp="[0-9]{4,6}") @NotNull String pin,@NotBlank @Size(max=80) String apartmentName, @NotBlank @Size(max=80) String city,@NotNull @Min(5) @Max(50) Integer flats) {
     }
-    public record Join(@NotBlank @Size(max=60) String invite,@NotBlank @Size(max=20) String flatLabel, @NotBlank @Size(max=80) String name,@Pattern(regexp="[6-9][0-9]{9}") @NotNull String mobile, @Pattern(regexp="[0-9]{4,6}") @NotNull String pin) {
+    public record Join(@NotBlank @Size(max=60) String invite,@NotBlank @Size(max=20) String flatLabel, @NotBlank @Size(max=80) String name,@Pattern(regexp="[6-9][0-9]{9}") @NotNull String mobile, @Pattern(regexp="[0-9]{4,6}") @NotNull String pin,@Pattern(regexp="OWNER|TENANT") @NotNull String residentType) {
     }
     public record Rule(@NotNull BigDecimal amount,@Pattern(regexp="[0-9]{4}-[0-9]{2}") @NotNull String effective, @Min(1) @Max(28) int billingDay,@Min(1) @Max(28) int dueDay) {
     }
