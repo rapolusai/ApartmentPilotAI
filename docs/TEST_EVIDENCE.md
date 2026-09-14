@@ -11,13 +11,13 @@
 | PostgreSQL/Flyway startup | **PostgreSQL 18.6; schema V3; 4 migrations validated** | The existing `partmentpilotai_dev` database retained V1/V2 checksums and applied additive V3 successfully. This is not the fresh/V1-clone migration matrix. |
 | Live health/status | **health UP; version 0.2.0; localRegistration true; releaseReady false** | Current backend ran against PostgreSQL on localhost port 8081. Port 8080 was occupied by system `AgentService`. |
 | Local API suite | **50 checks passed** | Authentication lifecycle, role-card non-escalation, tenant isolation, bill/reminder previews, in-app reminder idempotency, rejection persistence, atomic two-payment approval, receipts, notices and logout were exercised over HTTP. |
-| Operations API suite with concurrency | **86 checks passed** | Community, notice preview/schedule authorization, idempotency and due publication, contribution preview/create/retry, transparency privacy, file authorization, booking conflict/cancellation, poll/vehicle/subscription boundaries and parallel one-winner booking approval were exercised over HTTP. |
+| Operations API suite with concurrency | **89 checks passed** | Staff-only affected-flat authorization and tenant isolation, community, notice preview/schedule authorization, idempotency and due publication, contribution preview/create/retry, transparency privacy, file authorization, booking conflict/cancellation, poll/vehicle/subscription boundaries and parallel one-winner booking approval were exercised over HTTP. |
 | Android clean debug build | **BUILD SUCCESS; 41 tasks executed** | Current native Java/XML sources compiled, resources linked and a fresh debug APK was packaged. |
 | Android debug unit tests | **2 tests passed; 0 failures/errors/skips** | Authenticated 401/403/404/5xx/network failures select dedicated states while unauthenticated login/invite and 400/409 failures remain inline. This is policy coverage, not device navigation evidence. |
 | Real JDK21 pure production-rule tests | **580 assertions passed** | 21 original domain/token checks plus 559 new operational assertions. The latter include **500 deterministic occupancy scenarios**, so these are not 580 end-to-end feature tests. |
 | Java syntax parsing | **40 compilation units; zero syntax errors** | Syntax only; does not resolve framework imports or all semantic types. |
 | Literal JDBC SQL argument inspection | **264 calls; zero placeholder mismatches** | Counts `?` parameters against source arguments. Dynamic SQL/varargs arrays excluded. SQL has NOT been executed against PostgreSQL. |
-| Literal native navigation inspection | **99 targets; zero missing switch destinations** | Recalculated from current literal `go(...)`/`openPage(...)` calls and 149 route dispatch identifiers. Only literal source links; no Android navigation/runtime test. |
+| Literal native navigation inspection | **100 targets; zero missing switch destinations** | Recalculated from current literal `go(...)`/`openPage(...)` calls and 150 route dispatch identifiers. Only literal source links; no Android navigation/runtime test. |
 | XML parsing | **44 XML files well-formed** | Not `aapt`/resource linking, layout inflation or screenshot testing. |
 | Native resource-name references | Passed | Referenced project names exist; not SDK linking. |
 | Restricted attachment configuration | Static checks passed | Non-exported FileProvider restricted to shared cache, app backup disabled. Not a security penetration test. |
@@ -47,9 +47,9 @@ Of the 203 frozen reference routes/states:
 
 | Mapping | Count |
 |---|---:|
-| Direct native route source present, not runtime verified | 126 |
+| Direct native route source present, not runtime verified | 127 |
 | Partial/merged subflow source, not a separately matched page | 58 |
-| Not implemented as the reference route | 11 |
+| Not implemented as the reference route | 10 |
 | Reference/demo-only simulation controls, excluded from production | 8 |
 
 Some direct routes are limited forms and some reference pages are merged. All have `ui_parity: NOT_VERIFIED`. These numbers are **traceability, not percentage complete**. See `SCREEN_IMPLEMENTATION_MAP.json` and `SCREEN_COVERAGE.md`.
@@ -58,4 +58,4 @@ Some direct routes are limited forms and some reference pages are merged. All ha
 
 Next create a safe test backup/clone for the fresh and V1→V2→V3 paths. Then install the freshly built APK, test real two-account approval and session-expiry/offline behavior, and inspect every production route in both themes on supported device sizes.
 
-HTTP scripts never delete test tenants or reset databases. Runs `35a5bf91` (35 checks), `04a596d2` (60 checks), `3274c19f` (50 checks), `b43add73` (74 checks), `609d78dc` (84 checks) and `1b9012a7` (86 checks) retained labelled synthetic tenants. Their logs contain no passwords or bearer tokens. **Do not publish this development increment.**
+HTTP scripts never delete test tenants or reset databases. Runs `35a5bf91` (35 checks), `04a596d2` (60 checks), `3274c19f` (50 checks), `b43add73` (74 checks), `609d78dc` (84 checks), `1b9012a7` (86 checks) and `94c613cf` (89 checks) retained labelled synthetic tenants. Their logs contain no passwords or bearer tokens. **Do not publish this development increment.**

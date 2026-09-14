@@ -92,6 +92,8 @@ import java.util.*;
             break;
             case "ticket":case "issue":case "complaint":ticket();
             break;
+            case "affected":affected();
+            break;
             case "ticket-update":ticketUpdate();
             break;
             case "services":services();
@@ -717,7 +719,8 @@ import java.util.*;
             u.kv(c,"Expected update",val(t,"eta"));
             if("ISSUE".equals(t.optString("kind"))) {
                 u.kv(c,"Following",String.valueOf(t.optInt("affectedCount")));
-                if(!t.optBoolean("following")&&!java.util.Arrays.asList("RESOLVED","CLOSED").contains(t.optString("status")))u.button(b,"I'm affected",R.drawable.ic_users,true,()->write("/ops/tickets/"+id+"/follow",obj(),x->h.refreshPage()));
+                if(h.isStaff())u.button(b,"View affected flats",R.drawable.ic_users,false,()->go("affected",id));
+                else if(!t.optBoolean("following")&&!java.util.Arrays.asList("RESOLVED","CLOSED").contains(t.optString("status")))u.button(b,"I'm affected",R.drawable.ic_users,true,()->write("/ops/tickets/"+id+"/follow",obj(),x->h.refreshPage()));
             }
             if(h.isStaff()||"RESOLVED".equals(t.optString("status")))u.button(b,"Update status",R.drawable.ic_check,true,()->go("ticket-update",id));
             fileLink("TICKET",id);
@@ -735,6 +738,21 @@ import java.util.*;
             submit("Post update",()->write("/ops/tickets/"+id+"/comments",f.values(),x->h.refreshPage()));
         }
         );
+    }
+    private void affected() {
+        title("Affected flats");
+        get("/ops/tickets/"+id,ticketValue-> {
+            JSONObject ticket=(JSONObject)ticketValue;
+            get("/ops/tickets/"+id+"/affected",rowsValue-> {
+                JSONArray rows=(JSONArray)rowsValue;
+                u.hero(b,rows.length()+" flats",ticket.optString("title"),ticket.optString("scope"));
+                if(rows.length()==0)u.empty(b,"No affected flats yet","Residents can follow an active shared-area issue.");
+                for(int i=0;i<rows.length();i++) {
+                    JSONObject affectedRow=rows.getJSONObject(i);
+                    row(card(),affectedRow.optString("flatLabel"),affectedRow.optString("name")+" · Block "+affectedRow.optString("block"),R.drawable.ic_home,"directory-detail",affectedRow.optString("userId"));
+                }
+            });
+        });
     }
     private void ticketUpdate() {
         title("Update issue");

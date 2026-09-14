@@ -32,6 +32,12 @@ import java.time.*;
         t.put("affectedCount",db.count("select count(distinct u.flat_id) from ap_ticket_follow f join ap_user u on u.id=f.user_id where f.ticket_id=? and u.status='ACTIVE'",id));
         return t;
     }
+    public List<Map<String,Object>> affected(Account a,UUID id) {
+        a.requireStaff();
+        var ticket=get(a,id);
+        if(!ticket.get("kind").equals("ISSUE"))throw ApiError.forbidden();
+        return db.rows("select * from(select distinct on(f.id) f.id as flat_id,f.label as flat_label,f.block,u.id as user_id,u.name from ap_ticket_follow x join ap_user u on u.tenant_id=x.tenant_id and u.id=x.user_id join ap_flat f on f.tenant_id=u.tenant_id and f.id=u.flat_id where x.tenant_id=? and x.ticket_id=? and u.status='ACTIVE' order by f.id,u.name) affected order by flat_label",a.tenantId(),id);
+    }
     @Transactional public Object create(Account a,Map<String,Object> p) {
         db.lockTenant(a.tenantId());
         var old=c.previous(a,"TICKET_CREATE",p);

@@ -95,6 +95,7 @@ All ordinary APIs derive tenant/role from a bearer session. JSON bodies contain 
 | GET | `/api/v1/ops/cashbook` | `OperationsController.java` |
 | GET | `/api/v1/ops/tickets` | `OperationsController.java` |
 | GET | `/api/v1/ops/tickets/{id}` | `OperationsController.java` |
+| GET | `/api/v1/ops/tickets/{id}/affected` | `OperationsController.java` |
 | POST | `/api/v1/ops/tickets` | `OperationsController.java` |
 | POST | `/api/v1/ops/tickets/{id}/status` | `OperationsController.java` |
 | POST | `/api/v1/ops/tickets/{id}/comments` | `OperationsController.java` |
@@ -142,7 +143,7 @@ All ordinary APIs derive tenant/role from a bearer session. JSON bodies contain 
 ## Important shapes
 `POST /ops/expenses`: title,category,amount,paidOn,mode,paid,visibleToResidents,notes,requestKey. Legacy POST/expenses remains for increment01 clients; the native increment02 expense form uses the operational endpoint to preserve payment mode.
 
-`POST /ops/tickets`: kind ISSUE/COMPLAINT, title,description,category,scope,priority, optional staff-selected flatId,requestKey. Status command: status,note,optional vendorId/eta,notifyAll for staff/common issue only,requestKey. Explicit tenant checks apply to every ticket and its attachments.
+`POST /ops/tickets`: kind ISSUE/COMPLAINT, title,description,category,scope,priority, optional staff-selected flatId,requestKey. Status command: status,note,optional vendorId/eta,notifyAll for staff/common issue only,requestKey. Explicit tenant checks apply to every ticket and its attachments. `GET /ops/tickets/{id}/affected` is staff-only, parent-checks the issue in the authenticated tenant and returns one active resident identity per distinct affected flat; private complaints are rejected.
 
 `POST /ops/bookings`: title,eventType,guests,start,end,items [{resourceId,quantity}],acceptRules, optional flatId for Admin,requestKey. Decision: action APPROVE/REJECT/CANCEL/COMPLETE/OFFER/ACCEPT,revision,note,requestKey. OFFER also supplies proposed start/end/items. Requester must ACCEPT, and capacity is checked again inside the decision transaction.
 

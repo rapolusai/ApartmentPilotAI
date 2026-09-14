@@ -142,6 +142,9 @@ import java.util.*;
     @GetMapping("/tickets/{id}") Object ticket(@AuthenticationPrincipal Account a,@PathVariable UUID id) {
         return tickets.get(a,id);
     }
+    @GetMapping("/tickets/{id}/affected") Object affected(@AuthenticationPrincipal Account a,@PathVariable UUID id) {
+        return tickets.affected(a,id);
+    }
     @PostMapping("/tickets") Object ticket(@AuthenticationPrincipal Account a,@RequestBody Map<String,Object> p) {
         return tickets.create(a,p);
     }

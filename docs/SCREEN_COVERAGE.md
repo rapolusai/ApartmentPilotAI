@@ -46,7 +46,7 @@ Reference routes: 203. UI parity and runtime acceptance remain unverified for in
 | `issue-form` | `issue-form` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `similar-issues` | `issue-form` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `issue` | `issue` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `affected` | `—` | NOT_IMPLEMENTED_AS_REFERENCE_ROUTE |
+| `affected` | `affected` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `issue-assign` | `ticket-update` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `issue-update` | `ticket-update` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `issue-comments` | `ticket` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |

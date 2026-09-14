@@ -75,6 +75,9 @@ try {
  $ticket=PostCommand '/ops/tickets' @{kind='ISSUE';title='TEST02 Lift stopped';description='Synthetic incident';category='Lift';scope='ALL';priority='HIGH'} $tr
  Check ($ticket.Status -eq 200) 'Resident reports building incident';$tid=$ticket.Body.id
  $forbidden=Api 'GET' "/ops/tickets/$tid" $null $tb;Check ($forbidden.Status -eq 404) 'Cross-apartment ticket denied'
+ $affectedResident=Api 'GET' "/ops/tickets/$tid/affected" $null $tr;Check ($affectedResident.Status -eq 403) 'Resident cannot enumerate affected-flat identities'
+ $affectedForeign=Api 'GET' "/ops/tickets/$tid/affected" $null $tb;Check ($affectedForeign.Status -eq 404) 'Another apartment cannot enumerate a guessed issue ID'
+ $affectedStaff=Api 'GET' "/ops/tickets/$tid/affected" $null $ta;Check ($affectedStaff.Status -eq 200 -and @($affectedStaff.Body).Count -eq 1 -and $affectedStaff.Body[0].flatLabel -eq 'A-101') 'Staff sees tenant-scoped distinct affected flats'
  $selfResolve=PostCommand "/ops/tickets/$tid/status" @{status='RESOLVED';note='Attempt'} $tr;Check ($selfResolve.Status -eq 400) 'Resident cannot perform staff resolution'
  $assigned=PostCommand "/ops/tickets/$tid/status" @{status='ASSIGNED';note='Technician assigned';vendorId=$vendor.Body.id} $ta;Check ($assigned.Status -eq 200) 'Admin assigns vendor'
  $resolved=PostCommand "/ops/tickets/$tid/status" @{status='RESOLVED';note='Technician completed work';vendorId=$vendor.Body.id} $ta;Check ($resolved.Status -eq 200) 'Admin resolves issue'
