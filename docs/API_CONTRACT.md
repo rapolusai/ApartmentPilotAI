@@ -59,6 +59,9 @@ All ordinary APIs derive tenant/role from a bearer session. JSON bodies contain 
 | POST | `/api/v1/ops/vehicles/{id}/contact` | `ExtrasController.java` |
 | GET | `/api/v1/ops/apartment` | `OperationsController.java` |
 | POST | `/api/v1/ops/apartment` | `OperationsController.java` |
+| GET | `/api/v1/ops/blocks` | `OperationsController.java` |
+| POST | `/api/v1/ops/blocks` | `OperationsController.java` |
+| POST | `/api/v1/ops/blocks/{id}` | `OperationsController.java` |
 | GET | `/api/v1/ops/flats` | `OperationsController.java` |
 | POST | `/api/v1/ops/flats` | `OperationsController.java` |
 | POST | `/api/v1/ops/flats/{id}` | `OperationsController.java` |
@@ -141,6 +144,8 @@ All ordinary APIs derive tenant/role from a bearer session. JSON bodies contain 
 - `/auth/register` and `/auth/join` require the explicit local profile. These are not verified production signup paths.
 
 ## Important shapes
+`POST /ops/blocks` and `POST /ops/blocks/{id}`: name (1–8 characters),requestKey. Both are Admin-only and tenant-scoped. A rename cascades the block membership stored on flats but never rewrites a flat label; duplicate names are rejected. `POST /ops/flats` and `/ops/flats/{id}` require the supplied block to exist in the authenticated tenant.
+
 `POST /ops/expenses`: title,category,amount,paidOn,mode,paid,visibleToResidents,notes,requestKey. Legacy POST/expenses remains for increment01 clients; the native increment02 expense form uses the operational endpoint to preserve payment mode.
 
 `POST /ops/tickets`: kind ISSUE/COMPLAINT, title,description,category,scope,priority, optional staff-selected flatId,requestKey. Status command: status,note,optional vendorId/eta,notifyAll for staff/common issue only,requestKey. Explicit tenant checks apply to every ticket and its attachments. `GET /ops/tickets/{id}/affected` is staff-only, parent-checks the issue in the authenticated tenant and returns one active resident identity per distinct affected flat; private complaints are rejected.

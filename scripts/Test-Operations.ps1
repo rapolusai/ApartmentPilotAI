@@ -65,6 +65,20 @@ try {
  $login=Api 'POST' '/auth/login' @{mobile=$rm;pin=$pin;role='RESIDENT'};Check ($login.Status -eq 200) 'Resident signs in';$tr=$login.Body.token
  $flats=Api 'GET' '/ops/flats' $null $ta;$flat=@($flats.Body|Where-Object {$_.label -eq 'A-101'})[0]
  $own=Api 'GET' '/ops/flats' $null $tr;Check (@($own.Body).Count -eq 1) 'Resident flat selector is limited to own flat'
+ $blocks=Api 'GET' '/ops/blocks' $null $ta;Check ($blocks.Status -eq 200 -and @($blocks.Body).Count -eq 1 -and $blocks.Body[0].name -eq 'A' -and $blocks.Body[0].flatCount -eq 5) 'Initial block is persisted with its flat count'
+ $blocksDenied=Api 'GET' '/ops/blocks' $null $tr;Check ($blocksDenied.Status -eq 403) 'Resident cannot administer apartment blocks'
+ $blockKey=Key;$blockBody=@{name='B';requestKey=$blockKey}
+ $block=Api 'POST' '/ops/blocks' $blockBody $ta;Check ($block.Status -eq 200 -and $block.Body.name -eq 'B') 'Admin creates a persistent block'
+ $blockRetry=Api 'POST' '/ops/blocks' $blockBody $ta;Check ($blockRetry.Status -eq 200 -and $blockRetry.Body.id -eq $block.Body.id) 'Block creation retry is idempotent'
+ $blockDuplicate=PostCommand '/ops/blocks' @{name='B'} $ta;Check ($blockDuplicate.Status -eq 409) 'Duplicate block name is rejected'
+ $unknownBlockFlat=PostCommand '/ops/flats' @{label='Z-201';block='Z';floor=2;occupied=$true;active=$true} $ta;Check ($unknownBlockFlat.Status -eq 404) 'Flat creation requires a tenant block parent'
+ $blockFlat=PostCommand '/ops/flats' @{label='B-201';block='B';floor=2;occupied=$true;active=$true} $ta;Check ($blockFlat.Status -eq 200) 'Admin creates a flat in the new block'
+ $foreignBlock=PostCommand "/ops/blocks/$($block.Body.id)" @{name='FOREIGN'} $tb;Check ($foreignBlock.Status -eq 404) 'Another apartment cannot rename a guessed block ID'
+ $renamedBlock=PostCommand "/ops/blocks/$($block.Body.id)" @{name='C'} $ta;Check ($renamedBlock.Status -eq 200 -and $renamedBlock.Body.name -eq 'C') 'Admin renames a block'
+ $renamedFlats=Api 'GET' '/ops/flats' $null $ta;$renamedFlat=@($renamedFlats.Body|Where-Object {$_.id -eq $blockFlat.Body.id})[0]
+ Check ($renamedFlat.label -eq 'B-201' -and $renamedFlat.block -eq 'C') 'Block rename updates membership without renaming flat IDs'
+ $renamedBlocks=Api 'GET' '/ops/blocks' $null $ta;$renamed=@($renamedBlocks.Body|Where-Object {$_.id -eq $block.Body.id})[0]
+ Check ($renamed.name -eq 'C' -and $renamed.flatCount -eq 1) 'Renamed block reports its authoritative flat count'
  $directory=PostCommand '/ops/directory' @{name='TEST02 Directory only';flatId=$flat.id;mobile='';residentType='OWNER'} $ta
  Check ($directory.Status -eq 200) 'Manual member record does not require a login identity'
  $committee=PostCommand '/ops/committee' @{name='TEST02 President';title='President';flatId=$flat.id;startOn=$date;public=$true;active=$true} $ta

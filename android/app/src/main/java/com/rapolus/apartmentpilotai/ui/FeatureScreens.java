@@ -48,6 +48,10 @@ import java.util.*;
             break;
             case "apartment-edit":apartmentEdit();
             break;
+            case "blocks":blocks();
+            break;
+            case "block-form":blockForm();
+            break;
             case "flats":flats();
             break;
             case "flat-form":flatForm();
@@ -421,7 +425,8 @@ import java.util.*;
             u.hero(b,a.optString("city"),a.optString("name"),a.optString("address"));
             LinearLayout c=card();
             row(c,"Apartment details","Name & address",R.drawable.ic_building,"apartment-edit");
-            row(c,"Flats","Blocks & flat records",R.drawable.ic_home,"flats");
+            row(c,"Blocks","Apartment sections",R.drawable.ic_building,"blocks");
+            row(c,"Flats","Flat records",R.drawable.ic_home,"flats");
             row(c,"Residents & approvals","Account access",R.drawable.ic_users,"members");
             row(c,"Invite residents","Share a join code",R.drawable.ic_plus,"invite");
             row(c,"Team roles","Permissions",R.drawable.ic_shield,"roles");
@@ -454,28 +459,53 @@ import java.util.*;
         }
         );
     }
+    private void blocks() {
+        title("Blocks");
+        u.button(b,"Add block",R.drawable.ic_plus,true,()->go("block-form"));
+        get("/ops/blocks",r-> {
+            JSONArray rows=(JSONArray)r;
+            if(rows.length()==0)u.empty(b,"No blocks configured","Add a block before creating its flats.");
+            for(int i=0;i<rows.length();i++) {
+                JSONObject block=rows.getJSONObject(i);
+                row(card(),"Block "+block.optString("name"),block.optInt("flatCount")+" flats",R.drawable.ic_building,"block-form",block.optString("id"));
+            }
+        });
+    }
+    private void blockForm() {
+        title("Block details");
+        get("/ops/blocks",r-> {
+            JSONObject block=find((JSONArray)r,id);
+            Ui.Fields f=h.newFields();
+            f.field("name","Block name",val(block,"name"),TEXT);
+            u.note(b,"Renaming a block updates its flats but does not rename existing flat IDs.");
+            submit(id.isEmpty()?"Add block":"Save block",()->write("/ops/blocks"+(id.isEmpty()?"":"/"+id),f.values(),x->go("blocks")));
+        });
+    }
     private void flatForm() {
         title(id.isEmpty()?"Add flat":"Flat details");
-        get("/ops/flats",r-> {
-            JSONObject j=find((JSONArray)r,id);
-            Ui.Fields f=h.newFields();
-            f.field("label","Flat number",val(j,"label"),TEXT);
-            f.field("block","Block",j.optString("block","A"),TEXT);
-            f.field("floor","Floor",j.optString("floor","1"),InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_SIGNED);
-            f.check("occupied","Occupied",j.optBoolean("occupied",true));
-            f.check("active","Active",j.optBoolean("active",true));
-            submit("Save flat",()-> {
-                JSONObject p=f.values();
-                try {
-                    p.put("floor",Integer.parseInt(f.get("floor")));
-                } catch(JSONException e) {
-                    throw new IllegalArgumentException(e);
-                }
-                write("/ops/flats"+(id.isEmpty()?"":"/"+id),p,x->go("flats"));
-            }
-            );
-        }
-        );
+        get("/ops/blocks",blockValue-> {
+            JSONArray blockRows=(JSONArray)blockValue;
+            String[] blockNames=new String[blockRows.length()];
+            for(int i=0;i<blockRows.length();i++)blockNames[i]=blockRows.getJSONObject(i).optString("name");
+            get("/ops/flats",r-> {
+                JSONObject j=find((JSONArray)r,id);
+                Ui.Fields f=h.newFields();
+                f.field("label","Flat number",val(j,"label"),TEXT);
+                pick(f,"block","Block",blockNames,j.optString("block",blockNames.length==0?"":blockNames[0]));
+                f.field("floor","Floor",j.optString("floor","1"),InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_SIGNED);
+                f.check("occupied","Occupied",j.optBoolean("occupied",true));
+                f.check("active","Active",j.optBoolean("active",true));
+                submit("Save flat",()-> {
+                    JSONObject p=f.values();
+                    try {
+                        p.put("floor",Integer.parseInt(f.get("floor")));
+                    } catch(JSONException e) {
+                        throw new IllegalArgumentException(e);
+                    }
+                    write("/ops/flats"+(id.isEmpty()?"":"/"+id),p,x->go("flats"));
+                });
+            });
+        });
     }
     private void directory() {
         title("Members");

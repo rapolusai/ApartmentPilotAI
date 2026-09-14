@@ -18,13 +18,13 @@
   },
   "sql_placeholder_static_check": {
     "status": "PASSED",
-    "literal_calls_checked": 264,
+    "literal_calls_checked": 283,
     "mismatches": 0,
     "scope": "Java AST literal JDBC SQL placeholder counts versus supplied arguments. Dynamic SQL and varargs arrays excluded; does not parse or execute PostgreSQL SQL."
   },
   "literal_native_navigation": {
     "status": "PASSED",
-    "targets": 100,
+    "targets": 102,
     "missing": [],
     "scope": "Literal go() destinations found in Java source exist in native route switches. Dynamic navigation, permissions and actual device rendering are not validated."
   },
@@ -115,8 +115,8 @@
       "status": "PASSED_EXISTING_SCHEMA_VALIDATION",
       "database": "partmentpilotai_dev",
       "postgresql_version": "18.6",
-      "schema_version": "3",
-      "history_entries_validated": 4,
+      "schema_version": "4",
+      "history_entries_validated": 5,
       "fresh_database_path": "NOT_EXECUTED",
       "v1_clone_upgrade_path": "NOT_EXECUTED"
     },
@@ -129,16 +129,16 @@
       "local_api_checks": 50,
       "local_api_status": "PASSED",
       "local_api_run": "3274c19f",
-      "operations_checks": 89,
+      "operations_checks": 100,
       "operations_status": "PASSED_WITH_CONCURRENCY",
-      "operations_evidence": "test-results/operations-94c613cf.json"
+      "operations_evidence": "test-results/operations-1ae51e73.json"
     },
     "android": {
       "clean_assemble_debug": "PASSED",
       "tasks_executed": 41,
       "apk": "android/app/build/outputs/apk/debug/app-debug.apk",
-      "apk_bytes": 6460324,
-      "apk_sha256": "4777C26EE434F37BC3E2D07B037C598E541D1B650BF8BF87D54EE1A65BE54AE2",
+      "apk_bytes": 6461680,
+      "apk_sha256": "6F0629C718CEDCD7C8E200C9A5E98C4F31FE2DD94BC094FA75FB6BAF57A7C9CB",
       "unit_test_task": "PASSED",
       "unit_tests": 2,
       "unit_test_failures": 0,
@@ -149,19 +149,19 @@
   "source_traceability": {
     "reference_routes": 203,
     "statuses": {
-      "CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED": 127,
-      "PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED": 58,
-      "NOT_IMPLEMENTED_AS_REFERENCE_ROUTE": 10,
+      "CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED": 129,
+      "PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED": 57,
+      "NOT_IMPLEMENTED_AS_REFERENCE_ROUTE": 9,
       "REFERENCE_ONLY_NOT_A_PRODUCTION_FEATURE": 8
     },
-    "native_route_identifiers": 150,
+    "native_route_identifiers": 152,
     "product_completion_percentage": null,
     "scope": "Direct routes and merged partial subflows are not a finished/tested-product percentage. No frozen-reference visual parity claimed."
   },
   "unexecuted": [
     {
       "name": "Fresh database and V1-only clone migration matrix",
-      "reason": "The existing PostgreSQL 18.6 development schema migrated from V2 to V3 successfully, but fresh creation and a backed-up V1-only upgrade clone through V2/V3 have not yet run."
+      "reason": "The existing PostgreSQL 18.6 development schema migrated in place through V4 successfully, but fresh creation and a backed-up V1-only upgrade clone through V2/V3/V4 have not yet run."
     },
     {
       "name": "Android device/instrumentation/screenshots/accessibility",

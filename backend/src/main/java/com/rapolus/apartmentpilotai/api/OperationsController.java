@@ -33,6 +33,15 @@ import java.util.*;
     @PostMapping("/apartment") Object apartment(@AuthenticationPrincipal Account a,@RequestBody Map<String,Object> p) {
         return community.saveApartment(a,p);
     }
+    @GetMapping("/blocks") Object blocks(@AuthenticationPrincipal Account a) {
+        return community.blocks(a);
+    }
+    @PostMapping("/blocks") Object block(@AuthenticationPrincipal Account a,@RequestBody Map<String,Object> p) {
+        return community.saveBlock(a,null,p);
+    }
+    @PostMapping("/blocks/{id}") Object apartmentBlock(@AuthenticationPrincipal Account a,@PathVariable UUID id,@RequestBody Map<String,Object> p) {
+        return community.saveBlock(a,id,p);
+    }
     @GetMapping("/flats") Object flats(@AuthenticationPrincipal Account a) {
         return community.flats(a);
     }

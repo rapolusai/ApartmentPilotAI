@@ -27,6 +27,31 @@ import java.time.*;
         commands.audit(a,"APARTMENT_UPDATED",a.tenantId(),null,name);
         return apartment(a);
     }
+    public List<Map<String,Object>> blocks(Account a) {
+        a.requireAdmin();
+        return db.rows("select b.id,b.name,count(f.id)::int as flat_count from ap_block b left join ap_flat f on f.tenant_id=b.tenant_id and f.block=b.name where b.tenant_id=? group by b.id,b.name order by b.name",a.tenantId());
+    }
+    @Transactional public Object saveBlock(Account a,UUID id,Map<String,Object> p) {
+        a.requireAdmin();
+        db.lockTenant(a.tenantId());
+        Map<String,Object> command=new HashMap<>(p);
+        if(id!=null)command.put("_blockId",id.toString());
+        var previous=commands.previous(a,"BLOCK_SAVE",command);
+        if(previous.isPresent())return db.one("select id,name from ap_block where tenant_id=? and id=?",a.tenantId(),previous.get());
+        String name=V.text(p,"name",8).toUpperCase(Locale.ROOT);
+        String before="New";
+        if(id!=null)before=db.one("select name from ap_block where tenant_id=? and id=?",a.tenantId(),id).get("name").toString();
+        if(db.count("select count(*) from ap_block where tenant_id=? and name=? and (?::uuid is null or id<>?::uuid)",a.tenantId(),name,id,id)>0)throw ApiError.conflict("This block already exists.");
+        if(id==null) {
+            id=UUID.randomUUID();
+            db.update("insert into ap_block(id,tenant_id,name) values(?,?,?)",id,a.tenantId(),name);
+        } else {
+            db.update("update ap_block set name=? where tenant_id=? and id=?",name,a.tenantId(),id);
+        }
+        commands.remember(a,"BLOCK_SAVE",command,id);
+        commands.audit(a,"BLOCK_SAVED",id,before,name);
+        return Map.of("id",id,"name",name);
+    }
     public List<Map<String,Object>> flats(Account a) {
         if(!a.staff())return db.rows("select id,label,block,floor,occupied,active from ap_flat where tenant_id=? and id=?",a.tenantId(),a.flatId());
         return db.rows("select f.id,f.label,f.block,f.floor,f.active,f.occupied,u.id as member_id,u.name,u.role,u.status from ap_flat f left join ap_user u on u.tenant_id=f.tenant_id and u.flat_id=f.id and u.status in ('ACTIVE','PENDING') where f.tenant_id=? order by f.label",a.tenantId());
@@ -38,6 +63,7 @@ import java.time.*;
         if(prev.isPresent())return Map.of("id",prev.get());
         boolean active=V.bool(p,"active",true),occupied=V.bool(p,"occupied",true);
         String label=V.text(p,"label",20).toUpperCase(Locale.ROOT),block=V.text(p,"block",20).toUpperCase(Locale.ROOT);
+        db.one("select id from ap_block where tenant_id=? and name=?",a.tenantId(),block);
         int floor=V.num(p,"floor",-5,150);
         long count=db.count("select count(*) from ap_flat where tenant_id=?",a.tenantId());
         if(id==null) {

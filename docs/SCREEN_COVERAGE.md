@@ -92,8 +92,8 @@ Reference routes: 203. UI parity and runtime acceptance remain unverified for in
 | `setup-done` | `setup-done` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `apartment` | `apartment` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `apartment-edit` | `apartment-edit` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `blocks` | `flats` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `block-form` | `—` | NOT_IMPLEMENTED_AS_REFERENCE_ROUTE |
+| `blocks` | `blocks` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
+| `block-form` | `block-form` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `flats` | `flats` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `flat` | `flat-form` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `flat-form` | `flat-form` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |

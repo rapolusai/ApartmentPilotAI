@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
         requireLocal();
         UUID tenant=UUID.randomUUID(),user=UUID.randomUUID();
         db.update("insert into ap_tenant(id,name,city) values(?,?,?)",tenant,r.apartmentName().trim(),r.city().trim());
+        db.update("insert into ap_block(id,tenant_id,name) values(?,?,'A')",UUID.randomUUID(),tenant);
         for(int i=1; i<=r.flats(); i++)db.update("insert into ap_flat(id,tenant_id,label) values(?,?,?)",UUID.randomUUID(),tenant,"A-"+(100+i));
         db.update("insert into ap_user(id,tenant_id,name,mobile,pin_hash,role,status) values(?,?,?,?,?,'ADMIN','ACTIVE')",user,tenant,r.name().trim(),r.mobile(),encoder.encode(r.pin()));
         db.audit(tenant,user,"APARTMENT_CREATED",tenant,null,r.apartmentName());
