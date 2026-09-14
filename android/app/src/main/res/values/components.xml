@@ -1,0 +1,5 @@
+<resources>
+ <style name="ApNavIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+  <item name="android:color">@color/ap_lime</item>
+ </style>
+</resources>

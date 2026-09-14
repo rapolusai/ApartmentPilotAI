@@ -1,0 +1,9 @@
+<resources>
+ <style name="Theme.ApartmentPilotAI" parent="Theme.Material3.DayNight.NoActionBar">
+  <item name="colorPrimary">@color/ap_pine</item><item name="colorOnPrimary">@color/ap_bg</item>
+  <item name="colorSecondary">@color/ap_lime</item><item name="colorOnSecondary">@color/ap_onlime</item>
+  <item name="colorSurface">@color/ap_surface</item><item name="colorOnSurface">@color/ap_ink</item>
+  <item name="android:windowLightStatusBar">true</item><item name="android:windowActionModeOverlay">true</item>
+  <item name="android:windowBackground">@color/ap_bg</item><item name="android:fontFamily">sans</item>
+ </style>
+</resources>

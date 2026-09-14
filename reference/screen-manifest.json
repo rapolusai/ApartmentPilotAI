@@ -1,0 +1,2286 @@
+[
+  {
+    "number": 1,
+    "id": "home",
+    "title": "Home",
+    "group": "Overview",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 2,
+    "id": "money",
+    "title": "Money",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 3,
+    "id": "dues",
+    "title": "Maintenance",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 4,
+    "id": "bill",
+    "title": "Maintenance bill",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 5,
+    "id": "payee",
+    "title": "Payment details",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 6,
+    "id": "mark-paid",
+    "title": "Payment details",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 7,
+    "id": "payment-status",
+    "title": "Payment status",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 8,
+    "id": "approvals",
+    "title": "Payment approvals",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 9,
+    "id": "payment",
+    "title": "Review payment",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 10,
+    "id": "proof",
+    "title": "Payment proof",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 11,
+    "id": "bulk-approval",
+    "title": "Select payments",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 12,
+    "id": "bulk-review",
+    "title": "Confirm approval",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 13,
+    "id": "payment-reject",
+    "title": "Reject payment",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 14,
+    "id": "receipt",
+    "title": "Payment receipt",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 15,
+    "id": "history",
+    "title": "Payment history",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 16,
+    "id": "outstanding",
+    "title": "Unpaid flats",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 17,
+    "id": "reminder-preview",
+    "title": "Send reminders",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 18,
+    "id": "billing-settings",
+    "title": "Maintenance amount",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 19,
+    "id": "bill-preview",
+    "title": "Generate monthly dues",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 20,
+    "id": "expenses",
+    "title": "Expenses",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 21,
+    "id": "expense",
+    "title": "Expense detail",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 22,
+    "id": "expense-proof",
+    "title": "Expense attachment",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 23,
+    "id": "expense-form",
+    "title": "Expense",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 24,
+    "id": "recurring",
+    "title": "Recurring expenses",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 25,
+    "id": "recurring-detail",
+    "title": "Recurring expense",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 26,
+    "id": "recurring-form",
+    "title": "Recurring setup",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 27,
+    "id": "reports",
+    "title": "Monthly summary",
+    "group": "Reports",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 28,
+    "id": "expense-report",
+    "title": "Expense breakdown",
+    "group": "Reports",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 29,
+    "id": "collection-report",
+    "title": "Collection report",
+    "group": "Reports",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 30,
+    "id": "transparency",
+    "title": "Resident finance view",
+    "group": "Reports",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 31,
+    "id": "export-report",
+    "title": "Export report",
+    "group": "Reports",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 32,
+    "id": "income",
+    "title": "Other income",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 33,
+    "id": "income-form",
+    "title": "Income entry",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 34,
+    "id": "cashbook",
+    "title": "Cashbook",
+    "group": "Reports",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 35,
+    "id": "finance-settings",
+    "title": "Financial controls",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 36,
+    "id": "payment-settings",
+    "title": "Association account",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 37,
+    "id": "opening-balance",
+    "title": "Opening balance",
+    "group": "Settings",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 38,
+    "id": "issues",
+    "title": "Building issues",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 39,
+    "id": "issue-categories",
+    "title": "What needs attention?",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 40,
+    "id": "issue-form",
+    "title": "Report an issue",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 41,
+    "id": "similar-issues",
+    "title": "Similar issues",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 42,
+    "id": "issue",
+    "title": "Issue detail",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 43,
+    "id": "affected",
+    "title": "Affected flats",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 44,
+    "id": "issue-assign",
+    "title": "Assign service",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 45,
+    "id": "issue-update",
+    "title": "Update issue",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 46,
+    "id": "issue-comments",
+    "title": "Issue updates",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 47,
+    "id": "issue-photo",
+    "title": "Issue photo",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 48,
+    "id": "complaints",
+    "title": "My requests",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 49,
+    "id": "complaint-form",
+    "title": "Private request",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 50,
+    "id": "complaint",
+    "title": "Request detail",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 51,
+    "id": "complaint-update",
+    "title": "Manage request",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 52,
+    "id": "services",
+    "title": "Service schedule",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 53,
+    "id": "service",
+    "title": "Scheduled service",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 54,
+    "id": "service-form",
+    "title": "Schedule service",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 55,
+    "id": "service-complete",
+    "title": "Complete service",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 56,
+    "id": "service-history",
+    "title": "Service history",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 57,
+    "id": "community",
+    "title": "Community",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 58,
+    "id": "notices",
+    "title": "Notice board",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 59,
+    "id": "notice",
+    "title": "Notice",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 60,
+    "id": "notice-form",
+    "title": "Send notice",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 61,
+    "id": "notice-attachment",
+    "title": "Notice attachment",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 62,
+    "id": "vendors",
+    "title": "Service vendors",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 63,
+    "id": "vendor",
+    "title": "Vendor profile",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 64,
+    "id": "vendor-form",
+    "title": "Vendor details",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 65,
+    "id": "contacts",
+    "title": "Important contacts",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 66,
+    "id": "contact",
+    "title": "Contact details",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 67,
+    "id": "contact-form",
+    "title": "Edit contact",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 68,
+    "id": "documents",
+    "title": "Apartment files",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 69,
+    "id": "document",
+    "title": "Document",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 70,
+    "id": "document-form",
+    "title": "Upload document",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 71,
+    "id": "welcome",
+    "title": "ApartmentCare",
+    "group": "Onboarding",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": true
+  },
+  {
+    "number": 72,
+    "id": "login",
+    "title": "Choose login",
+    "group": "Onboarding",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": true
+  },
+  {
+    "number": 73,
+    "id": "admin-login",
+    "title": "Admin login",
+    "group": "Onboarding",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": true
+  },
+  {
+    "number": 74,
+    "id": "treasurer-login",
+    "title": "Treasurer login",
+    "group": "Onboarding",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": true
+  },
+  {
+    "number": 75,
+    "id": "resident-login",
+    "title": "Resident login",
+    "group": "Onboarding",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": true
+  },
+  {
+    "number": 76,
+    "id": "forgot-pin",
+    "title": "Reset PIN",
+    "group": "Onboarding",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": true
+  },
+  {
+    "number": 77,
+    "id": "verify-reset",
+    "title": "Verify number",
+    "group": "Onboarding",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": true
+  },
+  {
+    "number": 78,
+    "id": "reset-pin",
+    "title": "Set new PIN",
+    "group": "Onboarding",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": true
+  },
+  {
+    "number": 79,
+    "id": "join",
+    "title": "Join your apartment",
+    "group": "Onboarding",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": true
+  },
+  {
+    "number": 80,
+    "id": "invite-invalid",
+    "title": "Invite unavailable",
+    "group": "Onboarding",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": true
+  },
+  {
+    "number": 81,
+    "id": "signup",
+    "title": "Create your account",
+    "group": "Onboarding",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": true
+  },
+  {
+    "number": 82,
+    "id": "choose-flat",
+    "title": "Choose your flat",
+    "group": "Onboarding",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": true
+  },
+  {
+    "number": 83,
+    "id": "signup-pending",
+    "title": "Join request",
+    "group": "Onboarding",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": true
+  },
+  {
+    "number": 84,
+    "id": "admin-signup",
+    "title": "Create apartment",
+    "group": "Onboarding",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": true
+  },
+  {
+    "number": 85,
+    "id": "setup-apartment",
+    "title": "Apartment details",
+    "group": "Onboarding",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": true
+  },
+  {
+    "number": 86,
+    "id": "setup-done",
+    "title": "Apartment ready",
+    "group": "Onboarding",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": true
+  },
+  {
+    "number": 87,
+    "id": "apartment",
+    "title": "Apartment",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 88,
+    "id": "apartment-edit",
+    "title": "Apartment profile",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 89,
+    "id": "blocks",
+    "title": "Blocks",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 90,
+    "id": "block-form",
+    "title": "Block details",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 91,
+    "id": "flats",
+    "title": "Flats",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 92,
+    "id": "flat",
+    "title": "Flat details",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 93,
+    "id": "flat-form",
+    "title": "Flat setup",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 94,
+    "id": "residents",
+    "title": "Members",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 95,
+    "id": "resident",
+    "title": "Resident profile",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 96,
+    "id": "join-requests",
+    "title": "Join requests",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 97,
+    "id": "join-review",
+    "title": "Review resident",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 98,
+    "id": "join-reject",
+    "title": "Reject join request",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 99,
+    "id": "invite",
+    "title": "Invite residents",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 100,
+    "id": "invite-settings",
+    "title": "Invite controls",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 101,
+    "id": "handover",
+    "title": "Resident handover",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 102,
+    "id": "roles",
+    "title": "Team access",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 103,
+    "id": "role-form",
+    "title": "Team role",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 104,
+    "id": "permissions",
+    "title": "Permissions",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 105,
+    "id": "more",
+    "title": "More",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 106,
+    "id": "profile",
+    "title": "My profile",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 107,
+    "id": "profile-edit",
+    "title": "Edit profile",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 108,
+    "id": "notifications",
+    "title": "Notifications",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 109,
+    "id": "notification",
+    "title": "Notification",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 110,
+    "id": "notification-settings",
+    "title": "Notifications",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 111,
+    "id": "reminder-settings",
+    "title": "Reminder schedule",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 112,
+    "id": "appearance",
+    "title": "Appearance",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 113,
+    "id": "security",
+    "title": "Account security",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 114,
+    "id": "change-pin",
+    "title": "Change PIN",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 115,
+    "id": "privacy",
+    "title": "Privacy & access",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 116,
+    "id": "automation",
+    "title": "Automation",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 117,
+    "id": "automation-log",
+    "title": "Automation activity",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 118,
+    "id": "audit",
+    "title": "Activity log",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 119,
+    "id": "audit-detail",
+    "title": "Activity detail",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 120,
+    "id": "subscription",
+    "title": "Subscription & billing",
+    "group": "Settings",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 121,
+    "id": "help",
+    "title": "Help & about",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 122,
+    "id": "payment-help",
+    "title": "Payment status guide",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 123,
+    "id": "support",
+    "title": "Get help",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 124,
+    "id": "about",
+    "title": "About",
+    "group": "Settings",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 125,
+    "id": "offline",
+    "title": "You\u2019re offline",
+    "group": "System states",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 126,
+    "id": "session-expired",
+    "title": "Session expired",
+    "group": "System states",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": true
+  },
+  {
+    "number": 127,
+    "id": "access-denied",
+    "title": "Access restricted",
+    "group": "System states",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 128,
+    "id": "empty-state",
+    "title": "Nothing here yet",
+    "group": "System states",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 129,
+    "id": "error-state",
+    "title": "Something went wrong",
+    "group": "System states",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 130,
+    "id": "not-found",
+    "title": "Page not found",
+    "group": "System states",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 131,
+    "id": "screen-map",
+    "title": "Screen library",
+    "group": "Reference tools",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 132,
+    "id": "demo-controls",
+    "title": "Preview controls",
+    "group": "Reference tools",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 133,
+    "id": "complaint-photo",
+    "title": "Request attachment",
+    "group": "Services",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 134,
+    "id": "loading-state",
+    "title": "Loading",
+    "group": "System states",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 135,
+    "id": "events",
+    "title": "Events & bookings",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 136,
+    "id": "event-types",
+    "title": "What are you planning?",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 137,
+    "id": "event-form",
+    "title": "Request an event",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 138,
+    "id": "event-availability",
+    "title": "Choose your parking",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 139,
+    "id": "event-review",
+    "title": "Review request",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 140,
+    "id": "event-submitted",
+    "title": "Request sent",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 141,
+    "id": "event",
+    "title": "Event details",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 142,
+    "id": "booking-requests",
+    "title": "Booking approvals",
+    "group": "Community",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 143,
+    "id": "booking-review",
+    "title": "Review booking",
+    "group": "Community",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 144,
+    "id": "booking-alternative",
+    "title": "Offer an alternative",
+    "group": "Community",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 145,
+    "id": "event-alternative",
+    "title": "Alternative offered",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 146,
+    "id": "booking-reject",
+    "title": "Reject request",
+    "group": "Community",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 147,
+    "id": "event-cancel",
+    "title": "Cancel booking",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 148,
+    "id": "event-complete",
+    "title": "Complete event",
+    "group": "Community",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 149,
+    "id": "event-calendar",
+    "title": "Booking calendar",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 150,
+    "id": "parking-availability",
+    "title": "Guest parking",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 151,
+    "id": "resources",
+    "title": "Spaces & parking",
+    "group": "Community",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 152,
+    "id": "resource",
+    "title": "Space details",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 153,
+    "id": "resource-form",
+    "title": "Configure space",
+    "group": "Community",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 154,
+    "id": "resource-blocks",
+    "title": "Unavailable dates",
+    "group": "Community",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 155,
+    "id": "resource-block-form",
+    "title": "Block a space",
+    "group": "Community",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 156,
+    "id": "parking-share",
+    "title": "Share my parking",
+    "group": "Community",
+    "roles": [
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 157,
+    "id": "booking-rules",
+    "title": "Booking rules",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 158,
+    "id": "booking-rules-edit",
+    "title": "Booking settings",
+    "group": "Community",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 159,
+    "id": "members",
+    "title": "Members",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 160,
+    "id": "member",
+    "title": "Member details",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 161,
+    "id": "member-form",
+    "title": "Add / edit member",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 162,
+    "id": "committee",
+    "title": "Apartment committee",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 163,
+    "id": "committee-member",
+    "title": "Committee member",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 164,
+    "id": "committee-form",
+    "title": "Committee role",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 165,
+    "id": "approval-inbox",
+    "title": "Approvals",
+    "group": "Overview",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 166,
+    "id": "notice-templates",
+    "title": "Choose a notice",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 167,
+    "id": "notice-preview",
+    "title": "Preview notice",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 168,
+    "id": "notice-delivery",
+    "title": "Audience & responses",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 169,
+    "id": "rate-history",
+    "title": "Maintenance rate history",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 170,
+    "id": "rate-overrides",
+    "title": "Flat-specific rates",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 171,
+    "id": "rate-override-form",
+    "title": "Set flat rate",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 172,
+    "id": "contributions",
+    "title": "One-time collections",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 173,
+    "id": "contribution-form",
+    "title": "One-time contribution",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 174,
+    "id": "contribution-preview",
+    "title": "Review contribution",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 175,
+    "id": "contribution",
+    "title": "Contribution details",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 176,
+    "id": "opening-dues",
+    "title": "Opening dues by flat",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 177,
+    "id": "opening-due-form",
+    "title": "Add opening due",
+    "group": "Finance",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 178,
+    "id": "subscription-plans",
+    "title": "Application charges",
+    "group": "Settings",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 179,
+    "id": "subscription-invoices",
+    "title": "Subscription invoices",
+    "group": "Settings",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 180,
+    "id": "subscription-invoice",
+    "title": "Application invoice",
+    "group": "Settings",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 181,
+    "id": "subscription-renewal",
+    "title": "Renewal status",
+    "group": "Settings",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 182,
+    "id": "referrals",
+    "title": "Refer & unlock",
+    "group": "Settings",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 183,
+    "id": "referral-offer",
+    "title": "First-month offer",
+    "group": "Settings",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 184,
+    "id": "referral-progress",
+    "title": "Referral progress",
+    "group": "Settings",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 185,
+    "id": "referral-add",
+    "title": "New apartment referral",
+    "group": "Settings",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 186,
+    "id": "referral-detail",
+    "title": "Referral details",
+    "group": "Settings",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 187,
+    "id": "referral-reward",
+    "title": "First month reward",
+    "group": "Settings",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 188,
+    "id": "referral-rules",
+    "title": "Referral rules",
+    "group": "Settings",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 189,
+    "id": "subscription-overdue",
+    "title": "Subscription overdue",
+    "group": "Settings",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 190,
+    "id": "provider-simulation",
+    "title": "Provider simulation",
+    "group": "Reference tools",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 191,
+    "id": "activation-simulation",
+    "title": "Verify activation \u00b7 demo",
+    "group": "Reference tools",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 192,
+    "id": "subscription-payment-simulation",
+    "title": "Subscription payment \u00b7 demo",
+    "group": "Reference tools",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 193,
+    "id": "polls",
+    "title": "Community polls",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 194,
+    "id": "poll-form",
+    "title": "New poll",
+    "group": "Community",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 195,
+    "id": "poll",
+    "title": "Vote & results",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 196,
+    "id": "vehicles",
+    "title": "Vehicles",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 197,
+    "id": "vehicle",
+    "title": "Vehicle details",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 198,
+    "id": "vehicle-form",
+    "title": "My vehicle",
+    "group": "Community",
+    "roles": [
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 199,
+    "id": "vehicle-contact",
+    "title": "Notify vehicle owner",
+    "group": "Community",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 200,
+    "id": "committee-handover",
+    "title": "Committee handover",
+    "group": "Administration",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  },
+  {
+    "number": 201,
+    "id": "preview-clock",
+    "title": "Demo clock",
+    "group": "Reference tools",
+    "roles": [
+      "Admin",
+      "Treasurer"
+    ],
+    "auth": false
+  },
+  {
+    "number": 202,
+    "id": "release-coverage",
+    "title": "Included in this reference",
+    "group": "Reference tools",
+    "roles": [
+      "Admin",
+      "Treasurer",
+      "Resident"
+    ],
+    "auth": false
+  },
+  {
+    "number": 203,
+    "id": "subscription-refund-simulation",
+    "title": "Refund credit \u00b7 demo",
+    "group": "Reference tools",
+    "roles": [
+      "Admin"
+    ],
+    "auth": false
+  }
+]

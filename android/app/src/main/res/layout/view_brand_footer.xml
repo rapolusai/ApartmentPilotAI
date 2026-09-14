@@ -1,0 +1,5 @@
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+ android:layout_width="match_parent" android:layout_height="wrap_content"
+ android:minHeight="28dp" android:gravity="center" android:padding="6dp"
+ android:text="@string/brand_footer" android:textSize="10sp"
+ android:textColor="@color/ap_muted" android:importantForAccessibility="yes"/>

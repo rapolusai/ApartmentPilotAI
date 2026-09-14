@@ -1,0 +1,2 @@
+PASS: 21 dependency-free domain/token checks.
+PASS: 559 operational domain assertions (including 500 deterministic occupancy scenarios).

@@ -1,0 +1,24 @@
+.env
+.env.*
+!.env.example
+**/local.properties
+**/target/
+**/build/
+**/.gradle/
+.idea/
+*.iml
+.tools/
+.git-codex-staging/
+android/AprtmentPilotAI Android/
+backend/ApartmentPilotAI Backend/
+backups/
+**/*.jks
+**/*.keystore
+**/google-services.json
+**/*service-account*.json
+*.log
+
+**/.idea/
+test-results/
+**/secure-session*
+**/*provider-key*

@@ -1,0 +1,8 @@
+# Explicit opt-in for unverified synthetic local accounts only.
+# Never enable this profile on a public server.
+app:
+  local-registration-enabled: true
+  billing-job-enabled: true
+logging:
+  level:
+    com.rapolus.apartmentpilotai: INFO

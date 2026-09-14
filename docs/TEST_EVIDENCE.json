@@ -1,0 +1,186 @@
+{
+  "increment": "02",
+  "created_at_utc": "2026-09-14T05:05:26.369705+00:00",
+  "java_runtime": "openjdk version \"21.0.11\" 2026-04-21\nOpenJDK Runtime Environment (build 21.0.11+10-1-deb13u2-Debian)\nOpenJDK 64-Bit Server VM (build 21.0.11+10-1-deb13u2-Debian, mixed mode, sharing)",
+  "pure_java_checks": {
+    "status": "PASSED",
+    "original_assertions": 21,
+    "operational_assertions": 559,
+    "total_assertions": 580,
+    "includes_generated_occupancy_scenarios": 500,
+    "scope": "Actual production Rules, OperationsRules and Tokens compiled with JDK21 and executed by dependency-free harnesses. No Spring/DB/Android runtime in these checks."
+  },
+  "java_syntax": {
+    "status": "PASSED",
+    "units": 40,
+    "errors": 0,
+    "scope": "Parser only; imports/framework dependencies not resolved."
+  },
+  "sql_placeholder_static_check": {
+    "status": "PASSED",
+    "literal_calls_checked": 264,
+    "mismatches": 0,
+    "scope": "Java AST literal JDBC SQL placeholder counts versus supplied arguments. Dynamic SQL and varargs arrays excluded; does not parse or execute PostgreSQL SQL."
+  },
+  "literal_native_navigation": {
+    "status": "PASSED",
+    "targets": 81,
+    "missing": [],
+    "scope": "Literal go() destinations found in Java source exist in native route switches. Dynamic navigation, permissions and actual device rendering are not validated."
+  },
+  "xml_well_formedness": {
+    "status": "PASSED",
+    "files": 44,
+    "scope": "XML parse and resource-name inspection, not Android resource linking."
+  },
+  "approximate_stub_checks": [
+    {
+      "status": "PASSED",
+      "name": "Backend service/controller Java type check",
+      "scope": "27 production Java files compiled against private hand-written approximation stubs. Excludes SecurityConfig, ErrorHandler and application bootstrap. NOT a Spring/Maven build."
+    },
+    {
+      "status": "PASSED",
+      "name": "Android FeatureScreens/FeatureHost Java type check",
+      "scope": "Only FeatureScreens/FeatureHost against private Android/JSON/application approximation stubs. NOT all Android classes, SDK linking or APK compilation."
+    }
+  ],
+  "static_checks": [
+    {
+      "name": "Unchanged reference/ApartmentCare_Final_Clickable_UI_v2_1.html",
+      "passed": true,
+      "detail": "ff5554324e630f3b63235ec723e094be6cdff02dbf434898bed5d6f290f3ae28"
+    },
+    {
+      "name": "Unchanged backend/src/main/resources/db/migration/V1__identity_and_finance.sql",
+      "passed": true,
+      "detail": "bcd61859125711ea84ef88dfb67407968d4d744a7f2f4f26df3e229252223f0c"
+    },
+    {
+      "name": "XML well-formedness",
+      "passed": true,
+      "detail": "44 XML files; not Android resource linking"
+    },
+    {
+      "name": "Native project resource name references",
+      "passed": true,
+      "detail": "[]"
+    },
+    {
+      "name": "Android backup disabled",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Single non-exported FileProvider",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "FileProvider shares only private shared cache",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Native app is not a WebView wrapper",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "No Android database password/JDBC connection",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Native Java11 collection/string methods avoided for minSDK26",
+      "passed": true,
+      "detail": ""
+    }
+  ],
+  "local_checkpoint_2026_09_14": {
+    "java_runtime": "Oracle JDK 21.0.10 LTS",
+    "maven_test": {
+      "status": "PASSED",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "production_sources_compiled": 30
+    },
+    "maven_package": {
+      "status": "PASSED",
+      "artifact": "backend/target/apartmentpilotai-backend-0.2.0-SNAPSHOT.jar"
+    },
+    "postgresql_flyway": {
+      "status": "PASSED_EXISTING_SCHEMA_VALIDATION",
+      "database": "partmentpilotai_dev",
+      "postgresql_version": "18.6",
+      "schema_version": "2",
+      "history_entries_validated": 3,
+      "fresh_database_path": "NOT_EXECUTED",
+      "v1_clone_upgrade_path": "NOT_EXECUTED"
+    },
+    "live_http": {
+      "health": "UP",
+      "status_version": "0.2.0",
+      "release_ready": false,
+      "port": 8081,
+      "port_note": "Port 8080 was occupied by the system AgentService; checked-in Android endpoint was not changed.",
+      "local_api_checks": 35,
+      "local_api_status": "PASSED",
+      "operations_checks": 60,
+      "operations_status": "PASSED_WITH_CONCURRENCY",
+      "operations_evidence": "test-results/operations-04a596d2.json"
+    },
+    "android": {
+      "clean_assemble_debug": "PASSED",
+      "tasks_executed": 36,
+      "apk": "android/app/build/outputs/apk/debug/app-debug.apk",
+      "apk_bytes": 6440668,
+      "apk_sha256": "61285E83882B7596260CD965551C1685CAF18FAE62628365113AE8EC7B6CCF4F",
+      "unit_test_task": "PASSED",
+      "unit_tests": 2,
+      "unit_test_failures": 0,
+      "device_runtime": "NOT_EXECUTED",
+      "ui_parity": "NOT_VERIFIED"
+    }
+  },
+  "source_traceability": {
+    "reference_routes": 203,
+    "statuses": {
+      "CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED": 116,
+      "PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED": 58,
+      "NOT_IMPLEMENTED_AS_REFERENCE_ROUTE": 21,
+      "REFERENCE_ONLY_NOT_A_PRODUCTION_FEATURE": 8
+    },
+    "native_route_identifiers": 123,
+    "product_completion_percentage": null,
+    "scope": "Direct routes and merged partial subflows are not a finished/tested-product percentage. No frozen-reference visual parity claimed."
+  },
+  "unexecuted": [
+    {
+      "name": "Fresh database and V1-only clone migration matrix",
+      "reason": "The existing PostgreSQL 18.6 development schema at V2 validated successfully, but fresh creation and a backed-up V1-only upgrade clone have not yet run."
+    },
+    {
+      "name": "Android device/instrumentation/screenshots/accessibility",
+      "reason": "A clean debug APK build passed, but installation, instrumentation, device behavior, rotations and visual parity have not yet run."
+    },
+    {
+      "name": "PowerShell updater",
+      "reason": "Apply-Update.ps1 remains source-reviewed only. The HTTP scripts did run and passed after Windows PowerShell portability fixes."
+    },
+    {
+      "name": "Live OTP/recovery, FCM, subscription checkout/provider verification",
+      "reason": "Not integrated/configured. Local inbox and manual operator records must not be described as live provider results."
+    }
+  ],
+  "release_ready": false,
+  "evidence_files": [
+    "android-feature-stub-typecheck.txt",
+    "backend-stub-typecheck.txt",
+    "java-syntax.txt",
+    "pure-java-tests.txt",
+    "sql-placeholder-checks.txt"
+  ]
+}

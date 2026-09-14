@@ -1,0 +1,23 @@
+<resources>
+ <color name="ap_bg">#101b18</color>
+ <color name="ap_surface">#192722</color>
+ <color name="ap_soft">#21332b</color>
+ <color name="ap_ink">#eef4eb</color>
+ <color name="ap_sub">#b3c3b8</color>
+ <color name="ap_muted">#97aa9d</color>
+ <color name="ap_line">#2c3d33</color>
+ <color name="ap_pine">#cbe5a1</color>
+ <color name="ap_lime">#d6ed99</color>
+ <color name="ap_onlime">#223425</color>
+ <color name="ap_mint">#243f30</color>
+ <color name="ap_green">#a9d69b</color>
+ <color name="ap_amber">#edc074</color>
+ <color name="ap_ambg">#3d3020</color>
+ <color name="ap_red">#f0a898</color>
+ <color name="ap_redbg">#422b28</color>
+ <color name="ap_blue">#a7c2fa</color>
+ <color name="ap_bluebg">#24314b</color>
+ <color name="ap_violet">#c5b7f0</color>
+ <color name="ap_vbg">#302b42</color>
+ <color name="ap_body">#08110e</color>
+</resources>

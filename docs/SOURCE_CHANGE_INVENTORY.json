@@ -1,0 +1,778 @@
+{
+  "against": "ApartmentPilotAI_Implementation_01.zip",
+  "counts": {
+    "MODIFIED": 32,
+    "UNCHANGED": 53,
+    "NEW": 43
+  },
+  "files": [
+    {
+      "path": ".gitignore",
+      "change": "MODIFIED",
+      "sha256": "4e297ff0f72d8599ea5040ac66daa49163e4824625415a25bdecd00e727bac0b",
+      "bytes": 241
+    },
+    {
+      "path": "AGENTS.md",
+      "change": "MODIFIED",
+      "sha256": "62f5c00d8abe8bab8372c6f94dc0ba1d0725a201df2777ed42802d83d90454b2",
+      "bytes": 1677
+    },
+    {
+      "path": "README_FIRST.md",
+      "change": "MODIFIED",
+      "sha256": "821d02d3c98ce22c981e523333a0c9d56430496da3d82b6b0018a4af59f7275c",
+      "bytes": 5440
+    },
+    {
+      "path": "android/app/build.gradle",
+      "change": "MODIFIED",
+      "sha256": "32edfe320a4fd4f0b199b6353817eefb532e391011cdcd39bd8cac1c8b9eff6f",
+      "bytes": 1274
+    },
+    {
+      "path": "android/app/src/debug/AndroidManifest.xml",
+      "change": "UNCHANGED",
+      "sha256": "46edb38f2dba47975fe7b7b38af7b10dbd280e68fdc007153e1c3b02b98c20a0",
+      "bytes": 251
+    },
+    {
+      "path": "android/app/src/debug/res/xml/network_security_debug.xml",
+      "change": "UNCHANGED",
+      "sha256": "fdcd32a220ac08665b1fde5c038efdfda1d5bf6992da262d8dffe1f301b891f8",
+      "bytes": 251
+    },
+    {
+      "path": "android/app/src/main/AndroidManifest.xml",
+      "change": "MODIFIED",
+      "sha256": "86dbe202852f0708078ea0eef78d25f46f02dfa03cb75fcd895815027fcdf7fd",
+      "bytes": 963
+    },
+    {
+      "path": "android/app/src/main/assets/implementation.json",
+      "change": "NEW",
+      "sha256": "8f9313bd132694b33c8ef9677fcc467becb55c8042f60168882c427bb84ead1d",
+      "bytes": 93
+    },
+    {
+      "path": "android/app/src/main/java/com/rapolus/apartmentpilotai/MainActivity.java",
+      "change": "MODIFIED",
+      "sha256": "02e41ff03f6896645c5fba2e72ea030ec0a5dc437665f4bdc8c99a3b26088606",
+      "bytes": 58059
+    },
+    {
+      "path": "android/app/src/main/java/com/rapolus/apartmentpilotai/PilotApplication.java",
+      "change": "MODIFIED",
+      "sha256": "a84e13f5e275a4763441c30d80840b2dcbedaf6faf9e793535f1e7d5ebbd6e2a",
+      "bytes": 647
+    },
+    {
+      "path": "android/app/src/main/java/com/rapolus/apartmentpilotai/data/ApiClient.java",
+      "change": "MODIFIED",
+      "sha256": "0dfc752763094dbeae06222de8d97910f1b481822c932166cd105b13cb2b1fd3",
+      "bytes": 5720
+    },
+    {
+      "path": "android/app/src/main/java/com/rapolus/apartmentpilotai/data/SessionVault.java",
+      "change": "NEW",
+      "sha256": "ca579dab74f5d2f0afefd4046422c4bb8d6a808ef7c0dc43afbaeb4b854d828a",
+      "bytes": 2815
+    },
+    {
+      "path": "android/app/src/main/java/com/rapolus/apartmentpilotai/ui/FeatureHost.java",
+      "change": "NEW",
+      "sha256": "7e4d2586eae56f8eb12f86cbef8e9c529404bb0dfb6bb1291ed1184d54698cd5",
+      "bytes": 959
+    },
+    {
+      "path": "android/app/src/main/java/com/rapolus/apartmentpilotai/ui/FeatureScreens.java",
+      "change": "NEW",
+      "sha256": "1f889f46cc81c05e5c5f11f54cbce71bbf0344f6c4c8a3ae1016b3b615109b01",
+      "bytes": 95515
+    },
+    {
+      "path": "android/app/src/main/java/com/rapolus/apartmentpilotai/ui/LocalFiles.java",
+      "change": "NEW",
+      "sha256": "1a8960d99ae465ef3b6391c9a15f0230d07a1844bd5f2265a487e7cfe9c22f42",
+      "bytes": 5616
+    },
+    {
+      "path": "android/app/src/main/java/com/rapolus/apartmentpilotai/ui/Ui.java",
+      "change": "MODIFIED",
+      "sha256": "5c9d9a672460b9718f61ceb1ee631a38374c99fa34853252f383e32c6c07c2a3",
+      "bytes": 13934
+    },
+    {
+      "path": "android/app/src/main/res/drawable/hero_background.xml",
+      "change": "UNCHANGED",
+      "sha256": "bdac45a384f8ac08d1dc319caceca03e7d070fbf3afdadfd3aa67cf49bf2a5de",
+      "bytes": 197
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_arrow_left.xml",
+      "change": "UNCHANGED",
+      "sha256": "0ad75f0cfa6ff85550ecf769db274b089c061d183d4bb05c3c2cadca8df0b4cb",
+      "bytes": 404
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_arrow_right.xml",
+      "change": "UNCHANGED",
+      "sha256": "41857618d971d74e11fb98ae9f136a3c74e412d122d77178bd416eb727ae1193",
+      "bytes": 405
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_bell.xml",
+      "change": "UNCHANGED",
+      "sha256": "585754611f1939b17304b128dbf391ec8f20fbc2db8b3d2a8c9bfa98f2b37fbf",
+      "bytes": 447
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_building.xml",
+      "change": "UNCHANGED",
+      "sha256": "b5933c51fcb8c00a4d7123cbcaf7ac393e79a22aa70d1057a4505749b53c7afc",
+      "bytes": 490
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_calendar.xml",
+      "change": "UNCHANGED",
+      "sha256": "233198c372936516fcee8fede2cc944b23f2fb31f3f3b70a200f3caa16967fd3",
+      "bytes": 433
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_car.xml",
+      "change": "NEW",
+      "sha256": "5d5f64532681bc40225b8f703b4f0756720deb0bff53e6eb7b48f631068d5980",
+      "bytes": 456
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_check.xml",
+      "change": "UNCHANGED",
+      "sha256": "846346ebafbf6ec8df5c950df74b3d89dac94a8b05313db92d6a5ca67c21b67b",
+      "bytes": 390
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_clock.xml",
+      "change": "UNCHANGED",
+      "sha256": "859602372e0ed56e7b3982328a1bdd721d858556d3eb80afcc114f361c3934a5",
+      "bytes": 467
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_copy.xml",
+      "change": "UNCHANGED",
+      "sha256": "1a6b6260d8343ceef66cb8a0bf885c566fa072fb3f6ec53e301d6259d6bf480d",
+      "bytes": 427
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_error.xml",
+      "change": "UNCHANGED",
+      "sha256": "77b955de137f5073e3829e6615b0eec5b2c3e5dca524e767d9f091e622d32d05",
+      "bytes": 423
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_expense.xml",
+      "change": "UNCHANGED",
+      "sha256": "9059f79ac86c750c1b38b9c03c7bdb412291f4be25e19333411a060cea88fe55",
+      "bytes": 418
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_grid.xml",
+      "change": "UNCHANGED",
+      "sha256": "d13378ea8f13bf8fd70b47d2eb3af057f904f1745c563a85da9468abd9d01923",
+      "bytes": 484
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_home.xml",
+      "change": "UNCHANGED",
+      "sha256": "08c8140430d078e1c75d37fd05d8d386cea00af1ff0a19c456d7b74be4ec3645",
+      "bytes": 441
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_lift.xml",
+      "change": "NEW",
+      "sha256": "c9ef75e69fcc4e78b781108c8abb63e52b71a6c4748241dac7fe1ad29550681a",
+      "bytes": 420
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_logout.xml",
+      "change": "UNCHANGED",
+      "sha256": "f8986bbc842937a6d92281ba305683aff6da3e2ccf16a72de80d4461f94d74fc",
+      "bytes": 429
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_moon.xml",
+      "change": "UNCHANGED",
+      "sha256": "ea74ac228e6466801d459dc3c3383e2931994ef66dd22de11f7d8708b701ada0",
+      "bytes": 430
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_notice.xml",
+      "change": "UNCHANGED",
+      "sha256": "cd32da27f9a8e6cd74292c109abe2cf93137bb73239675e9189af5c941812bc5",
+      "bytes": 439
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_phone.xml",
+      "change": "NEW",
+      "sha256": "5e9d4c602d5ce0ec3f95e9f9555a4c591beb5ae93f847e6acfb0d548d6ce521d",
+      "bytes": 436
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_plus.xml",
+      "change": "UNCHANGED",
+      "sha256": "4b52a6d49d4234742e1f317c4529b94aa325dcec605c260fd888c941216dbd1c",
+      "bytes": 398
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_power.xml",
+      "change": "NEW",
+      "sha256": "368d829f68cdfef937f6c43e0a12a02d12dced1759f61a6bdf312eb33abf0da8",
+      "bytes": 399
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_receipt.xml",
+      "change": "UNCHANGED",
+      "sha256": "b16961e0b48b2dc0f31527021170fb77c5bf661a0b323a0a71d3a99901b37415",
+      "bytes": 455
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_report.xml",
+      "change": "UNCHANGED",
+      "sha256": "1f1ce9083a9440b16036cf82061d956083a0eceb6fb3e5ca2420da9b0d610772",
+      "bytes": 423
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_settings.xml",
+      "change": "UNCHANGED",
+      "sha256": "3146e78b67cda25682995c15df4f20ef25c91acb6ac6e03dc6898f764c365455",
+      "bytes": 421
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_shield.xml",
+      "change": "UNCHANGED",
+      "sha256": "6bc8be82c3714cd98e8da3c25190a33537448677424a353b38a05d319de8395b",
+      "bytes": 460
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_sun.xml",
+      "change": "NEW",
+      "sha256": "4c1f68ddab2acc6f9bf5affea2dd5ce385661808179716f00ad97e81d4c9ea51",
+      "bytes": 494
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_tools.xml",
+      "change": "UNCHANGED",
+      "sha256": "34deb8c6447b03aacab0a42a8d166316061b529ea3c9e0b61e004731d210e647",
+      "bytes": 448
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_user.xml",
+      "change": "UNCHANGED",
+      "sha256": "09c89b9d13645004cc919b2c9107f1bb9ed011cf3a4147f7aec3ac640f911d04",
+      "bytes": 513
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_users.xml",
+      "change": "UNCHANGED",
+      "sha256": "92ecea36fd9e485d94f1afbba34eba7a056702242742a88ab4a272cb5c968c09",
+      "bytes": 560
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_wallet.xml",
+      "change": "UNCHANGED",
+      "sha256": "f75521258bdc8189efb8be1a1c9e05b888e10bd8202fd72ac4cf0ab6ed014a24",
+      "bytes": 448
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_water.xml",
+      "change": "NEW",
+      "sha256": "34abdb3e8d98d17941f6d960464b1a403ffb93f05ba98b26eb737ae592ddd492",
+      "bytes": 419
+    },
+    {
+      "path": "android/app/src/main/res/layout/activity_main.xml",
+      "change": "UNCHANGED",
+      "sha256": "8d094c16c32f59de0e33d0175c8482be7f66f1ce70988598c0602f9cc574fa03",
+      "bytes": 2959
+    },
+    {
+      "path": "android/app/src/main/res/layout/view_brand_footer.xml",
+      "change": "UNCHANGED",
+      "sha256": "3375d45de147b285aead0ba4d1238ccc81449646276c20c3685651326827b5f2",
+      "bytes": 356
+    },
+    {
+      "path": "android/app/src/main/res/menu/bottom_navigation.xml",
+      "change": "UNCHANGED",
+      "sha256": "b4e57a933cf82a12b85921ab40c28b509f961c77c8018085933b79b318a17357",
+      "bytes": 584
+    },
+    {
+      "path": "android/app/src/main/res/values/colors.xml",
+      "change": "UNCHANGED",
+      "sha256": "ee60447f1b12ac47e8f860b59750b14035955bef6b618f1473d0a5d2e0480146",
+      "bytes": 848
+    },
+    {
+      "path": "android/app/src/main/res/values/components.xml",
+      "change": "UNCHANGED",
+      "sha256": "4fc09611d349e791cfd082bb17a84437d31f88d1819c773c2a20260697b4e047",
+      "bytes": 180
+    },
+    {
+      "path": "android/app/src/main/res/values/strings.xml",
+      "change": "UNCHANGED",
+      "sha256": "6654a4ebec8783b792d5ba8e53667d3af80b69d6476132dde5160a96dd9d9191",
+      "bytes": 350
+    },
+    {
+      "path": "android/app/src/main/res/values/themes.xml",
+      "change": "UNCHANGED",
+      "sha256": "39baea096686fc3565b841e03800fad96aa1f4f601eb8a129e79d5fc4a3df705",
+      "bytes": 638
+    },
+    {
+      "path": "android/app/src/main/res/values-night/colors.xml",
+      "change": "UNCHANGED",
+      "sha256": "6665754ce5ef943f2a13202297e551a6d186e5e2bebc8ea18c02f5cd77c79944",
+      "bytes": 851
+    },
+    {
+      "path": "android/app/src/main/res/xml/file_paths.xml",
+      "change": "NEW",
+      "sha256": "4a5a5c388d4ec758afab5d4893ef31658f8d3f3cac46bb09e6cd66b1254e9329",
+      "bytes": 117
+    },
+    {
+      "path": "android/build.gradle",
+      "change": "UNCHANGED",
+      "sha256": "96a33edb21d173da2c36f5312f50cdfb9f71d9f5078c081c81f2d029547f6cb9",
+      "bytes": 70
+    },
+    {
+      "path": "android/gradle/wrapper/gradle-wrapper.properties",
+      "change": "UNCHANGED",
+      "sha256": "14719d10e452dca94a65a44d96d23124cf134ba9ae3c83692a4c9faf4239f1ab",
+      "bytes": 251
+    },
+    {
+      "path": "android/gradle.properties",
+      "change": "UNCHANGED",
+      "sha256": "e6b436ff6a08da8b8c05e0e2fc1a7f40f41701bb506cd80fc2ddfd7b6e3b3b2b",
+      "bytes": 109
+    },
+    {
+      "path": "android/settings.gradle",
+      "change": "UNCHANGED",
+      "sha256": "09607c711eecc933ce087aed6ae4926c3e60d57a64e30a48d5ea23ea645da9c5",
+      "bytes": 278
+    },
+    {
+      "path": "backend/.env.example",
+      "change": "UNCHANGED",
+      "sha256": "9a5fc34f5a88718f635aacbd857bcc8b405a6425da660dbf20d5f93bfec6e77d",
+      "bytes": 357
+    },
+    {
+      "path": "backend/domain-check/DomainChecks.java",
+      "change": "UNCHANGED",
+      "sha256": "715895cea962acccb6cea069eb3e70b3b31e7989118b8d64e25b0c7239c25a3d",
+      "bytes": 2404
+    },
+    {
+      "path": "backend/domain-check/OperationsChecks.java",
+      "change": "NEW",
+      "sha256": "c859c88a76fea4e2fbb7d3a5cfc1d192fa218446717e48a7adb847afaa269813",
+      "bytes": 6932
+    },
+    {
+      "path": "backend/mvnw.cmd",
+      "change": "UNCHANGED",
+      "sha256": "8b0f7504575a065390308870866ba350e317476b4823b41bc4ecbb88f5ebf491",
+      "bytes": 186
+    },
+    {
+      "path": "backend/pom.xml",
+      "change": "MODIFIED",
+      "sha256": "1b6c51222e4c18d4788ec8c9f3713bd6994678f389388c0cd16d8e8bc7d36268",
+      "bytes": 2075
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/ApartmentPilotAiApplication.java",
+      "change": "MODIFIED",
+      "sha256": "649dfbf37719310db5032281ad1bdb03f2f677e8b8c6a00369593eea310761d1",
+      "bytes": 540
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/api/ApiController.java",
+      "change": "MODIFIED",
+      "sha256": "a6eab1e2ed9996a9ac3efbc4c22f1a853523f846816be447401586adaecf4fb7",
+      "bytes": 9024
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/api/ApiError.java",
+      "change": "MODIFIED",
+      "sha256": "74f1be9459161514a242ecd475e2b7af757b49ce3c945585dbc78b8702e29f74",
+      "bytes": 717
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/api/ErrorHandler.java",
+      "change": "MODIFIED",
+      "sha256": "4e00a6fce61c8fbb846c83ca036fd7b2924f1dfd2939a7f648758486cd1a5eda",
+      "bytes": 1755
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/api/ExtrasController.java",
+      "change": "NEW",
+      "sha256": "f18661b630670c6830491b4f895c8687cacb9fd2c45d0f20c2f2801856ed3243",
+      "bytes": 2056
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/api/OperationsController.java",
+      "change": "NEW",
+      "sha256": "e4a318890d45b5ef3acb64d7484d93315151e5744b2e4138e6f9122a4d1929f2",
+      "bytes": 14012
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/api/ProviderController.java",
+      "change": "NEW",
+      "sha256": "6cfcd54315ec908ae26d2b0291d7d021efab79db2f535b1344f066d1c532035c",
+      "bytes": 1006
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/api/Requests.java",
+      "change": "MODIFIED",
+      "sha256": "deee584039e059dd53aa89e665980c792451ab2f2b1324dca0aeb70ce5efc342",
+      "bytes": 1995
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/domain/OperationsRules.java",
+      "change": "NEW",
+      "sha256": "01dd5b403f06559c1e6ea3042ededc2e9a557a07ea78db7e97f7cdfeac3b7060",
+      "bytes": 4576
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/domain/Rules.java",
+      "change": "MODIFIED",
+      "sha256": "b6531760f7621ae27916dd4947609ea9ab56653e03ada2b13e2dc1f4a9294cb0",
+      "bytes": 2243
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/finance/BillingJob.java",
+      "change": "MODIFIED",
+      "sha256": "685961b931e0c3551a2bbd607769665c4e149d1112a3db6162c1abb032eb7cc6",
+      "bytes": 1934
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/finance/FinanceService.java",
+      "change": "MODIFIED",
+      "sha256": "06b6c461c2db7e1933adc465c7eb7a19b88d89314210f15052b1e7a995c8bae6",
+      "bytes": 18678
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/operations/AccountingService.java",
+      "change": "NEW",
+      "sha256": "52257718a4b0cc485504ffbe7cc484be38384abb0c985e14d3e5f1cca3314d20",
+      "bytes": 15945
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/operations/AutomationService.java",
+      "change": "NEW",
+      "sha256": "790fadc7a6b95b3857327985ab5752a64baf5f6b2ca8bd52070f74021ba2bbb0",
+      "bytes": 5933
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/operations/BookingService.java",
+      "change": "NEW",
+      "sha256": "52459846a432e5b51f1ec5289201c377fc2fe77694170c7f2144b7b92156c966",
+      "bytes": 17943
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/operations/Commands.java",
+      "change": "NEW",
+      "sha256": "55b9385c5808492df62cd6afbad22b74e186ae7291756933ad8110f73c643741",
+      "bytes": 2838
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/operations/CommunityService.java",
+      "change": "NEW",
+      "sha256": "700418acc1ef32085a9fb9b5786c2467dfd5465c6acdc556cec36592c5565dfa",
+      "bytes": 11794
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/operations/ExtrasService.java",
+      "change": "NEW",
+      "sha256": "d0a3b49b4216174302abbff3a3c3b323ff0a268ae1438d052c0ebacb74c28b9b",
+      "bytes": 7429
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/operations/FileService.java",
+      "change": "NEW",
+      "sha256": "28cc4549a002d8411c8fed8a42e9dbb4209222efed31bf1c6810628b3f212d60",
+      "bytes": 6943
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/operations/NoticeService.java",
+      "change": "NEW",
+      "sha256": "c3e2df178400b2fbedf146fa6671609f3188f0138426bdf73da0c4a2d79b568f",
+      "bytes": 6884
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/operations/OperationsJob.java",
+      "change": "NEW",
+      "sha256": "b0a5e337224ac919ce25f47efc054c3dd9f75a4177fe9c8e713350eca3613a40",
+      "bytes": 1317
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/operations/SubscriptionService.java",
+      "change": "NEW",
+      "sha256": "2353898bf0c091a18cb56eff10a25963acd5e66811784bf4a10ac2a64a77ef32",
+      "bytes": 12107
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/operations/TicketService.java",
+      "change": "NEW",
+      "sha256": "420b4e79e74cc54778499277725ecdc7786ff903312526189cf432c79954d6ed",
+      "bytes": 11052
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/operations/V.java",
+      "change": "NEW",
+      "sha256": "83f232ddfc4a36a3f8cefc92eeaaeb581842fa3871f0c94862467b503ad84c2d",
+      "bytes": 4792
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/security/Account.java",
+      "change": "MODIFIED",
+      "sha256": "0fd55c4522baa7ddefe2e0d35e436b074255cd25a017a02c459eddbdac5f49c0",
+      "bytes": 490
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/security/AuthService.java",
+      "change": "MODIFIED",
+      "sha256": "ca382827d9c5974e09da0b65478fa528345546fa976ecd9593b0a017faf101ac",
+      "bytes": 7876
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/security/RateGate.java",
+      "change": "MODIFIED",
+      "sha256": "1411437b954eb236c877088f8038359774f2fc735a9b773be7bf93e3e42f14e5",
+      "bytes": 1082
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/security/SecurityConfig.java",
+      "change": "MODIFIED",
+      "sha256": "6356d8e6331397fdf7dd48d1843050df9e9058245cd915b00d7f7155ca60b1d6",
+      "bytes": 3358
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/security/Tokens.java",
+      "change": "MODIFIED",
+      "sha256": "d5a75611fc2439decbf1c237cc982595dd004a9e666e98a6b857c8167cf6f72c",
+      "bytes": 764
+    },
+    {
+      "path": "backend/src/main/java/com/rapolus/apartmentpilotai/store/Db.java",
+      "change": "MODIFIED",
+      "sha256": "10c5418849678a1744a61144b589cb2073c1b3a6e1d0eac27223e80c2c2a4652",
+      "bytes": 3057
+    },
+    {
+      "path": "backend/src/main/resources/application-local.yml",
+      "change": "UNCHANGED",
+      "sha256": "4271764ed854e68c00b8fe1588fbe19d9d1b38e18c5bb483ac4bb7ed9e43ca5a",
+      "bytes": 237
+    },
+    {
+      "path": "backend/src/main/resources/application.yml",
+      "change": "UNCHANGED",
+      "sha256": "74f1c35333b0639f04e468c6eabb1584964259275f973886e8e3ccfa3ce196bc",
+      "bytes": 891
+    },
+    {
+      "path": "backend/src/main/resources/db/migration/V1__identity_and_finance.sql",
+      "change": "UNCHANGED",
+      "sha256": "bcd61859125711ea84ef88dfb67407968d4d744a7f2f4f26df3e229252223f0c",
+      "bytes": 5653
+    },
+    {
+      "path": "backend/src/main/resources/db/migration/V2__community_operations_and_bookings.sql",
+      "change": "NEW",
+      "sha256": "66458e4307abb3e3d14070260f24d64021c2c15782fba499a1db47e5f55ac639",
+      "bytes": 18003
+    },
+    {
+      "path": "backend/src/test/java/com/rapolus/apartmentpilotai/domain/OperationsRulesTest.java",
+      "change": "NEW",
+      "sha256": "f704f0226fd37b1fcb5bbdce95466d0add7155f8f812ecff2ff40db54f289366",
+      "bytes": 1980
+    },
+    {
+      "path": "backend/src/test/java/com/rapolus/apartmentpilotai/domain/RulesTest.java",
+      "change": "MODIFIED",
+      "sha256": "a7502149f4f1837819cdcc8ecab9c79df5385d7c579f099ca2c7009fa2efc4f7",
+      "bytes": 1512
+    },
+    {
+      "path": "docs/API_CONTRACT.md",
+      "change": "MODIFIED",
+      "sha256": "f230fe57c434859202eed38347077c70e36201d0d5823338f3226b60df9ddace",
+      "bytes": 11585
+    },
+    {
+      "path": "docs/CHANGELOG_02.md",
+      "change": "NEW",
+      "sha256": "0e944bcc1c9c054db3ba937ae5df4240ac1c25c137f05fcfed31e0618547c567",
+      "bytes": 4236
+    },
+    {
+      "path": "docs/IMPLEMENTATION_STATUS.md",
+      "change": "MODIFIED",
+      "sha256": "ecef74f8dd9898e9643ffa851e9806eca4ece65e97c2758878013d4711ad6bac",
+      "bytes": 6730
+    },
+    {
+      "path": "docs/LOCAL_SETUP.md",
+      "change": "MODIFIED",
+      "sha256": "ba02cc1e34815a3b8fa602c7c36bd0eb99a497d040a0c2367c60f91e38d6a117",
+      "bytes": 2931
+    },
+    {
+      "path": "docs/PROVIDER_BILLING.md",
+      "change": "NEW",
+      "sha256": "5f0bbcd122fec9c112152e096dc5f439527f5c0f8ea3140d59385bfa39e9f607",
+      "bytes": 2997
+    },
+    {
+      "path": "docs/SCREEN_COVERAGE.md",
+      "change": "NEW",
+      "sha256": "9eeab5c6925a5c2af8758da35827a44d33b403a9d122fda7ecb4a7079068def6",
+      "bytes": 15009
+    },
+    {
+      "path": "docs/SCREEN_IMPLEMENTATION_MAP.json",
+      "change": "MODIFIED",
+      "sha256": "9c8a4427886c4e3b40dcb6274d6f803ddaa079aa1d2b2b7f74be71458df6d656",
+      "bytes": 104897
+    },
+    {
+      "path": "docs/STATIC_CHECKS.json",
+      "change": "NEW",
+      "sha256": "871038acc040a9f730341549c9799ba87d682df4e06040d0c50c05469dfdd2fb",
+      "bytes": 1828
+    },
+    {
+      "path": "docs/TEST_EVIDENCE.json",
+      "change": "MODIFIED",
+      "sha256": "fd4a54627fc7444c376773756691b8840b96a4b5a1a23da2d79d7ce2532c2be4",
+      "bytes": 5359
+    },
+    {
+      "path": "docs/TEST_EVIDENCE.md",
+      "change": "MODIFIED",
+      "sha256": "777f04656a5d3e7b26b64bfdf1ff4b769dfeb454cadf1a1e6d6faa27783b0c1f",
+      "bytes": 4568
+    },
+    {
+      "path": "docs/USER_ACCEPTANCE_02.md",
+      "change": "NEW",
+      "sha256": "a19d98e612be6158fd84241c63e58f0246cfdf4d7b8daffe723665fa02f4dfe4",
+      "bytes": 3774
+    },
+    {
+      "path": "docs/evidence/android-feature-stub-typecheck.txt",
+      "change": "NEW",
+      "sha256": "2fa6854cbb47307a4361c6f4b9d21514fff1a9dc16a4496166a1e95728697fe8",
+      "bytes": 58
+    },
+    {
+      "path": "docs/evidence/backend-stub-typecheck.txt",
+      "change": "NEW",
+      "sha256": "a183ca0a703dd0663d88d75e0a10bfe2ab4655b335267095d0f16fea7cdad8cd",
+      "bytes": 62
+    },
+    {
+      "path": "docs/evidence/java-syntax.txt",
+      "change": "NEW",
+      "sha256": "c33270a9d86d309a3a915c93d9f3b70f5e8254a3e4e2d3ac05de359ab3465223",
+      "bytes": 38
+    },
+    {
+      "path": "docs/evidence/pure-java-tests.txt",
+      "change": "NEW",
+      "sha256": "bb20c2e43f6fb9bd907a0ea205d5d9890668b014a1eed85eb80bb9d77f5d4758",
+      "bytes": 137
+    },
+    {
+      "path": "docs/evidence/sql-placeholder-checks.txt",
+      "change": "NEW",
+      "sha256": "19790155ce418e1d10d2bb8589ec43d9b45cfd3ba967c06adf22174b2a0b51df",
+      "bytes": 1124
+    },
+    {
+      "path": "reference/ApartmentCare_Final_Clickable_UI_v2_1.html",
+      "change": "UNCHANGED",
+      "sha256": "ff5554324e630f3b63235ec723e094be6cdff02dbf434898bed5d6f290f3ae28",
+      "bytes": 334951
+    },
+    {
+      "path": "reference/IMPLEMENTATION_HANDOFF.md",
+      "change": "UNCHANGED",
+      "sha256": "c80e36d2e64706d51e73ebcdabf2975c3cd953b3fea3e730f1c65eaee6d0b0a1",
+      "bytes": 12202
+    },
+    {
+      "path": "reference/LOCK.json",
+      "change": "UNCHANGED",
+      "sha256": "a200448dc7375e0e8d416652063cc98127aec5de04d034389485c9b9cd88998e",
+      "bytes": 326
+    },
+    {
+      "path": "reference/SCREEN_INVENTORY.md",
+      "change": "UNCHANGED",
+      "sha256": "d78849a1d370642dd225ef2097ab4232e6717257843ee5448f74c09fe40e3bac",
+      "bytes": 12164
+    },
+    {
+      "path": "reference/screen-manifest.json",
+      "change": "UNCHANGED",
+      "sha256": "6589b532e06dd294f2170dd5f264e620ee868dbb60c1ff4a7efc824bf06e2ec9",
+      "bytes": 38239
+    },
+    {
+      "path": "scripts/Apply-Update.ps1",
+      "change": "NEW",
+      "sha256": "1ed730df14c63965f77c2cb80386fd2a799f087ba1b58820a9a51449b587d996",
+      "bytes": 5125
+    },
+    {
+      "path": "scripts/Prepare-Tooling.ps1",
+      "change": "UNCHANGED",
+      "sha256": "50aa8efe1e0af903b8d53e993eb9a559b630a1106b4052610bec657a6e7b0c28",
+      "bytes": 2769
+    },
+    {
+      "path": "scripts/Start-Backend.ps1",
+      "change": "UNCHANGED",
+      "sha256": "3a6fe6f1b01d7b3e50089f590c75b9b3c303ce0216dc66145d993af347993007",
+      "bytes": 1113
+    },
+    {
+      "path": "scripts/Test-Domain.ps1",
+      "change": "MODIFIED",
+      "sha256": "68cde8cf55e91dbf2f9dfa861bf70a8ff475b5b27ed4422702f98c993533e58e",
+      "bytes": 1022
+    },
+    {
+      "path": "scripts/Test-Local-Api.ps1",
+      "change": "UNCHANGED",
+      "sha256": "ac7f7d7046756a03ee3573d552594783a146de9299f901ff2f1c6b97a1f00181",
+      "bytes": 7299
+    },
+    {
+      "path": "scripts/Test-Operations.ps1",
+      "change": "NEW",
+      "sha256": "6b902fc35936ae3abdd459f38f9ce6f6442dcf011f63bc9652f630ea8e08136a",
+      "bytes": 15281
+    }
+  ]
+}
