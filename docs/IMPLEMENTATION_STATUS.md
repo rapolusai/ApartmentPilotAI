@@ -2,22 +2,24 @@
 
 **FRAMEWORK BUILDS AND LOCAL API CHECKPOINT VERIFIED. NOT PRODUCTION READY. NOT FULLY END-TO-END OR UI VERIFIED.**
 
-On 14 September 2026 the current increment02 source compiled with Java 21, produced a fresh debug APK, validated Flyway V1/V2 on the existing PostgreSQL 18.6 development database, and passed the available local HTTP suites. This is meaningful framework/API evidence, but it does not establish device behavior, every acceptance scenario, a fresh-database/V1-clone upgrade path, complete 203-route parity, or live provider integrations.
+On 15 September 2026 the current increment02 source compiled with Java 21, produced a fresh debug APK, validated Flyway V1/V2 on the existing PostgreSQL 18.6 development database, and passed the available local HTTP suites. This is meaningful framework/API evidence, but it does not establish device behavior, every acceptance scenario, a fresh-database/V1-clone upgrade path, complete 203-route parity, or live provider integrations.
 
-## Verified local checkpoint — 14 September 2026
+## Verified local checkpoint — 15 September 2026
 
 - `backend\mvnw.cmd test`: **14 JUnit tests passed**, 30 production source files compiled with Java 21.
 - `backend\mvnw.cmd package`: **BUILD SUCCESS**, executable `0.2.0-SNAPSHOT` jar produced.
-- Android clean debug build with the repository-prepared Gradle 8.13 runtime: **BUILD SUCCESS**, 36 tasks executed and a fresh debug APK produced.
+- Android clean debug build with the repository-prepared Gradle 8.13 runtime: **BUILD SUCCESS**, 41 tasks executed and a fresh debug APK produced.
 - Android `:app:testDebugUnitTest`: **2 tests passed** for authenticated/unauthenticated HTTP failure routing policy.
 - PostgreSQL `partmentpilotai_dev` reported version **18.6**. Flyway successfully validated three history entries, schema version **2**, with no migration pending.
 - `/actuator/health`: `UP`; `/api/v1/status`: version `0.2.0`, local registration enabled, `releaseReady: false`.
-- `Test-Local-Api.ps1`: **35/35 HTTP checks passed**.
+- `Test-Local-Api.ps1`: **50/50 HTTP checks passed**, including finance previews, reminder idempotency, rejection persistence and atomic two-payment approval.
 - `Test-Operations.ps1 -Concurrency`: **60/60 checks passed**, including one-winner concurrent booking approval.
 - The local backend used port **8081** because port 8080 was occupied by the system `AgentService`; the checked-in Android endpoint was not changed.
 - Test suites intentionally retained their clearly labelled synthetic tenants for inspection. No database records were deleted.
 
 The first post-build Android module is now source-complete and clean-build verified: dedicated Admin/Treasurer/Resident login routes, invalid invite, separate flat choice, setup completion, centralized 401 invalidation, safe destination resume, and offline/session-expired/access-denied/empty/error/not-found/loading states. OTP-backed recovery remains explicitly `NOT_CONFIGURED`, and none of these routes is marked device-runtime or visual-parity verified.
+
+The maintenance review flow now has dedicated native `bulk-approval`, `bulk-review`, `payment-reject`, `outstanding`, `reminder-preview` and `bill-preview` destinations. Server-backed previews derive eligible flats, effective rates/overrides, existing bills, balances and recipients from the authenticated tenant. Manual reminders are request-key idempotent and create only in-app inbox records; external push remains `NOT_CONFIGURED`. These routes clean-build successfully but remain device-runtime and light/dark visual-parity unverified.
 
 ## Written and connected at source level
 

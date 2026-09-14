@@ -22,6 +22,9 @@ All ordinary APIs derive tenant/role from a bearer session. JSON bodies contain 
 | GET | `/api/v1/billing/rules` | `ApiController.java` |
 | POST | `/api/v1/billing/rules` | `ApiController.java` |
 | POST | `/api/v1/billing/generate` | `ApiController.java` |
+| GET | `/api/v1/billing/preview` | `ApiController.java` |
+| GET | `/api/v1/billing/reminders/preview` | `ApiController.java` |
+| POST | `/api/v1/billing/reminders/send` | `ApiController.java` |
 | GET | `/api/v1/bills` | `ApiController.java` |
 | GET | `/api/v1/bills/{id}` | `ApiController.java` |
 | GET | `/api/v1/payments` | `ApiController.java` |
@@ -146,6 +149,8 @@ All ordinary APIs derive tenant/role from a bearer session. JSON bodies contain 
 
 `POST /ops/settings`: full control set (payee,upi,bank,account,ifsc,billVacant,lateEnabled,lateFee,graceDays,dueNotify,reminders,reminderDays,expensesVisible,proofRequired,quietStart,quietEnd,bookingRules). This endpoint is not a partial PATCH. Read settings first before submitting an edited full body.
 
+`GET /billing/preview?month=YYYY-MM`: staff-only, tenant-derived generation preview with the effective base rate, active/eligible flat count, flat-override-adjusted scheduled total, existing maintenance-bill count and due date. `GET /billing/reminders/preview` excludes paid and in-review bills. `POST /billing/reminders/send` requires `requestKey`; retries with the same key do not duplicate inbox records. Responses explicitly report external delivery `NOT_CONFIGURED` until a real provider is connected.
+
 `POST /ops/services/{id}/complete`: scheduledOn,completedOn,note,cost,paid,requestKey. Each scheduled cycle creates at most one completion/linked expense.
 
 `POST /ops/polls`: title,description,closesAt,options [2–6 distinct labels],requestKey. Vote body: optionId. One vote per flat, updateable until close.
@@ -155,4 +160,4 @@ All ordinary APIs derive tenant/role from a bearer session. JSON bodies contain 
 Provider routes use an independent operator header, not apartment bearer privileges. See PROVIDER_BILLING.md. They are manual operator interfaces, not a connected payment gateway.
 
 ## Executable request examples
-See scripts/Test-Local-Api.ps1 and scripts/Test-Operations.ps1. These tests create only synthetic local records and are supplied for user execution. They have not been run here against PostgreSQL.
+See scripts/Test-Local-Api.ps1 and scripts/Test-Operations.ps1. These tests create only synthetic local records. Both have been run against the local PostgreSQL development database; the latest observed counts and exclusions are recorded in TEST_EVIDENCE.md.

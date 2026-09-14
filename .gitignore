@@ -5,6 +5,7 @@
 **/target/
 **/build/
 **/.gradle/
+.gradle-local/
 .idea/
 *.iml
 .tools/

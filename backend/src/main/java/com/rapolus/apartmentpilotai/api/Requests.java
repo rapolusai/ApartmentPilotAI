@@ -19,6 +19,8 @@ public final class Requests {
     }
     public record Review(@NotEmpty @Size(max=100) List<@NotNull UUID> paymentIds,boolean verified) {
     }
+    public record Reminder(@NotNull UUID requestKey) {
+    }
     public record Reject(@NotBlank @Size(max=300) String reason) {
     }
     public record Expense(@NotBlank @Size(max=100) String title,@NotBlank @Size(max=30) String category, @NotNull BigDecimal amount,@NotNull LocalDate paidOn,boolean paid,boolean visibleToResidents,@NotNull UUID requestKey) {

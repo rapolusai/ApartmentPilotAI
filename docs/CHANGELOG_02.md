@@ -29,13 +29,14 @@
 - Original V1 migration and frozen v2.1 HTML bytes.
 - **Powered By @Rapolu`s** on application page/footer and application confirmation/export UI.
 
-## Local validation and build repairs — 14 September 2026
+## Local validation and build repairs — 15 September 2026
 
 - Corrected `LocalFiles` PDF lifecycle handling for Android APIs where `PdfDocument` is not `AutoCloseable`; page finishing, output stream closure and the required attribution footer remain intact.
 - Made the checksum-verified tooling bootstrap accept checksum responses returned as either text or bytes by Windows PowerShell.
 - Corrected two Windows PowerShell operations-suite defects: generic result-list serialization and the case-insensitive `$pid` collision with PowerShell's built-in process ID.
-- Current backend JUnit test/package, Android clean debug build, PostgreSQL/Flyway V2 validation, 35-check local API suite and 60-check operations/concurrency suite passed. Device/UI parity and external providers remain open.
+- Current backend JUnit test/package, Android clean debug build, PostgreSQL/Flyway V2 validation, 50-check local API suite and 60-check operations/concurrency suite passed. Device/UI parity and external providers remain open.
 - Added dedicated native Admin/Treasurer/Resident login destinations, invalid-invite, choose-flat and setup-complete routes. Added centralized stale-token invalidation and dedicated offline/session-expired/access-denied/empty/error/not-found/loading states with safe destination resume. Mobile OTP recovery remains visibly not configured rather than simulated.
+- Split maintenance review into dedicated native selection, confirmation, rejection, unpaid-flat, reminder-preview and bill-preview routes. Added tenant-derived bill-generation previews and request-key-idempotent manual reminders that write only to the in-app inbox while external delivery remains `NOT_CONFIGURED`.
 
 ## Deliberately not claimed
 Not a complete 203-route pixel-identical native app, a device-validated APK/AAB, a verified fresh/V1-clone migration matrix, a configured OTP/FCM/payment integration, or a Google Play release. See status and evidence for the remaining acceptance gates.

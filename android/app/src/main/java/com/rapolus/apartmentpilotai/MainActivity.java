@@ -38,7 +38,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     private View progress;
     private Ui.Fields fields;
     private JSONObject restoreFields;
-    private String page="welcome",id="",loginRole="ADMIN",month=YearMonth.now(ZoneId.of("Asia/Kolkata")).toString(),inviteCode="",paymentRequestKey=UUID.randomUUID().toString(),expenseRequestKey=UUID.randomUUID().toString();
+    private String page="welcome",id="",loginRole="ADMIN",month=YearMonth.now(ZoneId.of("Asia/Kolkata")).toString(),inviteCode="",paymentRequestKey=UUID.randomUUID().toString(),reminderRequestKey=UUID.randomUUID().toString(),expenseRequestKey=UUID.randomUUID().toString();
     private String resumePage="",resumeId="";
     private JSONObject resumeFields;
     private JSONObject signupDraft=new JSONObject(),invitePreview=new JSONObject();
@@ -103,7 +103,10 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             month=b.getString("month",month);
             loginRole=b.getString("loginRole","ADMIN");
             paymentRequestKey=b.getString("paymentKey",paymentRequestKey);
+            reminderRequestKey=b.getString("reminderKey",reminderRequestKey);
             expenseRequestKey=b.getString("expenseKey",expenseRequestKey);
+            ArrayList<String> savedSelection=b.getStringArrayList("selectedPayments");
+            if(savedSelection!=null)selected.addAll(savedSelection);
             inviteCode=b.getString("inviteCode","");
             try {
                 restoreFields=new JSONObject(b.getString("form","{}"));
@@ -127,7 +130,9 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         b.putString("month",month);
         b.putString("loginRole",loginRole);
         b.putString("paymentKey",paymentRequestKey);
+        b.putString("reminderKey",reminderRequestKey);
         b.putString("expenseKey",expenseRequestKey);
+        b.putStringArrayList("selectedPayments",new ArrayList<>(selected));
         b.putString("inviteCode",inviteCode);
         b.putString("invitePreview",invitePreview.toString());
         b.putString("resumePage",resumePage);
@@ -163,7 +168,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         id=record;
         resetCommandKey();
         restoreFields=null;
-        selected.clear();
+        if(!p.equals("bulk-approval")&&!p.equals("bulk-review"))selected.clear();
         render();
         ((ScrollView)findViewById(R.id.scroll)).scrollTo(0,0);
     }
@@ -272,6 +277,18 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             case "rate-history":rateHistory();
             break;
             case "payments":case "approvals":payments();
+            break;
+            case "bulk-approval":bulkApproval();
+            break;
+            case "bulk-review":bulkReview();
+            break;
+            case "payment-reject":paymentReject();
+            break;
+            case "outstanding":outstanding();
+            break;
+            case "reminder-preview":reminderPreview();
+            break;
+            case "bill-preview":billPreview();
             break;
             case "payment":payment();
             break;
@@ -694,7 +711,10 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 LinearLayout c=ui.card(content);
                 ui.iconRow(c,b.optString("flatLabel"),state+" · "+Ui.money(due),R.drawable.ic_receipt,()->go("bill",b.optString("id")));
             }
-            if(staff())ui.button(content,"Generate missing bills",R.drawable.ic_plus,true,()->ui.confirm("Generate dues?",month+" · Existing bills will be skipped.","Generate",()->request("POST","/billing/generate?month="+month,json(),x->render())));
+            if(staff()) {
+                ui.button(content,"Unpaid flats",R.drawable.ic_clock,false,()->go("outstanding"));
+                ui.button(content,"Generate missing bills",R.drawable.ic_plus,true,()->go("bill-preview"));
+            }
         }
         );
     }
@@ -804,34 +824,235 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 if(approvals&&!"PENDING".equals(p.optString("status")))continue;
                 displayed++;
                 LinearLayout c=ui.card(content);
-                if(staff()&&"PENDING".equals(p.optString("status"))) {
-                    CheckBox check=new CheckBox(this);
-                    check.setText("Select payment");
-                    check.setOnCheckedChangeListener((v,selectedNow)-> {
-                        if(selectedNow)selected.add(p.optString("id"));
-                        else selected.remove(p.optString("id"));
-                    }
-                    );
-                    c.addView(check);
-                }
                 ui.iconRow(c,p.optString("flatLabel")+" · "+Ui.money(p.opt("amount")),(p.optBoolean("reversed")?"Reversed":pretty(p.optString("status")))+" · "+pretty(p.optString("mode")),R.drawable.ic_wallet,()->go("payment",p.optString("id")));
             }
             if(displayed==0)ui.empty(content,"No payments here","Submitted payments appear here for verification.");
-            if(staff())ui.button(content,"Approve selected",R.drawable.ic_check,true,()-> {
-                if(selected.isEmpty()) {
-                    showError("Select at least one pending payment.");
-                    return;
-                }
-                ui.confirm("Approve "+selected.size()+" payments?","Confirm you have verified every selected payment in the bank account or cash records. This creates receipts.","Verified · approve",()->request("POST","/payments/approve",json("paymentIds",new JSONArray(selected),"verified",true),x-> {
-                    selected.clear();
-                    render();
-                }
-                ));
-            }
-            );
+            if(approvals&&staff())ui.button(content,"Select multiple",R.drawable.ic_check,true,()-> {
+                selected.clear();
+                go("bulk-approval");
+            });
             if(approvals)ui.button(content,"All payment history",R.drawable.ic_clock,false,()->go("payments"));
         }
         );
+    }
+    private void bulkApproval() {
+        header("Select payments");
+        if(!staff()) {
+            page="access-denied";
+            render();
+            return;
+        }
+        request("GET","/payments",null,r-> {
+            JSONArray arr=(JSONArray)r;
+            List<JSONObject> pending=new ArrayList<>();
+            for(int i=0; i<arr.length(); i++)if("PENDING".equals(arr.getJSONObject(i).optString("status")))pending.add(arr.getJSONObject(i));
+            Set<String> available=new LinkedHashSet<>();
+            for(JSONObject p:pending)available.add(p.optString("id"));
+            selected.retainAll(available);
+            LinearLayout tools=ui.card(content);
+            ui.kv(tools,"Pending",Integer.toString(pending.size()));
+            CheckBox all=new CheckBox(this);
+            all.setText("Select all payments");
+            all.setTextColor(ui.color(R.color.ap_sub));
+            tools.addView(all);
+            List<CheckBox> boxes=new ArrayList<>();
+            for(JSONObject p:pending) {
+                String paymentId=p.optString("id");
+                LinearLayout c=ui.card(content);
+                CheckBox check=new CheckBox(this);
+                check.setText(p.optString("flatLabel")+" · "+Ui.money(p.opt("amount")));
+                check.setTextColor(ui.color(R.color.ap_ink));
+                check.setChecked(selected.contains(paymentId));
+                check.setOnCheckedChangeListener((button,checked)-> {
+                    if(checked)selected.add(paymentId);
+                    else selected.remove(paymentId);
+                });
+                c.addView(check);
+                boxes.add(check);
+                ui.kv(c,"Mode",pretty(p.optString("mode")));
+                ui.kv(c,"Reference",p.isNull("reference")?"Cash declaration":p.optString("reference"));
+            }
+            all.setChecked(!pending.isEmpty()&&selected.containsAll(available));
+            all.setOnCheckedChangeListener((button,checked)-> {
+                for(CheckBox box:boxes)box.setChecked(checked);
+            });
+            if(pending.isEmpty())ui.empty(content,"No pending payments","New declarations will appear here.");
+            ui.button(content,"Review selected",R.drawable.ic_check,true,()-> {
+                if(selected.isEmpty()) {
+                    showError("Select at least one payment.");
+                    return;
+                }
+                go("bulk-review");
+            });
+        });
+    }
+    private void bulkReview() {
+        header("Confirm approval");
+        if(!staff()) {
+            page="access-denied";
+            render();
+            return;
+        }
+        request("GET","/payments",null,r-> {
+            JSONArray arr=(JSONArray)r;
+            List<JSONObject> pending=new ArrayList<>();
+            BigDecimal total=BigDecimal.ZERO;
+            for(int i=0; i<arr.length(); i++) {
+                JSONObject p=arr.getJSONObject(i);
+                if(selected.contains(p.optString("id"))&&"PENDING".equals(p.optString("status"))) {
+                    pending.add(p);
+                    total=total.add(Ui.decimal(p.opt("amount")));
+                }
+            }
+            Set<String> stillPending=new LinkedHashSet<>();
+            for(JSONObject p:pending)stillPending.add(p.optString("id"));
+            selected.retainAll(stillPending);
+            if(pending.isEmpty()) {
+                ui.empty(content,"Selection is no longer available","Refresh pending payments and select again.");
+                ui.button(content,"Back to approvals",R.drawable.ic_arrow_right,true,()->go("approvals"));
+                return;
+            }
+            LinearLayout summary=ui.card(content);
+            ui.hero(summary,pending.size()+" selected payments",Ui.money(total),"Confirm every bank or cash record");
+            for(JSONObject p:pending) {
+                LinearLayout c=ui.card(content);
+                ui.iconRow(c,p.optString("flatLabel"),pretty(p.optString("mode"))+" · "+(p.isNull("reference")?"Cash":p.optString("reference")),R.drawable.ic_wallet,null);
+                ui.kv(c,"Amount",Ui.money(p.opt("amount")));
+            }
+            formStart();
+            fields.check("verified","I have verified every selected payment.",false);
+            ui.note(content,"Only approve payments matched to the association bank record or received in cash.");
+            ui.button(content,"Approve "+pending.size()+" payments",R.drawable.ic_check,true,()->safe(()-> {
+                if(!fields.checked("verified"))throw new IllegalArgumentException("Confirm you verified every selected payment.");
+                request("POST","/payments/approve",json("paymentIds",new JSONArray(selected),"verified",true),x-> {
+                    selected.clear();
+                    go("approvals");
+                });
+            }));
+        });
+    }
+    private void paymentReject() {
+        header("Reject payment");
+        if(!staff()) {
+            page="access-denied";
+            render();
+            return;
+        }
+        request("GET","/payments",null,r-> {
+            JSONObject p=find((JSONArray)r,id);
+            if(p==null||!"PENDING".equals(p.optString("status"))) {
+                ui.empty(content,"Payment unavailable","It may already have been reviewed.");
+                return;
+            }
+            LinearLayout c=ui.card(content);
+            ui.kv(c,"Flat",p.optString("flatLabel"));
+            ui.kv(c,"Amount",Ui.money(p.opt("amount")));
+            formStart();
+            fields.select("reasonType","Reason",new String[] {"Payment not found","Amount mismatch","Duplicate reference","Proof unclear","Other"},new String[] {"Payment not found","Amount mismatch","Duplicate reference","Proof unclear","Other"});
+            fields.field("reason","Message to resident","",TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+            ui.button(content,"Reject payment",R.drawable.ic_error,true,()->safe(()-> {
+                String message=fields.get("reason");
+                if(message.trim().isEmpty())throw new IllegalArgumentException("Explain what the resident needs to correct.");
+                String reason=fields.get("reasonType")+": "+message;
+                if(reason.length()>300)throw new IllegalArgumentException("Keep the rejection message within 300 characters.");
+                request("POST","/payments/"+id+"/reject",json("reason",reason),x->go("approvals"));
+            }));
+        });
+    }
+    private void outstanding() {
+        header("Unpaid flats");
+        if(!staff()) {
+            page="access-denied";
+            render();
+            return;
+        }
+        monthSelector();
+        request("GET","/bills?month="+month,null,r-> {
+            JSONArray arr=(JSONArray)r;
+            List<JSONObject> unpaid=new ArrayList<>();
+            BigDecimal total=BigDecimal.ZERO;
+            int underReview=0;
+            for(int i=0; i<arr.length(); i++) {
+                JSONObject b=arr.getJSONObject(i);
+                BigDecimal due=Ui.decimal(b.opt("amount")).subtract(Ui.decimal(b.opt("paid")));
+                if(due.signum()>0) {
+                    unpaid.add(b);
+                    total=total.add(due);
+                    if(b.optBoolean("inReview"))underReview++;
+                }
+            }
+            ui.hero(content,"Outstanding maintenance",Ui.money(total),(unpaid.size()-underReview)+" unpaid · "+underReview+" under review");
+            for(JSONObject b:unpaid) {
+                BigDecimal due=Ui.decimal(b.opt("amount")).subtract(Ui.decimal(b.opt("paid")));
+                LinearLayout c=ui.card(content);
+                ui.iconRow(c,b.optString("flatLabel"),b.optBoolean("inReview")?"In review":"Payment due",R.drawable.ic_clock,()->go("bill",b.optString("id")));
+                ui.kv(c,"Outstanding",Ui.money(due));
+            }
+            if(unpaid.isEmpty())ui.empty(content,"Everyone is up to date","There are no outstanding dues for this month.");
+            ui.button(content,"Send reminders",R.drawable.ic_bell,true,()-> {
+                reminderRequestKey=UUID.randomUUID().toString();
+                go("reminder-preview");
+            });
+        });
+    }
+    private void reminderPreview() {
+        header("Send reminders");
+        if(!staff()) {
+            page="access-denied";
+            render();
+            return;
+        }
+        request("GET","/billing/reminders/preview?month="+month,null,r-> {
+            JSONObject preview=(JSONObject)r;
+            LinearLayout summary=ui.card(content);
+            ui.kv(summary,"Recipients",preview.optLong("recipientCount")+" accounts");
+            ui.kv(summary,"Unpaid flats",preview.optLong("flatCount")+"");
+            ui.kv(summary,"Outstanding",Ui.money(preview.opt("outstanding")));
+            ui.heading(content,"Message preview");
+            LinearLayout message=ui.card(content);
+            message.addView(ui.text(preview.optString("title")+" · "+month,14,true,R.color.ap_ink));
+            ui.gap(message,10);
+            message.addView(ui.text(preview.optString("message"),12,false,R.color.ap_sub));
+            ui.heading(content,"Unpaid flats");
+            JSONArray flats=preview.optJSONArray("flats");
+            if(flats!=null)for(int i=0; i<flats.length(); i++) {
+                JSONObject flat=flats.getJSONObject(i);
+                LinearLayout c=ui.card(content);
+                ui.iconRow(c,flat.optString("flatLabel"),Ui.money(flat.opt("outstanding")),R.drawable.ic_home,null);
+            }
+            if(preview.optLong("recipientCount")==0)ui.empty(content,"No reminder recipients","Paid and in-review payments are excluded.");
+            ui.note(content,"Reminders are saved to the in-app inbox. External push delivery: "+preview.optString("externalDeliveryStatus","NOT_CONFIGURED")+".");
+            ui.button(content,"Send reminder",R.drawable.ic_bell,true,()->request("POST","/billing/reminders/send?month="+month,json("requestKey",reminderRequestKey),x-> {
+                JSONObject result=(JSONObject)x;
+                Toast.makeText(this,result.optInt("created")+" in-app reminder(s) saved. External push "+result.optString("externalDeliveryStatus","NOT_CONFIGURED")+".",Toast.LENGTH_LONG).show();
+                go("outstanding");
+            }));
+        });
+    }
+    private void billPreview() {
+        header("Generate monthly dues");
+        if(!staff()) {
+            page="access-denied";
+            render();
+            return;
+        }
+        monthSelector();
+        request("GET","/billing/preview?month="+month,null,r-> {
+            JSONObject preview=(JSONObject)r;
+            if(!preview.optBoolean("configured")) {
+                ui.empty(content,"Maintenance amount needed","Set the amount and due day first.");
+                ui.button(content,"Set maintenance",R.drawable.ic_settings,true,()->go("billing-settings"));
+                return;
+            }
+            LinearLayout c=ui.card(content);
+            ui.kv(c,"Flats",preview.optInt("flats")+"");
+            ui.kv(c,"Base rate",Ui.money(preview.opt("baseRate"))+" / flat");
+            ui.kv(c,"Total scheduled",Ui.money(preview.opt("scheduled")));
+            ui.kv(c,"Existing monthly bills",preview.optLong("existing")+"");
+            ui.kv(c,"Due date",preview.optString("dueDate"));
+            ui.note(content,"Existing flat/month maintenance bills are skipped. Contributions and opening dues remain separate.");
+            ui.button(content,"Generate missing bills",R.drawable.ic_plus,true,()->request("POST","/billing/generate?month="+month,json(),x->go("dues")));
+        });
     }
     private void payment() {
         header("Payment");
@@ -853,10 +1074,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             if("APPROVED".equals(p.optString("status")))ui.button(content,"Receipt",R.drawable.ic_receipt,true,()->go("receipt",id));
             if(staff()&&"PENDING".equals(p.optString("status"))) {
                 ui.button(content,"Approve",R.drawable.ic_check,true,()->ui.confirm("Payment verified?","Confirm the association has received this money. An approved receipt will be created.","Verified · approve",()->request("POST","/payments/approve",json("paymentIds",new JSONArray(Collections.singletonList(id)),"verified",true),x->go("receipt",id))));
-                Ui.Fields rejection=new Ui.Fields(ui,content);
-                ui.gap(content,14);
-                rejection.field("reason","Rejection reason","",TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-                ui.button(content,"Reject",R.drawable.ic_error,false,()->request("POST","/payments/"+id+"/reject",json("reason",rejection.get("reason")),x->render()));
+                ui.button(content,"Reject",R.drawable.ic_error,false,()->go("payment-reject",id));
             }
         }
         );

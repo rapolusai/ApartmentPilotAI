@@ -84,6 +84,16 @@ import org.springframework.transaction.annotation.Transactional;
     @PostMapping("/billing/generate") Object generate(@AuthenticationPrincipal Account a,@RequestParam String month) {
         return finance.generate(a,YearMonth.parse(month));
     }
+    @GetMapping("/billing/preview") Object billingPreview(@AuthenticationPrincipal Account a,@RequestParam String month) {
+        return finance.billingPreview(a,YearMonth.parse(month));
+    }
+    @GetMapping("/billing/reminders/preview") Object reminderPreview(@AuthenticationPrincipal Account a,@RequestParam String month) {
+        return finance.reminderPreview(a,YearMonth.parse(month));
+    }
+    @PostMapping("/billing/reminders/send") Object sendReminders(@AuthenticationPrincipal Account a,@RequestParam String month,@Valid @RequestBody Requests.Reminder r) {
+        RateGate.enforce(gate.count("maintenance-reminder:"+a.id()),10);
+        return finance.sendReminders(a,YearMonth.parse(month),r.requestKey());
+    }
     @GetMapping("/bills") Object bills(@AuthenticationPrincipal Account a,@RequestParam String month) {
         return finance.bills(a,YearMonth.parse(month));
     }

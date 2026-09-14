@@ -57,6 +57,63 @@ import org.springframework.transaction.annotation.Transactional;
         if(generated>0)db.audit(a.tenantId(),a.id(),"BILLS_GENERATED",month,null,Integer.toString(generated));
         return Map.of("created",generated,"month",month.toString());
     }
+    public Map<String,Object> billingPreview(Account a,YearMonth month) {
+        a.requireStaff();
+        var rule=db.find("select amount,billing_day,due_day from ap_billing_rule where tenant_id=? and effective_month<=? order by effective_month desc limit 1",a.tenantId(),Date.valueOf(month.atDay(1)));
+        Map<String,Object> out=new LinkedHashMap<>();
+        out.put("month",month.toString());
+        out.put("existing",db.count("select count(*) from ap_bill where tenant_id=? and billing_month=? and kind='MAINTENANCE'",a.tenantId(),Date.valueOf(month.atDay(1))));
+        if(rule.isEmpty()) {
+            out.put("configured",false);
+            return out;
+        }
+        boolean billVacant=db.find("select bill_vacant from ap_settings where tenant_id=?",a.tenantId()).map(s->Boolean.TRUE.equals(s.get("billVacant"))).orElse(true);
+        var flats=db.rows("select f.id,f.label,coalesce((select r.amount from ap_rate_override r where r.tenant_id=f.tenant_id and r.flat_id=f.id and r.effective_month<=? order by r.effective_month desc limit 1),?) as rate from ap_flat f where f.tenant_id=? and f.active=true and (f.occupied=true or ?=true) order by f.label",Date.valueOf(month.atDay(1)),rule.get().get("amount"),a.tenantId(),billVacant);
+        BigDecimal scheduled=flats.stream().map(f->(BigDecimal)f.get("rate")).reduce(BigDecimal.ZERO,BigDecimal::add);
+        int billingDay=((Number)rule.get().get("billingDay")).intValue(),dueDay=((Number)rule.get().get("dueDay")).intValue();
+        out.put("configured",true);
+        out.put("flats",flats.size());
+        out.put("baseRate",rule.get().get("amount"));
+        out.put("scheduled",scheduled);
+        out.put("billingDay",billingDay);
+        out.put("dueDay",dueDay);
+        out.put("dueDate",Rules.dueDate(month,billingDay,dueDay).toString());
+        out.put("billVacant",billVacant);
+        return out;
+    }
+    public Map<String,Object> reminderPreview(Account a,YearMonth month) {
+        a.requireStaff();
+        var rows=reminderRows(a,month);
+        BigDecimal total=rows.stream().map(r->(BigDecimal)r.get("outstanding")).reduce(BigDecimal.ZERO,BigDecimal::add);
+        long recipients=rows.stream().mapToLong(r->((Number)r.get("recipientCount")).longValue()).sum();
+        Map<String,Object> out=new LinkedHashMap<>();
+        out.put("month",month.toString());
+        out.put("flatCount",rows.size());
+        out.put("recipientCount",recipients);
+        out.put("outstanding",total);
+        out.put("flats",rows);
+        out.put("title","Maintenance reminder");
+        out.put("message","Please pay the outstanding amount and submit payment details in the app.");
+        out.put("externalDeliveryStatus","NOT_CONFIGURED");
+        return out;
+    }
+    @Transactional public Map<String,Object> sendReminders(Account a,YearMonth month,UUID requestKey) {
+        a.requireStaff();
+        db.lockTenant(a.tenantId());
+        boolean enabled=db.find("select reminders from ap_settings where tenant_id=?",a.tenantId()).map(s->Boolean.TRUE.equals(s.get("reminders"))).orElse(true);
+        if(!enabled)throw ApiError.conflict("Enable maintenance reminders in notification settings first.");
+        var rows=reminderRows(a,month);
+        int created=0,eligible=0;
+        for(var row:rows)for(var user:db.rows("select id from ap_user where tenant_id=? and flat_id=? and status='ACTIVE'",a.tenantId(),row.get("flatId"))) {
+            eligible++;
+            created+=db.update("insert into ap_inbox(id,tenant_id,recipient_id,event_key,title,body,target) values(?,?,?,?,?,?,?) on conflict(recipient_id,event_key) do nothing",UUID.randomUUID(),a.tenantId(),user.get("id"),"MANUAL-REMINDER:"+requestKey,"Maintenance reminder · "+month,"Please pay "+row.get("outstanding")+" and submit payment details in the app.","dues");
+        }
+        if(created>0)db.audit(a.tenantId(),a.id(),"MAINTENANCE_REMINDERS_SENT",requestKey,null,month+" · "+created+" in-app recipients");
+        return Map.of("created",created,"alreadySent",eligible-created,"eligible",eligible,"month",month.toString(),"externalDeliveryStatus","NOT_CONFIGURED");
+    }
+    private List<Map<String,Object>> reminderRows(Account a,YearMonth month) {
+        return db.rows("select f.id as flat_id,f.label as flat_label,sum(b.amount+b.late_fee-coalesce((select sum(p.amount) from ap_payment p where p.tenant_id=b.tenant_id and p.bill_id=b.id and p.status='APPROVED' and not exists(select 1 from ap_payment_reversal rv where rv.payment_id=p.id)),0)) as outstanding,count(*) as bill_count,(select count(*) from ap_user u where u.tenant_id=f.tenant_id and u.flat_id=f.id and u.status='ACTIVE') as recipient_count from ap_bill b join ap_flat f on f.id=b.flat_id where b.tenant_id=? and b.billing_month=? and not exists(select 1 from ap_payment p where p.tenant_id=b.tenant_id and p.bill_id=b.id and p.status='PENDING') and b.amount+b.late_fee>coalesce((select sum(p.amount) from ap_payment p where p.tenant_id=b.tenant_id and p.bill_id=b.id and p.status='APPROVED' and not exists(select 1 from ap_payment_reversal rv where rv.payment_id=p.id)),0) group by f.id,f.label,f.tenant_id order by f.label",a.tenantId(),Date.valueOf(month.atDay(1)));
+    }
     public List<Map<String,Object>> bills(Account a,YearMonth month) {
         String filter=a.staff()?"":" and b.flat_id=?";
         Object[] args=a.staff()?new Object[] {
