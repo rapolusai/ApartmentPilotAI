@@ -1,5 +1,5 @@
 ﻿# Creates synthetic records only. No DROP, DELETE, TRUNCATE, database reset or production access.
-# Supplied for execution against YOUR running increment-02 backend; not executed in the authoring workspace.
+# Executes only against an explicitly local increment-02 backend and retains synthetic records for inspection.
 [CmdletBinding()]
 param(
  [string]$BaseUrl='http://127.0.0.1:8080/api/v1',
@@ -37,6 +37,15 @@ function Api([string]$method,[string]$path,[object]$body=$null,[string]$token=''
  }
 }
 function PostCommand([string]$path,[hashtable]$body,[string]$token){if(!$body.ContainsKey('requestKey')){$body.requestKey=Key};return Api 'POST' $path $body $token}
+function SettingsPayload([object]$s,[bool]$visible){
+ return @{
+  payee=[string]$s.payee;upi=[string]$s.upi;bank=[string]$s.bank;account=[string]$s.account;ifsc=[string]$s.ifsc
+  billVacant=[bool]$s.billVacant;lateEnabled=[bool]$s.lateEnabled;lateFee=$s.lateFee;graceDays=[int]$s.graceDays
+  dueNotify=[bool]$s.dueNotify;reminders=[bool]$s.reminders;reminderDays=[string]$s.reminderDays
+  expensesVisible=$visible;proofRequired=[bool]$s.proofRequired;quietStart=[string]$s.quietStart;quietEnd=[string]$s.quietEnd
+  bookingRules=[string]$s.bookingRules
+ }
+}
 $pin=(Get-Random -Minimum 100000 -Maximum 999999).ToString()
 $month=Get-Date -Format 'yyyy-MM';$date=Get-Date -Format 'yyyy-MM-dd'
 $start=[DateTime]::UtcNow.Date.AddDays(2).AddHours(10).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
@@ -79,7 +88,21 @@ try {
  $chargeBody=@{kind='CONTRIBUTION';title='TEST02 Lift contribution';amount=250;month=$month;dueDate=$date;flatId=$flat.id;requestKey=(Key)}
  $charge=Api 'POST' '/ops/charges' $chargeBody $ta;Check ($charge.Body.created -eq 1) 'One-time contribution created separately'
  $chargeAgain=Api 'POST' '/ops/charges' $chargeBody $ta;Check ($chargeAgain.Body.id -eq $charge.Body.id) 'Contribution retry does not duplicate charges'
- $billList=Api 'GET' "/bills?month=$month" $null $tr;Check (@($billList.Body).Count -eq 2) 'Contribution does not replace monthly bill'
+ $previewDenied=Api 'POST' '/ops/charges/preview' @{kind='CONTRIBUTION';title='Forbidden preview';amount=250;month=$month;dueDate=$date;scope='ALL'} $tr
+ Check ($previewDenied.Status -eq 403) 'Resident cannot preview apartment-wide contributions'
+ $past=(Get-Date).AddDays(-1).ToString('yyyy-MM-dd')
+ $pastPreview=Api 'POST' '/ops/charges/preview' @{kind='CONTRIBUTION';title='Past contribution';amount=250;month=$month;dueDate=$past;scope='ALL'} $ta
+ Check ($pastPreview.Status -eq 400) 'Past-due contribution preview is rejected'
+ $invalidPreview=Api 'POST' '/ops/charges/preview' @{kind='CONTRIBUTION';title='Invalid flats';amount=250;month=$month;dueDate=$date;scope='SELECTED';flatLabels='Z-999'} $ta
+ Check ($invalidPreview.Status -eq 400) 'Contribution preview rejects unknown flat labels'
+ $crossPreview=Api 'POST' '/ops/charges/preview' @{kind='CONTRIBUTION';title='Foreign flat';amount=250;month=$month;dueDate=$date;flatId=$flat.id} $tb
+ Check ($crossPreview.Status -eq 400) 'Contribution preview parent-checks a supplied flat ID'
+ $multiPreview=Api 'POST' '/ops/charges/preview' @{kind='CONTRIBUTION';title='TEST02 Generator contribution';amount=250;month=$month;dueDate=$date;scope='SELECTED';flatLabels='A-101, A-102'} $ta
+ Check ($multiPreview.Status -eq 200 -and $multiPreview.Body.flatCount -eq 2 -and $multiPreview.Body.total -eq 500 -and $multiPreview.Body.flatLabels -eq 'A-101, A-102') 'Server previews selected-flat contribution total'
+ $multiBody=@{kind=$multiPreview.Body.kind;title=$multiPreview.Body.title;amount=$multiPreview.Body.amount;month=$multiPreview.Body.month;dueDate=$multiPreview.Body.dueDate;flatLabels=$multiPreview.Body.flatLabels;requestKey=(Key)}
+ $multiCharge=Api 'POST' '/ops/charges' $multiBody $ta;Check ($multiCharge.Status -eq 200 -and $multiCharge.Body.created -eq 2) 'Create contribution from frozen server preview'
+ $multiAgain=Api 'POST' '/ops/charges' $multiBody $ta;Check ($multiAgain.Body.id -eq $multiCharge.Body.id) 'Selected-flat contribution retry is idempotent'
+ $billList=Api 'GET' "/bills?month=$month" $null $tr;Check (@($billList.Body).Count -eq 3) 'Contributions remain separate from monthly bill'
  $expenseBody=@{title='TEST02 Water';category='Water';amount=100;paidOn=$date;paid=$false;visibleToResidents=$true;mode='UPI';notes='Synthetic';requestKey=(Key)}
  $expense=Api 'POST' '/ops/expenses' $expenseBody $ta;Check ($expense.Status -eq 200) 'Create expense draft with payment mode'
  $draftResident=Api 'GET' "/ops/expenses/$($expense.Body.id)" $null $tr;Check ($draftResident.Status -eq 403) 'Unpaid expense draft hidden from resident'
@@ -91,6 +114,13 @@ try {
  $reversal=Api 'POST' "/ops/expenses/$($expense.Body.id)/reverse" $reverseBody $ta;Check ($reversal.Status -eq 200) 'Reverse expense without deleting the original'
  $reversalAgain=Api 'POST' "/ops/expenses/$($expense.Body.id)/reverse" $reverseBody $ta;Check ($reversalAgain.Status -eq 200) 'Reversal retry is idempotent'
  $after=Api 'GET' "/reports/monthly?month=$month" $null $ta;Check (($after.Body.balance-$before.Body.balance) -eq 100) 'Financial report includes expense reversal once'
+ $residentReport=Api 'GET' "/reports/monthly?month=$month" $null $tr;Check ($residentReport.Status -eq 200) 'Resident sees transparency totals while sharing is enabled'
+ $settings=Api 'GET' '/ops/settings' $null $ta;Check ($settings.Status -eq 200) 'Admin loads authoritative transparency settings'
+ $privacyOff=Api 'POST' '/ops/settings' (SettingsPayload $settings.Body $false) $ta;Check ($privacyOff.Status -eq 200) 'Admin disables resident expense transparency'
+ $privateReport=Api 'GET' "/reports/monthly?month=$month" $null $tr;Check ($privateReport.Status -eq 403) 'Resident totals are denied when transparency is disabled'
+ $staffReport=Api 'GET' "/reports/monthly?month=$month" $null $ta;Check ($staffReport.Status -eq 200) 'Transparency setting does not hide staff financial totals'
+ $privacyOn=Api 'POST' '/ops/settings' (SettingsPayload $settings.Body $true) $ta;Check ($privacyOn.Status -eq 200) 'Admin restores resident expense transparency'
+ $restoredReport=Api 'GET' "/reports/monthly?month=$month" $null $tr;Check ($restoredReport.Status -eq 200) 'Resident totals return after transparency is restored'
  $notice=PostCommand '/notices' @{title='TEST02 Selected notice';body='Synthetic notification';audience='SELECTED';audienceValue='A-101';publish=$true;acknowledge=$true} $ta
  Check ($notice.Status -eq 200) 'Publish targeted notice';$nid=$notice.Body.id
  $nRead=Api 'GET' "/notices/$nid" $null $tr;Check ($nRead.Status -eq 200) 'Selected resident sees notice'

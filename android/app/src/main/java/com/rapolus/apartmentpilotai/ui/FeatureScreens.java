@@ -148,6 +148,8 @@ import java.util.*;
             break;
             case "contribution-form":charge("CONTRIBUTION");
             break;
+            case "contribution-preview":contributionPreview();
+            break;
             case "opening-dues":charge("OPENING_DUE");
             break;
             case "income":income();
@@ -171,6 +173,8 @@ import java.util.*;
             case "cashbook":cashbook();
             break;
             case "reports":reports();
+            break;
+            case "transparency":transparency();
             break;
             case "payee":payee();
             break;
@@ -1348,15 +1352,56 @@ import java.util.*;
         title(kind.equals("OPENING_DUE")?"Opening flat dues":"One-time collection");
         get("/ops/flats",r-> {
             Ui.Fields f=h.newFields();
-            choices(f,"flatId",kind.equals("CONTRIBUTION")?"Flat · None means all active flats":"Flat",(JSONArray)r,"label",kind.equals("CONTRIBUTION"),null);
+            if(kind.equals("CONTRIBUTION")) {
+                f.select("scope","Charge to",new String[] {"All active flats","Selected flats"},new String[] {"ALL","SELECTED"});
+                f.field("flatLabels","Selected flats · comma separated","",TEXT);
+            } else choices(f,"flatId","Flat",(JSONArray)r,"label",false,null);
             f.field("title","Charge description",kind.equals("OPENING_DUE")?"Opening maintenance due":"",TEXT);
             f.field("amount","Amount per selected flat","",MONEY);
             f.field("month","Bill month · YYYY-MM",h.selectedMonth(),TEXT);
             f.field("dueDate","Due date · YYYY-MM-DD",today(),TEXT);
             u.note(b,kind.equals("OPENING_DUE")?"One opening-due entry per flat. Enter verified outstanding only.":"This charge does not change monthly maintenance rates.");
-            submit("Review & create",()->u.confirm("Create flat charge?",f.get("title")+" · ₹"+f.get("amount")+" per selected flat","Create",()->write("/ops/charges",obj("kind",kind,"flatId",f.get("flatId"),"title",f.get("title"),"amount",amount(f,"amount"),"month",f.get("month"),"dueDate",f.get("dueDate")),z->go("dues"))));
+            if(kind.equals("CONTRIBUTION"))submit("Review collection",()-> {
+                JSONObject draft=obj("kind",kind,"scope",f.get("scope"),"flatLabels",f.get("scope").equals("SELECTED")?f.get("flatLabels"):"","title",f.get("title"),"amount",amount(f,"amount"),"month",f.get("month"),"dueDate",f.get("dueDate"));
+                h.requestApi("POST","/ops/charges/preview",draft,value-> {
+                    h.savePageDraft("contribution",(JSONObject)value);
+                    go("contribution-preview");
+                });
+            });
+            else submit("Create opening due",()->u.confirm("Create opening due?",f.get("title")+" · ₹"+f.get("amount"),"Create",()->write("/ops/charges",obj("kind",kind,"flatId",f.get("flatId"),"title",f.get("title"),"amount",amount(f,"amount"),"month",f.get("month"),"dueDate",f.get("dueDate")),z->go("dues"))));
         }
         );
+    }
+    private void contributionPreview() {
+        title("Review contribution");
+        JSONObject draft=h.pageDraft("contribution");
+        if(!draft.has("title")) {
+            u.empty(b,"No contribution draft","Start a new collection to review it here.");
+            u.button(b,"New collection",R.drawable.ic_plus,true,()->go("contribution-form"));
+            return;
+        }
+        LinearLayout c=card();
+        u.kv(c,"Collection",draft.optString("title"));
+        u.kv(c,"Flats",draft.optInt("flatCount")+"");
+        u.kv(c,"Each flat",Ui.money(draft.opt("amount")));
+        u.kv(c,"Total billed",Ui.money(draft.opt("total")));
+        u.kv(c,"Due",draft.optString("dueDate"));
+        u.note(b,"Selected: "+draft.optString("flatLabels"));
+        u.note(b,"Creating dues records no payment received. Monthly maintenance remains unchanged.");
+        submit("Create dues",()-> {
+            JSONObject command;
+            try {
+                command=new JSONObject(draft.toString());
+            } catch(JSONException e) {
+                throw new IllegalArgumentException("The contribution draft is invalid.");
+            }
+            write("/ops/charges",command,value-> {
+                JSONObject result=(JSONObject)value;
+                h.clearPageDraft("contribution");
+                Toast.makeText(h.activity(),result.optInt("created")+" contribution due(s) created. No payment recorded.",Toast.LENGTH_LONG).show();
+                go("contributions");
+            });
+        });
     }
     private void income() {
         title("Other income");
@@ -1530,8 +1575,40 @@ import java.util.*;
             u.note(b,"Cash movements follow transaction dates; outstanding follows the selected invoice month.");
             u.button(b,"Share PDF",R.drawable.ic_report,false,()->h.exportPdf("Apartment monthly statement · "+h.selectedMonth(),x));
             if(h.isStaff())u.button(b,"Cashbook",R.drawable.ic_wallet,false,()->go("cashbook"));
+            if(h.isStaff())u.button(b,"Resident view",R.drawable.ic_users,false,()->go("transparency"));
         }
         );
+    }
+    private void transparency() {
+        title("Resident finance view");
+        if(!h.isStaff()) {
+            h.problem("Admin or treasurer access required.");
+            return;
+        }
+        h.monthControl();
+        get("/reports/monthly?month="+h.selectedMonth(),reportValue-> {
+            JSONObject report=(JSONObject)reportValue;
+            u.note(b,"Preview: residents see approved apartment totals and public expenses, never another flat’s payment proof.");
+            u.hero(b,"Apartment closing balance",Ui.money(report.opt("closing")),h.selectedMonth());
+            LinearLayout totals=card();
+            u.kv(totals,"Received",Ui.money(report.opt("received")));
+            u.kv(totals,"Spent",Ui.money(report.opt("spent")));
+            get("/ops/settings",settingsValue-> {
+                JSONObject settings=(JSONObject)settingsValue;
+                Ui.Fields f=h.newFields();
+                f.check("expensesVisible","Resident transparency · approved totals and public expenses",settings.optBoolean("expensesVisible",true));
+                submit("Save visibility",()-> {
+                    JSONObject payload;
+                    try {
+                        payload=new JSONObject(settings.toString());
+                        payload.put("expensesVisible",f.checked("expensesVisible"));
+                    } catch(JSONException e) {
+                        throw new IllegalArgumentException("Could not prepare visibility settings.");
+                    }
+                    write("/ops/settings",payload,value->go("reports"));
+                });
+            });
+        });
     }
     private void payee() {
         title("Association payment details");

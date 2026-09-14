@@ -74,6 +74,25 @@ import java.math.*;
         c.audit(a,"FLAT_RATE_SAVED",id,null,ym.toString());
         return Map.of("id",id);
     }
+    public Map<String,Object> previewCharge(Account a,Map<String,Object> p) {
+        a.requireStaff();
+        String kind=V.choice(p,"kind","CONTRIBUTION","OPENING_DUE"),title=V.text(p,"title",100);
+        LocalDate date=V.date(p,"dueDate");
+        if(kind.equals("CONTRIBUTION")&&date.isBefore(V.today()))throw new IllegalArgumentException("Contribution due date cannot be in the past.");
+        YearMonth month=YearMonth.parse(V.text(p,"month",7));
+        BigDecimal amount=V.money(p,"amount");
+        var flats=chargeFlats(a,p,kind);
+        Map<String,Object> out=new LinkedHashMap<>();
+        out.put("kind",kind);
+        out.put("title",title);
+        out.put("amount",amount);
+        out.put("month",month.toString());
+        out.put("dueDate",date.toString());
+        out.put("flatCount",flats.size());
+        out.put("total",amount.multiply(BigDecimal.valueOf(flats.size())));
+        out.put("flatLabels",String.join(", ",flats.stream().map(f->f.get("label").toString()).toList()));
+        return out;
+    }
     @Transactional public Object charge(Account a,Map<String,Object> p) {
         a.requireStaff();
         db.lockTenant(a.tenantId());
@@ -81,20 +100,11 @@ import java.math.*;
         if(old.isPresent())return Map.of("id",old.get());
         String kind=V.choice(p,"kind","CONTRIBUTION","OPENING_DUE"),title=V.text(p,"title",100);
         LocalDate date=V.date(p,"dueDate");
+        if(kind.equals("CONTRIBUTION")&&date.isBefore(V.today()))throw new IllegalArgumentException("Contribution due date cannot be in the past.");
         YearMonth month=YearMonth.parse(V.text(p,"month",7));
         BigDecimal amount=V.money(p,"amount");
         UUID charge=UUID.randomUUID();
-        UUID only=V.optionalId(p,"flatId");
-        if(kind.equals("OPENING_DUE")&&only==null)throw new IllegalArgumentException("Opening dues must identify one flat.");
-        if(only!=null)c.flat(a,only);
-        var flats=db.rows("select id from ap_flat where tenant_id=? and active=true"+(only==null?"":" and id=?"),only==null?new Object[] {
-            a.tenantId()
-        }
-        :new Object[] {
-            a.tenantId(),only
-        }
-        );
-        if(flats.isEmpty())throw new IllegalArgumentException("No active flats selected.");
+        var flats=chargeFlats(a,p,kind);
         for(var f:flats) {
             UUID flat=(UUID)f.get("id");
             if(kind.equals("OPENING_DUE")&&db.count("select count(*) from ap_bill where tenant_id=? and flat_id=? and kind='OPENING_DUE'",a.tenantId(),flat)>0)throw ApiError.conflict("An opening due already exists for this flat.");
@@ -105,6 +115,26 @@ import java.math.*;
         c.remember(a,"SPECIAL_CHARGE",p,charge);
         c.audit(a,kind,charge,null,title+" · "+flats.size()+" flats");
         return Map.of("id",charge,"created",flats.size());
+    }
+    private List<Map<String,Object>> chargeFlats(Account a,Map<String,Object> p,String kind) {
+        UUID only=V.optionalId(p,"flatId");
+        String labels=V.opt(p,"flatLabels",500);
+        if(only!=null&&!labels.isEmpty())throw new IllegalArgumentException("Choose either one flat or a flat list, not both.");
+        List<Map<String,Object>> flats=new ArrayList<>();
+        if(only!=null)flats.add(db.find("select id,label from ap_flat where tenant_id=? and id=? and active=true",a.tenantId(),only).orElseThrow(()->new IllegalArgumentException("Choose a valid active flat.")));
+        else if(!labels.isEmpty()) {
+            LinkedHashSet<String> selected=new LinkedHashSet<>();
+            for(String label:labels.split(",")) {
+                String clean=label.trim();
+                if(clean.isEmpty()||clean.length()>20)throw new IllegalArgumentException("Enter valid comma-separated flat labels.");
+                selected.add(clean.toUpperCase(Locale.ROOT));
+            }
+            if(selected.isEmpty()||selected.size()>50)throw new IllegalArgumentException("Select between 1 and 50 active flats.");
+            for(String label:selected)flats.add(db.find("select id,label from ap_flat where tenant_id=? and upper(label)=? and active=true",a.tenantId(),label).orElseThrow(()->new IllegalArgumentException("Choose valid active flats.")));
+        } else if(!"SELECTED".equals(V.opt(p,"scope",20)))flats.addAll(db.rows("select id,label from ap_flat where tenant_id=? and active=true order by label",a.tenantId()));
+        if(flats.isEmpty())throw new IllegalArgumentException("No active flats selected.");
+        if(kind.equals("OPENING_DUE")&&flats.size()!=1)throw new IllegalArgumentException("Opening dues must identify one flat.");
+        return flats;
     }
     public List<Map<String,Object>> income(Account a) {
         a.requireStaff();

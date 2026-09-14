@@ -229,6 +229,7 @@ import org.springframework.transaction.annotation.Transactional;
     @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ) public Map<String,Object> summary(Account a,YearMonth month) {
         Date start=Date.valueOf(month.atDay(1)),end=Date.valueOf(month.plusMonths(1).atDay(1));
         UUID t=a.tenantId();
+        if(!a.staff()&&db.count("select count(*) from ap_settings where tenant_id=? and coalesce(expenses_visible,true)=true",t)==0)throw ApiError.forbidden();
         var m=db.one("select coalesce(sum(amount+late_fee),0) as billed,count(*) as bill_count from ap_bill where tenant_id=? and billing_month=?",t,start);
         Map<String,Object> out=new LinkedHashMap<>(m);
         BigDecimal allocated=db.decimal("select coalesce(sum(p.amount),0) from ap_payment p join ap_bill b on b.id=p.bill_id where p.tenant_id=? and p.status='APPROVED' and b.billing_month=? and not exists(select 1 from ap_payment_reversal r where r.payment_id=p.id)",t,start);

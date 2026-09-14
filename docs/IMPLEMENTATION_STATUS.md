@@ -13,13 +13,15 @@ On 15 September 2026 the current increment02 source compiled with Java 21, produ
 - PostgreSQL `partmentpilotai_dev` reported version **18.6**. Flyway successfully validated three history entries, schema version **2**, with no migration pending.
 - `/actuator/health`: `UP`; `/api/v1/status`: version `0.2.0`, local registration enabled, `releaseReady: false`.
 - `Test-Local-Api.ps1`: **50/50 HTTP checks passed**, including finance previews, reminder idempotency, rejection persistence and atomic two-payment approval.
-- `Test-Operations.ps1 -Concurrency`: **60/60 checks passed**, including one-winner concurrent booking approval.
+- `Test-Operations.ps1 -Concurrency`: **74/74 checks passed**, including selected-flat contribution preview/create/retry, transparency privacy enforcement and one-winner concurrent booking approval.
 - The local backend used port **8081** because port 8080 was occupied by the system `AgentService`; the checked-in Android endpoint was not changed.
 - Test suites intentionally retained their clearly labelled synthetic tenants for inspection. No database records were deleted.
 
 The first post-build Android module is now source-complete and clean-build verified: dedicated Admin/Treasurer/Resident login routes, invalid invite, separate flat choice, setup completion, centralized 401 invalidation, safe destination resume, and offline/session-expired/access-denied/empty/error/not-found/loading states. OTP-backed recovery remains explicitly `NOT_CONFIGURED`, and none of these routes is marked device-runtime or visual-parity verified.
 
 The maintenance review flow now has dedicated native `bulk-approval`, `bulk-review`, `payment-reject`, `outstanding`, `reminder-preview` and `bill-preview` destinations. Server-backed previews derive eligible flats, effective rates/overrides, existing bills, balances and recipients from the authenticated tenant. Manual reminders are request-key idempotent and create only in-app inbox records; external push remains `NOT_CONFIGURED`. These routes clean-build successfully but remain device-runtime and light/dark visual-parity unverified.
+
+The contribution flow now has a dedicated native `contribution-preview` destination. The backend resolves only active flats inside the authenticated tenant, validates selected comma-separated labels or a single parent-checked flat ID, returns the exact count/total for review, and creates the frozen selection idempotently. The native `transparency` destination previews actual monthly totals and edits the full server settings document; disabling visibility now denies resident aggregate reports as well as individual expense rows. The expanded 74-check live suite passed these boundaries, while both native routes remain device-runtime and visual-parity unverified.
 
 ## Written and connected at source level
 

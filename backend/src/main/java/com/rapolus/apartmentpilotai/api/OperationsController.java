@@ -100,6 +100,9 @@ import java.util.*;
     @PostMapping("/charges") Object charge(@AuthenticationPrincipal Account a,@RequestBody Map<String,Object> p) {
         return accounting.charge(a,p);
     }
+    @PostMapping("/charges/preview") Object previewCharge(@AuthenticationPrincipal Account a,@RequestBody Map<String,Object> p) {
+        return accounting.previewCharge(a,p);
+    }
     @GetMapping("/income") Object income(@AuthenticationPrincipal Account a) {
         return accounting.income(a);
     }

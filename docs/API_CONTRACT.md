@@ -78,6 +78,7 @@ All ordinary APIs derive tenant/role from a bearer session. JSON bodies contain 
 | POST | `/api/v1/ops/opening` | `OperationsController.java` |
 | GET | `/api/v1/ops/rate-overrides` | `OperationsController.java` |
 | POST | `/api/v1/ops/rate-overrides` | `OperationsController.java` |
+| POST | `/api/v1/ops/charges/preview` | `OperationsController.java` |
 | POST | `/api/v1/ops/charges` | `OperationsController.java` |
 | GET | `/api/v1/ops/income` | `OperationsController.java` |
 | POST | `/api/v1/ops/income` | `OperationsController.java` |
@@ -148,6 +149,10 @@ All ordinary APIs derive tenant/role from a bearer session. JSON bodies contain 
 `POST /notices`: title,body,audience ALL/BLOCK/SELECTED/UNPAID,audienceValue,pinned,acknowledge,optional scheduledAt,publish,requestKey. Selected value is comma-separated existing flat labels; Block is an existing block label. Published notices are immutable except pin/read/acknowledgement.
 
 `POST /ops/settings`: full control set (payee,upi,bank,account,ifsc,billVacant,lateEnabled,lateFee,graceDays,dueNotify,reminders,reminderDays,expensesVisible,proofRequired,quietStart,quietEnd,bookingRules). This endpoint is not a partial PATCH. Read settings first before submitting an edited full body.
+
+`POST /ops/charges/preview`: staff-only validation of kind `CONTRIBUTION`/`OPENING_DUE`, title,amount,month,dueDate and target flats. Use either one tenant-owned `flatId`, comma-separated active `flatLabels`, or scope `ALL`; `scope=SELECTED` requires labels. The response freezes the normalized labels, flat count and exact total for review. Submit those returned values to `POST /ops/charges` with a new `requestKey`; retries with that key do not duplicate bills. Opening dues require exactly one flat.
+
+`GET /reports/monthly`: residents receive totals only while the authenticated tenant's `expensesVisible` setting is enabled. Staff retain access. Turning transparency off denies the entire resident report rather than leaking aggregate expense totals.
 
 `GET /billing/preview?month=YYYY-MM`: staff-only, tenant-derived generation preview with the effective base rate, active/eligible flat count, flat-override-adjusted scheduled total, existing maintenance-bill count and due date. `GET /billing/reminders/preview` excludes paid and in-review bills. `POST /billing/reminders/send` requires `requestKey`; retries with the same key do not duplicate inbox records. Responses explicitly report external delivery `NOT_CONFIGURED` until a real provider is connected.
 

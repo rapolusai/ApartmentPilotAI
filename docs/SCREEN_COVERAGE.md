@@ -33,7 +33,7 @@ Reference routes: 203. UI parity and runtime acceptance remain unverified for in
 | `reports` | `reports` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `expense-report` | `expenses` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `collection-report` | `reports` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `transparency` | `—` | NOT_IMPLEMENTED_AS_REFERENCE_ROUTE |
+| `transparency` | `transparency` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `export-report` | `reports` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `income` | `income` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `income-form` | `income-form` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
@@ -177,7 +177,7 @@ Reference routes: 203. UI parity and runtime acceptance remain unverified for in
 | `rate-override-form` | `rate-override-form` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `contributions` | `contributions` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `contribution-form` | `contribution-form` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `contribution-preview` | `—` | NOT_IMPLEMENTED_AS_REFERENCE_ROUTE |
+| `contribution-preview` | `contribution-preview` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `contribution` | `bill` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `opening-dues` | `opening-dues` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `opening-due-form` | `opening-dues` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |

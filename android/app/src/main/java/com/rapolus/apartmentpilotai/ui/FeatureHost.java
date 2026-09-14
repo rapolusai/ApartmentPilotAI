@@ -23,6 +23,9 @@ public interface FeatureHost {
     Ui.Fields newFields();
     void requestApi(String method,String path,JSONObject body,Reply reply);
     void resetCommandKey();
+    JSONObject pageDraft(String key);
+    void savePageDraft(String key,JSONObject value);
+    void clearPageDraft(String key);
     void chooseAttachment(String kind,String id);
     void exportPdf(String title,JSONObject record);
     void openSharedFile(JSONObject file);

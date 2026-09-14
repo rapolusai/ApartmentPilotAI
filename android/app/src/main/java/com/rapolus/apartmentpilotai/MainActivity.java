@@ -42,6 +42,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     private String resumePage="",resumeId="";
     private JSONObject resumeFields;
     private JSONObject signupDraft=new JSONObject(),invitePreview=new JSONObject();
+    private JSONObject pageDrafts=new JSONObject();
     private final Deque<String[]> history=new ArrayDeque<>();
     private int generation=0;
     private boolean busy=false;
@@ -113,6 +114,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 resumeFields=new JSONObject(b.getString("resumeFields","{}"));
                 signupDraft=((PilotApplication)getApplication()).transientSignup;
                 invitePreview=new JSONObject(b.getString("invitePreview","{}"));
+                pageDrafts=new JSONObject(b.getString("pageDrafts","{}"));
             } catch(JSONException ignored) {
             }
             resumePage=b.getString("resumePage","");
@@ -135,6 +137,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         b.putStringArrayList("selectedPayments",new ArrayList<>(selected));
         b.putString("inviteCode",inviteCode);
         b.putString("invitePreview",invitePreview.toString());
+        b.putString("pageDrafts",pageDrafts.toString());
         b.putString("resumePage",resumePage);
         b.putString("resumeId",resumeId);
         b.putString("resumeFields",resumeFields==null?"{}":resumeFields.toString());
@@ -1412,6 +1415,20 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     @Override public void resetCommandKey() {
         operationKey=UUID.randomUUID().toString();
     }
+    @Override public JSONObject pageDraft(String key) {
+        JSONObject value=pageDrafts.optJSONObject(key);
+        return value==null?new JSONObject():value;
+    }
+    @Override public void savePageDraft(String key,JSONObject value) {
+        try {
+            pageDrafts.put(key,value);
+        } catch(JSONException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+    @Override public void clearPageDraft(String key) {
+        pageDrafts.remove(key);
+    }
     @Override public void openPage(String page,String record) {
         go(page,record);
     }
@@ -1439,6 +1456,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         ((PilotApplication)getApplication()).transientSignup=new JSONObject();
         history.clear();
         signupDraft=new JSONObject();
+        pageDrafts=new JSONObject();
         page="welcome";
         id="";
         resumePage="";

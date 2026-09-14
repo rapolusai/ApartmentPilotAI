@@ -24,7 +24,7 @@
   },
   "literal_native_navigation": {
     "status": "PASSED",
-    "targets": 94,
+    "targets": 97,
     "missing": [],
     "scope": "Literal go() destinations found in Java source exist in native route switches. Dynamic navigation, permissions and actual device rendering are not validated."
   },
@@ -129,16 +129,16 @@
       "local_api_checks": 50,
       "local_api_status": "PASSED",
       "local_api_run": "3274c19f",
-      "operations_checks": 60,
+      "operations_checks": 74,
       "operations_status": "PASSED_WITH_CONCURRENCY",
-      "operations_evidence": "test-results/operations-04a596d2.json"
+      "operations_evidence": "test-results/operations-b43add73.json"
     },
     "android": {
       "clean_assemble_debug": "PASSED",
       "tasks_executed": 41,
       "apk": "android/app/build/outputs/apk/debug/app-debug.apk",
-      "apk_bytes": 6453832,
-      "apk_sha256": "C46B33DD77DAC8E85B7B9DDB289436487ED126BB0BF4FAF6C183129C02AF2425",
+      "apk_bytes": 6456956,
+      "apk_sha256": "08EA864D23EE74B08FE89EB34FC13F4E81DA349756AC1E4ABA95C424615D878D",
       "unit_test_task": "PASSED",
       "unit_tests": 2,
       "unit_test_failures": 0,
@@ -149,12 +149,12 @@
   "source_traceability": {
     "reference_routes": 203,
     "statuses": {
-      "CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED": 122,
+      "CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED": 124,
       "PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED": 58,
-      "NOT_IMPLEMENTED_AS_REFERENCE_ROUTE": 15,
+      "NOT_IMPLEMENTED_AS_REFERENCE_ROUTE": 13,
       "REFERENCE_ONLY_NOT_A_PRODUCTION_FEATURE": 8
     },
-    "native_route_identifiers": 145,
+    "native_route_identifiers": 147,
     "product_completion_percentage": null,
     "scope": "Direct routes and merged partial subflows are not a finished/tested-product percentage. No frozen-reference visual parity claimed."
   },
