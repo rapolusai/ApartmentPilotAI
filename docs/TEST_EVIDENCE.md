@@ -1,6 +1,6 @@
 # Test evidence — cumulative implementation 02
 
-**This evidence includes successful local framework builds, PostgreSQL/Flyway validation and HTTP integration checks. It is not a claim of device/UI or external-provider acceptance.**
+**This evidence includes successful local framework builds, PostgreSQL/Flyway validation, HTTP integration checks and a bounded resident-join emulator run. It is not a claim of whole-app device/UI or external-provider acceptance.**
 
 ## Actually executed in this workspace
 
@@ -14,6 +14,7 @@
 | Operations API suite with concurrency | **112 checks passed** | Owner/Tenant intake validation and persistence; join-review/rejection authorization, persistence and flat release; Admin-only block creation/rename/idempotency and tenant isolation; affected flats, notices, contributions, transparency, files, bookings, polls, vehicles, subscriptions and parallel one-winner approval were exercised over HTTP. |
 | Android clean debug build | **BUILD SUCCESS; 41 tasks executed** | Current native Java/XML sources compiled, resources linked and a fresh debug APK was packaged. |
 | Android debug unit tests | **2 tests passed; 0 failures/errors/skips** | Authenticated 401/403/404/5xx/network failures select dedicated states while unauthenticated login/invite and 400/409 failures remain inline. This is policy coverage, not device navigation evidence. |
+| Resident join flow on Android emulator | **Passed on Pixel_10_Pro, Android 37** | Fresh debug APK installed; local backend test, Admin login, Pending/Approved/Rejected filters, Owner/Tenant display, review, blank-reason validation, persisted rejection, Android Back, light/dark themes and portrait/landscape rendering were exercised. This is a bounded flow result, not whole-app/device-family acceptance. |
 | Real JDK21 pure production-rule tests | **580 assertions passed** | 21 original domain/token checks plus 559 new operational assertions. The latter include **500 deterministic occupancy scenarios**, so these are not 580 end-to-end feature tests. |
 | Java syntax parsing | **40 compilation units; zero syntax errors** | Syntax only; does not resolve framework imports or all semantic types. |
 | Literal JDBC SQL argument inspection | **284 calls; zero placeholder mismatches** | Counts `?` parameters against source arguments. Dynamic SQL/varargs arrays excluded. New block and join-review persistence SQL was also exercised live; the static scan alone does not execute SQL. |
@@ -32,12 +33,12 @@ Raw outputs are in `docs/evidence/`; machine-readable scope and exclusions are i
 ## What still has NOT run here
 
 - Fresh-database Flyway migration and a backed-up V1-only clone upgraded through V2/V3/V4. The existing development schema was migrated in place through V4 only.
-- APK installation, emulator/physical-device testing, rotation, process recreation, accessibility or screenshot comparison.
+- Physical-device/tablet testing, process recreation, accessibility and a whole-app screenshot comparison. Only the resident join flow was installed and exercised on one phone-sized emulator.
 - Instrumentation tests and broader Android view/session persistence tests; only the two HTTP failure-policy unit tests currently exist.
 - `Apply-Update.ps1` remains source-reviewed, not runtime-tested.
 - Real OTP, FCM, store purchase verification, payment settlement or installation attestation.
 
-The Windows machine provided JDK 21.0.10, PostgreSQL 18.6 and Android SDK support. The checksum-verified repository tooling prepared Maven 3.9.11 and Gradle 8.13. No emulator or authorized physical-device run was performed in this checkpoint.
+The Windows machine provided JDK 21.0.10, PostgreSQL 18.6 and Android SDK support. The checksum-verified repository tooling prepared Maven 3.9.11 and Gradle 8.13. A Pixel_10_Pro Android 37 emulator used `adb reverse tcp:8080 tcp:8081` without changing the checked-in endpoint. An initial emulator System UI startup dialog recovered after selecting Wait; the app process remained healthy. No physical device was connected or controlled.
 
 The user's earlier logs/screenshots confirm that Increment01 started locally, migrated V1 and launched on Android. They do not prove this increment's Android runtime or the still-unexecuted fresh/V1-clone migration matrix; the current development database's in-place upgrade through V4 is separately evidenced above.
 
@@ -47,15 +48,16 @@ Of the 203 frozen reference routes/states:
 
 | Mapping | Count |
 |---|---:|
-| Direct native route source present, not runtime verified | 132 |
+| Direct native route source present, not runtime verified | 129 |
+| Direct native route, bounded local emulator flow verified | 3 |
 | Partial/merged subflow source, not a separately matched page | 55 |
 | Not implemented as the reference route | 8 |
 | Reference/demo-only simulation controls, excluded from production | 8 |
 
-Some direct routes are limited forms and some reference pages are merged. All have `ui_parity: NOT_VERIFIED`. These numbers are **traceability, not percentage complete**. See `SCREEN_IMPLEMENTATION_MAP.json` and `SCREEN_COVERAGE.md`.
+Some direct routes are limited forms and some reference pages are merged. The three resident join routes have only bounded emulator evidence and `PARTIAL_EMULATOR_VERIFIED` parity; all other routes remain `NOT_VERIFIED`. These numbers are **traceability, not percentage complete**. See `SCREEN_IMPLEMENTATION_MAP.json` and `SCREEN_COVERAGE.md`.
 
 ## Local acceptance evidence to collect
 
-Next create a safe test backup/clone for the fresh and V1→V2→V3→V4 paths. Then install the freshly built APK, test real two-account approval and session-expiry/offline behavior, and inspect every production route in both themes on supported device sizes.
+Next create a safe test backup/clone for the fresh and V1→V2→V3→V4 paths. Then extend APK testing beyond the resident join flow to real two-account approval and session-expiry/offline behavior, and inspect every production route in both themes on supported device sizes.
 
 HTTP scripts never delete test tenants or reset databases. Runs `35a5bf91` (35 checks), `04a596d2` (60 checks), `3274c19f` (50 checks), `b43add73` (74 checks), `609d78dc` (84 checks), `1b9012a7` (86 checks), `94c613cf` (89 checks), `1ae51e73` (100 checks), `1ccd970e` (111 checks) and `bcb91bec` (112 checks) retained labelled synthetic tenants. The latest core API rerun retained tenants under `d6de74c8`. Their logs contain no passwords or bearer tokens. **Do not publish this development increment.**

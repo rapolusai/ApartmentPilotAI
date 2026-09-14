@@ -69,8 +69,8 @@
     },
     {
       "path": "android/app/src/main/java/com/rapolus/apartmentpilotai/ui/FeatureScreens.java",
-      "bytes": 110571,
-      "sha256": "4dd52d10407bd7a858a357ed26a2159f7039a7fac796a47fa80d640100b01494"
+      "bytes": 111727,
+      "sha256": "7940a573ba954914a122510f636365f0e56f0a741702c1fb121c8a3ac9e10641"
     },
     {
       "path": "android/app/src/main/java/com/rapolus/apartmentpilotai/ui/LocalFiles.java",
@@ -549,8 +549,8 @@
     },
     {
       "path": "docs/CHANGELOG_02.md",
-      "bytes": 7477,
-      "sha256": "8a01a40beb8a93b3fdc65fe9136071d97090884332e0a2dc3c8e76a47cd380ed"
+      "bytes": 7954,
+      "sha256": "6f704884b36477fa295ae5c9e90f3217838247f78dff63790e76f056dd9c76bf"
     },
     {
       "path": "docs/evidence/android-feature-stub-typecheck.txt",
@@ -579,8 +579,8 @@
     },
     {
       "path": "docs/IMPLEMENTATION_STATUS.md",
-      "bytes": 12797,
-      "sha256": "535fcc3445ce05c1f893e9a7802336bb04e3ed844d6b8b036d4e4ccbe503e6bb"
+      "bytes": 13537,
+      "sha256": "94c5c15e42307a406edcfda511790fa9904fe9d2d54f64a4f57a5bf707217017"
     },
     {
       "path": "docs/LOCAL_SETUP.md",
@@ -594,33 +594,33 @@
     },
     {
       "path": "docs/SCREEN_COVERAGE.md",
-      "bytes": 15359,
-      "sha256": "4b0b445263ee71018093f1b5424599bf9097191e9cc7c207d0380790b2626255"
+      "bytes": 15422,
+      "sha256": "7b9c25f975c278302676dec6eac59d8718eb7971ce7c55f090b32786b293c4bb"
     },
     {
       "path": "docs/SCREEN_IMPLEMENTATION_MAP.json",
-      "bytes": 156519,
-      "sha256": "0083110b4cfc005eb3567bd9db5b67c615e4c8966f702e02d01c7ec5da9b4e3f"
+      "bytes": 156683,
+      "sha256": "941d8af1b9ac6652f3e2f9956dc13d994ad372f98735d30888b57861f80f9f14"
     },
     {
       "path": "docs/SOURCE_CHANGE_INVENTORY.json",
       "bytes": 29721,
-      "sha256": "657b82628df21a644d057e2ea7cfb4a6220a3ecd73aed66cbf3d78ec5b24b5e8"
+      "sha256": "da138d1ff71f1612477ae5e7cb643b8d63bfb544301e6ce792c2ba1b4353de1a"
     },
     {
       "path": "docs/STATIC_CHECKS.json",
-      "bytes": 1823,
-      "sha256": "1f2a4f4a4c3d8fc74d54da4e24bf6ab8496ae50a05c63a1c9741b12f9d520964"
+      "bytes": 1969,
+      "sha256": "eeca110d2bdc11f3b52e949967e4dfbfb11520f95c25d44f98977b7c8602d0b9"
     },
     {
       "path": "docs/TEST_EVIDENCE.json",
-      "bytes": 6843,
-      "sha256": "c472f09f6908b61747a87abedb21f553f4638d07f09f2e9e48f27360695419c6"
+      "bytes": 7366,
+      "sha256": "81ee0fb3fc57f53fabaa375de1d17e6d9786885a283e9e5b3c5d97d5ae5fe4eb"
     },
     {
       "path": "docs/TEST_EVIDENCE.md",
-      "bytes": 6928,
-      "sha256": "22e5e8cd11d2ba03444ef838c3359e42351cf80c982e46a178f7e3f13090e793"
+      "bytes": 7839,
+      "sha256": "2da061edbfcd206619647e749b5f00bfe73e85949eb3d4f7bf97b500bbe86fc1"
     },
     {
       "path": "docs/USER_ACCEPTANCE_02.md",

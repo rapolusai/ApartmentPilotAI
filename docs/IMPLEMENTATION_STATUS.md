@@ -1,6 +1,6 @@
 # Implementation status — cumulative increment 02
 
-**FRAMEWORK BUILDS AND LOCAL API CHECKPOINT VERIFIED. NOT PRODUCTION READY. NOT FULLY END-TO-END OR UI VERIFIED.**
+**FRAMEWORK BUILDS, LOCAL API CHECKPOINT AND A BOUNDED RESIDENT-JOIN EMULATOR FLOW VERIFIED. NOT PRODUCTION READY. NOT FULLY END-TO-END OR UI VERIFIED.**
 
 On 15 September 2026 the current increment02 source compiled with Java 21, produced a fresh debug APK, validated Flyway V1/V2/V3/V4 on the existing PostgreSQL 18.6 development database, and passed the available local HTTP suites. This is meaningful framework/API evidence, but it does not establish device behavior, every acceptance scenario, a fresh-database/V1-clone upgrade path, complete 203-route parity, or live provider integrations.
 
@@ -10,6 +10,7 @@ On 15 September 2026 the current increment02 source compiled with Java 21, produ
 - `backend\mvnw.cmd package`: **BUILD SUCCESS**, executable `0.2.0-SNAPSHOT` jar produced.
 - Android clean debug build with the repository-prepared Gradle 8.13 runtime: **BUILD SUCCESS**, 41 tasks executed and a fresh debug APK produced.
 - Android `:app:testDebugUnitTest`: **2 tests passed** for authenticated/unauthenticated HTTP failure routing policy.
+- A fresh debug APK was installed on a Pixel_10_Pro Android 37 emulator. The resident join list/review/rejection flow passed local-backend connectivity, Admin login, filters, persisted rejection, Android Back, light/dark and portrait/landscape checks. This does not validate other routes or physical devices/tablets.
 - PostgreSQL `partmentpilotai_dev` reported version **18.6**. Flyway successfully validated five history entries and additively migrated the existing schema through version **4**.
 - `/actuator/health`: `UP`; `/api/v1/status`: version `0.2.0`, local registration enabled, `releaseReady: false`.
 - `Test-Local-Api.ps1`: **50/50 HTTP checks passed**, including finance previews, reminder idempotency, rejection persistence and atomic two-payment approval.
@@ -29,7 +30,7 @@ The issue flow now has a dedicated native staff-only `affected` destination. The
 
 Apartment administration now has dedicated native `blocks` and `block-form` destinations. Additive V4 seeds persistent block parents from existing flat labels and adds a tenant-scoped parent constraint. Admins can create or rename blocks idempotently; a rename updates each flat's block membership without changing its label. Residents, duplicate names, unknown flat parents and foreign-tenant block IDs are rejected. The expanded 100-check live suite passed these boundaries; both native routes remain device-runtime and visual-parity unverified.
 
-Resident intake now has dedicated native `join-requests`, `join-review` and `join-reject` destinations. The request list provides the reference Pending/Approved/Rejected states, signup persists the selected Owner/Tenant type, and review displays that type with the request timestamp. Member detail is fetched through an Admin-only tenant-scoped endpoint. Rejection requires and retains a resident-facing reason, rejects guessed foreign-tenant IDs, prevents repeated decisions and releases the flat for a corrected request while the rejected account remains unable to sign in. The expanded 112-check live suite passed these boundaries; the native routes remain device-runtime and visual-parity unverified.
+Resident intake now has dedicated native `join-requests`, `join-review` and `join-reject` destinations. The request list provides the reference Pending/Approved/Rejected states, signup persists the selected Owner/Tenant type, and review displays that type with the request date. Member detail is fetched through an Admin-only tenant-scoped endpoint. Rejection requires and retains a resident-facing reason, rejects guessed foreign-tenant IDs, prevents repeated decisions and releases the flat for a corrected request while the rejected account remains unable to sign in. The expanded 112-check live suite passed these boundaries. On the Pixel_10_Pro Android 37 emulator, the three routes also passed a retained synthetic Admin/resident flow, navigation, rejection persistence, Android Back, both themes and portrait/landscape checks. Direct comparison with the frozen join-request page supports bounded structural parity, but the app-wide shell differs and no whole-app 95% parity claim is made.
 
 ## Written and connected at source level
 
@@ -44,7 +45,7 @@ Resident intake now has dedicated native `join-requests`, `join-review` and `joi
 | Events/parking | Availability, configured capacity, private owner release, physical conflicts, request/approve/offer/accept/cancel/complete, calendar | No live sensors, visitor gate system, payment/deposit integration or guaranteed native pixel parity |
 | Software subscription | Plan/invoices/status, referral code and graph, one-time first-period award, independent-operator interfaces | No Google Play purchase verification/webhook integration; overdue status does NOT yet enforce production access restrictions |
 | Automation | Server-scheduled jobs with duplicate-safe database commands and manual run from Admin/Treasurer | Needs real PostgreSQL/concurrency and missed-run/catch-up validation |
-| Android | Native Java/XML components and connected operational pages, encrypted sessions, date/time pickers, local-server configuration | Fresh debug APK build passed; device/accessibility tests and final screen-by-screen UI matching have not run |
+| Android | Native Java/XML components and connected operational pages, encrypted sessions, date/time pickers, local-server configuration | Fresh debug APK build passed; resident join flow passed on one phone emulator, while broader device/accessibility tests and final screen-by-screen UI matching have not run |
 
 ## Critical remaining work before public launch
 1. Verify phone ownership and implement secure recovery/number change; no universal/test OTP may become a production bypass. Reconcile one-person/multiple-apartment and owner/tenant lifecycle requirements.
@@ -52,7 +53,7 @@ Resident intake now has dedicated native `join-requests`, `join-review` and `joi
 3. Choose and integrate a compliant live subscription purchase flow and backend provider verification. Define cancellation/refund/reconciliation handling and server-enforced subscription entitlements/grace/read-only policies. Existing subscription status is informational, not a production paywall.
 4. Replace manual operator activation checks with the agreed independently verifiable onboarding/install signal where required; use no client-side self-approval or hardcoded paid state.
 5. Finish the native screen inventory and visual/accessibility matching. Some related reference subpages are combined into forms or inline details in this increment; this is NOT proof that every subpage matches the frozen design.
-6. Complete the remaining database/device gates: fresh database plus backed-up V1-only clone upgrade through V4, broader tenant/concurrency suites, Android install/runtime tests, process recreation, rotation, accessibility and screenshot comparison.
+6. Complete the remaining database/device gates: fresh database plus backed-up V1-only clone upgrade through V4, broader tenant/concurrency suites, whole-app Android runtime tests, process recreation, accessibility and screen-by-screen comparison across supported phones/tablets.
 7. Production secrets/least-privilege database roles, TLS, data retention/deletion, backup/restore verification, upload scanning/storage quotas, monitoring, rate/load tests and release signing/privacy review.
 
 ## Important operational limitations

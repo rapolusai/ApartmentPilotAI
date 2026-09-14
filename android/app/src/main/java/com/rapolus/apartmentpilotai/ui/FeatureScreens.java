@@ -634,6 +634,11 @@ import java.util.*;
                 h.savePageDraft("joinRequests",obj("status",option));
                 h.refreshPage();
             });
+            button.setSingleLine(true);
+            button.setTextSize(11);
+            button.setMinWidth(0);
+            button.setMinimumWidth(0);
+            button.setPadding(u.dp(4),0,u.dp(4),0);
             LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(0,-2,1);
             params.setMarginEnd(u.dp(6));
             button.setLayoutParams(params);
@@ -647,14 +652,18 @@ import java.util.*;
                 if(val(member,"flatLabel").isEmpty()||!status.equals(member.optString("status")))continue;
                 requestCount++;
             }
-            if(status.equals("PENDING"))u.note(b,"Verify the person and requested flat before approval.");
             if(requestCount==0)u.empty(b,"No "+(status.equals("ACTIVE")?"approved":status.toLowerCase(Locale.ROOT))+" requests","Resident requests in this state will appear here.");
+            LinearLayout requests=requestCount==0?null:card();
+            if(requests!=null)requests.setPadding(0,0,0,0);
             for(int i=0;i<rows.length();i++) {
                 JSONObject member=rows.getJSONObject(i);
                 if(val(member,"flatLabel").isEmpty()||!status.equals(member.optString("status")))continue;
-                String requested=val(member,"createdAt");
-                if(requested.length()>=10)requested=requested.substring(0,10);
-                row(card(),member.optString("name"),val(member,"flatLabel")+" · "+friendly(member.optString("residentType"))+(requested.isEmpty()?"":" · "+requested),R.drawable.ic_users,"join-review",member.optString("id"));
+                if(requests.getChildCount()>0) {
+                    android.view.View divider=new android.view.View(h.activity());
+                    divider.setBackgroundColor(u.color(R.color.ap_line));
+                    requests.addView(divider,new LinearLayout.LayoutParams(-1,u.dp(1)));
+                }
+                row(requests,member.optString("name"),val(member,"flatLabel")+" · "+friendly(member.optString("residentType")),R.drawable.ic_users,"join-review",member.optString("id"));
             }
         });
     }
@@ -662,12 +671,26 @@ import java.util.*;
         title("Review resident");
         get("/members/"+id,value-> {
             JSONObject member=(JSONObject)value;
+            String requested=val(member,"createdAt");
+            member.put("requestedDate",requested.length()>=10?requested.substring(0,10):requested);
             u.hero(b,val(member,"flatLabel"),member.optString("name"),friendly(member.optString("status")));
-            details(member,"flatLabel","Requested flat","mobile","Mobile","residentType","Resident type","createdAt","Requested","status","Status");
+            details(member,"flatLabel","Requested flat","mobile","Mobile","residentType","Resident type","requestedDate","Requested","status","Status");
             if("PENDING".equals(member.optString("status"))) {
                 u.note(b,"Approve only after verifying the person and their connection to this flat.");
-                u.button(b,"Reject",R.drawable.ic_error,false,()->go("join-reject",id));
-                u.button(b,"Approve resident",R.drawable.ic_check,true,()->u.confirm("Approve flat access?","Account access starts immediately after approval.","Approve",()->h.requestApi("POST","/members/"+id+"/approve",obj(),x->h.refreshPage())));
+                LinearLayout actions=u.row();
+                Button reject=u.button(actions,"Reject",R.drawable.ic_error,false,()->go("join-reject",id));
+                Button approve=u.button(actions,"Approve resident",R.drawable.ic_check,true,()->u.confirm("Approve flat access?","Account access starts immediately after approval.","Approve",()->h.requestApi("POST","/members/"+id+"/approve",obj(),x->h.refreshPage())));
+                for(Button button:new Button[] {reject,approve}) {
+                    button.setSingleLine(true);
+                    button.setTextSize(11);
+                    button.setMinWidth(0);
+                    button.setMinimumWidth(0);
+                    button.setPadding(u.dp(4),0,u.dp(4),0);
+                    LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(0,-2,1);
+                    params.setMarginEnd(u.dp(6));
+                    button.setLayoutParams(params);
+                }
+                b.addView(actions);
             } else if(!val(member,"rejectionReason").isEmpty())u.note(b,member.optString("rejectionReason"));
         });
     }

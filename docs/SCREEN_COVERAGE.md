@@ -1,6 +1,6 @@
 # Screen coverage — source traceability, not completion percentage
 
-Reference routes: 203. UI parity and runtime acceptance remain unverified for increment02.
+Reference routes: 203. Three resident-join routes have bounded local-emulator evidence; all other UI parity and runtime acceptance remain unverified for increment02.
 
 | Reference ID | Native destination | Source status |
 |---|---|---|
@@ -99,9 +99,9 @@ Reference routes: 203. UI parity and runtime acceptance remain unverified for in
 | `flat-form` | `flat-form` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `residents` | `residents` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `resident` | `directory-detail` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `join-requests` | `join-requests` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `join-review` | `join-review` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `join-reject` | `join-reject` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
+| `join-requests` | `join-requests` | CONNECTED_LOCAL_EMULATOR_VERIFIED |
+| `join-review` | `join-review` | CONNECTED_LOCAL_EMULATOR_VERIFIED |
+| `join-reject` | `join-reject` | CONNECTED_LOCAL_EMULATOR_VERIFIED |
 | `invite` | `invite` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `invite-settings` | `—` | NOT_IMPLEMENTED_AS_REFERENCE_ROUTE |
 | `handover` | `handover` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
