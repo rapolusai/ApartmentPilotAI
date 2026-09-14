@@ -1182,8 +1182,9 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             JSONArray arr=(JSONArray)r;
             for(int i=0; i<arr.length(); i++) {
                 JSONObject m=arr.getJSONObject(i);
+                String destination="PENDING".equals(m.optString("status"))?"join-review":"member";
                 LinearLayout c=ui.card(content);
-                ui.iconRow(c,m.optString("name"),(m.isNull("flatLabel")?"Apartment team":m.optString("flatLabel"))+" · "+pretty(m.optString("status")),R.drawable.ic_user,()->go("member",m.optString("id")));
+                ui.iconRow(c,m.optString("name"),(m.isNull("flatLabel")?"Apartment team":m.optString("flatLabel"))+" · "+pretty(m.optString("status")),R.drawable.ic_user,()->go(destination,m.optString("id")));
             }
         }
         );
@@ -1204,10 +1205,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             ui.kv(c,"Status",pretty(m.optString("status")));
             if("PENDING".equals(m.optString("status"))) {
                 ui.button(content,"Approve resident",R.drawable.ic_check,true,()->ui.confirm("Approve flat access?","Confirm this person's identity and flat. Account access starts after approval.","Approve",()->request("POST","/members/"+id+"/approve",json(),x->render())));
-                Ui.Fields rejection=new Ui.Fields(ui,content);
-                ui.gap(content,12);
-                rejection.field("reason","Rejection reason","",TEXT);
-                ui.button(content,"Reject request",R.drawable.ic_error,false,()->request("POST","/members/"+id+"/reject",json("reason",rejection.get("reason")),x->render()));
+                ui.button(content,"Reject request",R.drawable.ic_error,false,()->go("join-reject",id));
             } else if("ACTIVE".equals(m.optString("status"))&&"RESIDENT".equals(m.optString("role"))) {
                 ui.button(content,"Assign treasurer",R.drawable.ic_shield,false,()->ui.confirm("Grant financial access?","Treasurer can approve payments, add expenses and view financial records. Existing sessions are revoked.","Grant access",()->request("POST","/members/"+id+"/treasurer",json(),x->render())));
             }

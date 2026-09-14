@@ -13,7 +13,7 @@ On 15 September 2026 the current increment02 source compiled with Java 21, produ
 - PostgreSQL `partmentpilotai_dev` reported version **18.6**. Flyway successfully validated five history entries and additively migrated the existing schema through version **4**.
 - `/actuator/health`: `UP`; `/api/v1/status`: version `0.2.0`, local registration enabled, `releaseReady: false`.
 - `Test-Local-Api.ps1`: **50/50 HTTP checks passed**, including finance previews, reminder idempotency, rejection persistence and atomic two-payment approval.
-- `Test-Operations.ps1 -Concurrency`: **100/100 checks passed**, including persistent block creation/rename/idempotency/tenant isolation, staff-only tenant-scoped affected-flat enumeration, confirmed scheduled publication, notice preview/schedule boundaries, selected-flat contribution preview/create/retry, transparency privacy enforcement and one-winner concurrent booking approval.
+- `Test-Operations.ps1 -Concurrency`: **111/111 checks passed**, including reasoned one-time join rejection and flat release, scoped join-review details, persistent block creation/rename/idempotency/tenant isolation, staff-only affected-flat enumeration, notice scheduling, contribution/transparency boundaries and one-winner concurrent booking approval.
 - The local backend used port **8081** because port 8080 was occupied by the system `AgentService`; the checked-in Android endpoint was not changed.
 - Test suites intentionally retained their clearly labelled synthetic tenants for inspection. No database records were deleted.
 
@@ -28,6 +28,8 @@ Notice authoring now has dedicated native `notice-templates` and `notice-preview
 The issue flow now has a dedicated native staff-only `affected` destination. The backend parent-checks the issue within the authenticated tenant, rejects resident and foreign-tenant enumeration, excludes inactive or unassigned accounts and returns only one active identity per distinct affected flat. The expanded 89-check live suite passed these boundaries; the native route remains device-runtime and visual-parity unverified.
 
 Apartment administration now has dedicated native `blocks` and `block-form` destinations. Additive V4 seeds persistent block parents from existing flat labels and adds a tenant-scoped parent constraint. Admins can create or rename blocks idempotently; a rename updates each flat's block membership without changing its label. Residents, duplicate names, unknown flat parents and foreign-tenant block IDs are rejected. The expanded 100-check live suite passed these boundaries; both native routes remain device-runtime and visual-parity unverified.
+
+Resident intake now has dedicated native `join-requests`, `join-review` and `join-reject` destinations. Member detail is fetched through an Admin-only tenant-scoped endpoint. Rejection requires and retains a resident-facing reason, rejects guessed foreign-tenant IDs, prevents repeated decisions and releases the flat for a corrected request while the rejected account remains unable to sign in. The expanded 111-check live suite passed these boundaries; the native routes remain device-runtime and visual-parity unverified.
 
 ## Written and connected at source level
 

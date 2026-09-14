@@ -65,6 +65,21 @@ try {
  $login=Api 'POST' '/auth/login' @{mobile=$rm;pin=$pin;role='RESIDENT'};Check ($login.Status -eq 200) 'Resident signs in';$tr=$login.Body.token
  $flats=Api 'GET' '/ops/flats' $null $ta;$flat=@($flats.Body|Where-Object {$_.label -eq 'A-101'})[0]
  $own=Api 'GET' '/ops/flats' $null $tr;Check (@($own.Body).Count -eq 1) 'Resident flat selector is limited to own flat'
+ $rejectMobile=Mobile
+ $rejectJoin=Api 'POST' '/auth/join' @{invite=$invite.Body.code;flatLabel='A-102';name='TEST02 Rejected Resident';mobile=$rejectMobile;pin=$pin}
+ Check ($rejectJoin.Status -eq 200 -and $rejectJoin.Body.status -eq 'PENDING') 'Second resident creates a pending join request'
+ $joinMembers=Api 'GET' '/members' $null $ta;$rejectMember=@($joinMembers.Body|Where-Object {$_.mobile -eq $rejectMobile})[0]
+ $joinDetail=Api 'GET' "/members/$($rejectMember.id)" $null $ta;Check ($joinDetail.Status -eq 200 -and $joinDetail.Body.status -eq 'PENDING' -and $joinDetail.Body.flatLabel -eq 'A-102') 'Admin loads tenant-scoped join-review details'
+ $joinResidentDenied=Api 'GET' "/members/$($rejectMember.id)" $null $tr;Check ($joinResidentDenied.Status -eq 403) 'Resident cannot inspect join-review details'
+ $joinForeign=Api 'GET' "/members/$($rejectMember.id)" $null $tb;Check ($joinForeign.Status -eq 404) 'Another apartment cannot inspect a guessed join request ID'
+ $blankReject=Api 'POST' "/members/$($rejectMember.id)/reject" @{reason=' '} $ta;Check ($blankReject.Status -eq 400) 'Join rejection requires a reason'
+ $foreignReject=Api 'POST' "/members/$($rejectMember.id)/reject" @{reason='Foreign decision'} $tb;Check ($foreignReject.Status -eq 404) 'Another apartment cannot reject a guessed join request ID'
+ $rejectReason='Please choose the correct flat.'
+ $rejected=Api 'POST' "/members/$($rejectMember.id)/reject" @{reason=$rejectReason} $ta;Check ($rejected.Status -eq 200) 'Admin rejects a pending join request'
+ $rejectedAgain=Api 'POST' "/members/$($rejectMember.id)/reject" @{reason=$rejectReason} $ta;Check ($rejectedAgain.Status -eq 409) 'Reviewed join request cannot be rejected twice'
+ $rejectedDetail=Api 'GET' "/members/$($rejectMember.id)" $null $ta;Check ($rejectedDetail.Body.status -eq 'REJECTED' -and $rejectedDetail.Body.rejectionReason -eq $rejectReason) 'Join rejection reason persists for review'
+ $rejectedLogin=Api 'POST' '/auth/login' @{mobile=$rejectMobile;pin=$pin;role='RESIDENT'};Check ($rejectedLogin.Status -eq 403) 'Rejected resident cannot sign in'
+ $availableAgain=Api 'GET' "/auth/invites/$($invite.Body.code)";Check (@($availableAgain.Body.flats|Where-Object {$_.label -eq 'A-102'}).Count -eq 1) 'Rejected claim releases its flat for a corrected request'
  $blocks=Api 'GET' '/ops/blocks' $null $ta;Check ($blocks.Status -eq 200 -and @($blocks.Body).Count -eq 1 -and $blocks.Body[0].name -eq 'A' -and $blocks.Body[0].flatCount -eq 5) 'Initial block is persisted with its flat count'
  $blocksDenied=Api 'GET' '/ops/blocks' $null $tr;Check ($blocksDenied.Status -eq 403) 'Resident cannot administer apartment blocks'
  $blockKey=Key;$blockBody=@{name='B';requestKey=$blockKey}

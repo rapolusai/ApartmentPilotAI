@@ -99,9 +99,9 @@ Reference routes: 203. UI parity and runtime acceptance remain unverified for in
 | `flat-form` | `flat-form` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `residents` | `residents` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `resident` | `directory-detail` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `join-requests` | `members` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `join-review` | `member` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `join-reject` | `—` | NOT_IMPLEMENTED_AS_REFERENCE_ROUTE |
+| `join-requests` | `join-requests` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
+| `join-review` | `join-review` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
+| `join-reject` | `join-reject` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `invite` | `invite` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `invite-settings` | `—` | NOT_IMPLEMENTED_AS_REFERENCE_ROUTE |
 | `handover` | `handover` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |

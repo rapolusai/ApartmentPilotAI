@@ -72,6 +72,12 @@ import java.util.*;
             break;
             case "handover":handover();
             break;
+            case "join-requests":joinRequests();
+            break;
+            case "join-review":joinReview();
+            break;
+            case "join-reject":joinReject();
+            break;
             case "vendors":contacts("VENDOR");
             break;
             case "contacts":contacts("CONTACT");
@@ -615,6 +621,53 @@ import java.util.*;
             submit("End old access",()->u.confirm("Revoke old access?","The selected account will be disabled and signed out.","End access",()->write("/ops/members/"+f.get("member")+"/end-access",obj("reason",f.get("reason")),x->go("members"))));
         }
         );
+    }
+    private void joinRequests() {
+        title("Join requests");
+        get("/members",value-> {
+            JSONArray rows=(JSONArray)value;
+            int pending=0,requestCount=0;
+            for(int i=0;i<rows.length();i++) {
+                JSONObject member=rows.getJSONObject(i);
+                if(!"RESIDENT".equals(member.optString("role")))continue;
+                requestCount++;
+                if("PENDING".equals(member.optString("status")))pending++;
+            }
+            u.hero(b,pending+" pending","Resident access","Verify the person and requested flat before approval.");
+            if(requestCount==0)u.empty(b,"No join requests","New resident requests will appear here.");
+            for(int i=0;i<rows.length();i++) {
+                JSONObject member=rows.getJSONObject(i);
+                if(!"RESIDENT".equals(member.optString("role")))continue;
+                row(card(),member.optString("name"),val(member,"flatLabel")+" · "+friendly(member.optString("status")),R.drawable.ic_users,"join-review",member.optString("id"));
+            }
+        });
+    }
+    private void joinReview() {
+        title("Review resident");
+        get("/members/"+id,value-> {
+            JSONObject member=(JSONObject)value;
+            u.hero(b,val(member,"flatLabel"),member.optString("name"),friendly(member.optString("status")));
+            details(member,"flatLabel","Requested flat","mobile","Mobile","role","Requested role","status","Status");
+            if("PENDING".equals(member.optString("status"))) {
+                u.note(b,"Approve only after verifying the person and their connection to this flat.");
+                u.button(b,"Reject",R.drawable.ic_error,false,()->go("join-reject",id));
+                u.button(b,"Approve resident",R.drawable.ic_check,true,()->u.confirm("Approve flat access?","Account access starts immediately after approval.","Approve",()->h.requestApi("POST","/members/"+id+"/approve",obj(),x->h.refreshPage())));
+            } else if(!val(member,"rejectionReason").isEmpty())u.note(b,member.optString("rejectionReason"));
+        });
+    }
+    private void joinReject() {
+        title("Reject join request");
+        get("/members/"+id,value-> {
+            JSONObject member=(JSONObject)value;
+            if(!"PENDING".equals(member.optString("status"))) {
+                u.empty(b,"Request already reviewed","Return to join requests for its current status.");
+                return;
+            }
+            u.hero(b,val(member,"flatLabel"),member.optString("name"),"Explain what the resident should correct.");
+            Ui.Fields f=h.newFields();
+            f.field("reason","Reason for resident","",TEXT);
+            submit("Reject request",()->h.requestApi("POST","/members/"+id+"/reject",obj("reason",f.get("reason")),x->go("join-review",id)));
+        });
     }
     private void contacts(String kind) {
         title(kind.equals("VENDOR")?"Vendors":"Contacts");
@@ -1728,7 +1781,7 @@ import java.util.*;
             LinearLayout c=card();
             row(c,"Payments",x.optString("payments","0")+" pending",R.drawable.ic_check,"approvals");
             if(h.isAdmin()) {
-                row(c,"Join requests",x.optString("joinRequests","0")+" pending",R.drawable.ic_users,"members");
+                row(c,"Join requests",x.optString("joinRequests","0")+" pending",R.drawable.ic_users,"join-requests");
                 row(c,"Event requests",x.optString("bookings","0")+" pending",R.drawable.ic_calendar,"events");
             }
             row(c,"Expense drafts",x.optString("expenseDrafts","0")+" need confirmation",R.drawable.ic_expense,"expenses");

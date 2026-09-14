@@ -15,6 +15,7 @@ All ordinary APIs derive tenant/role from a bearer session. JSON bodies contain 
 | GET | `/api/v1/me` | `ApiController.java` |
 | GET | `/api/v1/flats` | `ApiController.java` |
 | GET | `/api/v1/members` | `ApiController.java` |
+| GET | `/api/v1/members/{id}` | `ApiController.java` |
 | POST | `/api/v1/invites` | `ApiController.java` |
 | POST | `/api/v1/members/{id}/approve` | `ApiController.java` |
 | POST | `/api/v1/members/{id}/reject` | `ApiController.java` |
@@ -144,6 +145,8 @@ All ordinary APIs derive tenant/role from a bearer session. JSON bodies contain 
 - `/auth/register` and `/auth/join` require the explicit local profile. These are not verified production signup paths.
 
 ## Important shapes
+`GET /members/{id}` and the resident approval/rejection commands are Admin-only and tenant-scoped. Rejection requires a nonblank reason of at most 300 characters, moves only a pending request to `REJECTED`, retains the explanation, prevents sign-in and releases the flat for a corrected request. A repeated decision conflicts rather than silently rewriting the review.
+
 `POST /ops/blocks` and `POST /ops/blocks/{id}`: name (1–8 characters),requestKey. Both are Admin-only and tenant-scoped. A rename cascades the block membership stored on flats but never rewrites a flat label; duplicate names are rejected. `POST /ops/flats` and `/ops/flats/{id}` require the supplied block to exist in the authenticated tenant.
 
 `POST /ops/expenses`: title,category,amount,paidOn,mode,paid,visibleToResidents,notes,requestKey. Legacy POST/expenses remains for increment01 clients; the native increment02 expense form uses the operational endpoint to preserve payment mode.

@@ -87,11 +87,18 @@ import org.springframework.transaction.annotation.Transactional;
         db.audit(a.tenantId(),a.id(),"RESIDENT_APPROVED",id,"Pending","Active");
         db.notify(a.tenantId(),id,"JOIN_APPROVED:"+id,"Welcome home","Your apartment access is approved.","home");
     }
+    public Map<String,Object> member(Account a,UUID id) {
+        a.requireAdmin();
+        return db.one("select u.id,u.name,u.mobile,u.role,u.status,u.rejection_reason,f.label as flat_label from ap_user u left join ap_flat f on f.tenant_id=u.tenant_id and f.id=u.flat_id where u.tenant_id=? and u.id=?",a.tenantId(),id);
+    }
     @Transactional public void reject(Account a,UUID id,String reason) {
         a.requireAdmin();
         db.lockTenant(a.tenantId());
-        if(db.update("update ap_user set status='REJECTED',rejection_reason=? where id=? and tenant_id=? and status='PENDING'",reason,id,a.tenantId())!=1)throw ApiError.conflict("This request is not pending.");
-        db.audit(a.tenantId(),a.id(),"RESIDENT_REJECTED",id,"Pending",reason);
+        var existing=member(a,id);
+        if(!existing.get("status").equals("PENDING"))throw ApiError.conflict("This request is not pending.");
+        String explanation=reason.trim();
+        db.update("update ap_user set status='REJECTED',rejection_reason=? where id=? and tenant_id=?",explanation,id,a.tenantId());
+        db.audit(a.tenantId(),a.id(),"RESIDENT_REJECTED",id,"Pending",explanation);
     }
     @Transactional public void grantTreasurer(Account a,UUID id) {
         a.requireAdmin();
