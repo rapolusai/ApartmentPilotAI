@@ -20,6 +20,29 @@ import java.math.*;
         if(!a.staff())return Map.of("payee",s.get("payee"),"upi",s.get("upi"),"bank",s.get("bank"),"account",s.get("account"),"ifsc",s.get("ifsc"),"bookingRules",s.get("bookingRules"),"expensesVisible",s.get("expensesVisible"),"proofRequired",s.get("proofRequired"));
         return s;
     }
+    /** Update one focused form without overwriting unrelated settings, including concurrent saves. */
+    @Transactional public Object saveSettingsSection(Account a,String section,Map<String,Object> changes) {
+        a.requireStaff();
+        Set<String> allowed=switch(section) {
+            case "payment" -> Set.of("payee","upi","bank","account","ifsc");
+            case "billing" -> Set.of("billVacant","lateEnabled","lateFee","graceDays");
+            case "verification" -> Set.of("proofRequired","expensesVisible");
+            case "reminders" -> Set.of("dueNotify","reminders","reminderDays","quietStart","quietEnd");
+            case "booking" -> Set.of("bookingRules");
+            default -> throw new IllegalArgumentException("Choose a valid settings section.");
+        };
+        Map<String,Object> fields=new HashMap<>(changes);
+        fields.remove("requestKey");
+        if(fields.isEmpty()||!allowed.containsAll(fields.keySet()))throw new IllegalArgumentException("Only fields from this settings section can be changed.");
+        db.lockTenant(a.tenantId());
+        String operation="SETTINGS_"+section.toUpperCase(Locale.ROOT);
+        if(changes.containsKey("requestKey")&&c.previous(a,operation,changes).isPresent())return Map.of("ok",true);
+        Map<String,Object> merged=new HashMap<>(c.settings(a));
+        merged.putAll(fields);
+        Object result=saveSettings(a,merged);
+        if(changes.containsKey("requestKey"))c.remember(a,operation,changes,a.tenantId());
+        return result;
+    }
     @Transactional public Object saveSettings(Account a,Map<String,Object> p) {
         a.requireStaff();
         db.lockTenant(a.tenantId());
@@ -170,7 +193,7 @@ import java.math.*;
         return Map.of("id",id);
     }
     public Map<String,Object> expense(Account a,UUID id) {
-        var e=db.one("select * from ap_expense where tenant_id=? and id=?",a.tenantId(),id);
+        var e=db.one("select e.*,v.name as vendor_name from ap_expense e left join ap_contact v on v.tenant_id=e.tenant_id and v.id=e.vendor_id where e.tenant_id=? and e.id=?",a.tenantId(),id);
         if(!a.staff()&&(!Boolean.TRUE.equals(e.get("public"))||!Boolean.TRUE.equals(e.get("paid"))||!Boolean.TRUE.equals(c.settings(a).get("expensesVisible"))))throw ApiError.forbidden();
         return e;
     }
@@ -187,6 +210,16 @@ import java.math.*;
         db.update("update ap_expense set title=?,category=?,amount=?,paid_on=?,paid=?,public=?,mode=?,notes=? where tenant_id=? and id=?",V.text(p,"title",100),V.text(p,"category",30),V.money(p,"amount"),V.sql(date),V.bool(p,"paid",false),V.bool(p,"visibleToResidents",true),V.choice(p,"mode","CASH","UPI","BANK_TRANSFER","CHEQUE"),V.opt(p,"notes",500),a.tenantId(),id);
         c.remember(a,"EXPENSE_EDIT",p,id);
         c.audit(a,"EXPENSE_EDITED",id,"Draft",V.bool(p,"paid",false)?"Paid":"Draft");
+        if(V.bool(p,"paid",false)&&e.get("recurringId")!=null) {
+            UUID recurringId=V.uid(e.get("recurringId"));
+            LocalDate cycle=LocalDate.parse(e.get("recurringOn").toString());
+            var template=db.one("select next_on,frequency from ap_recurring where tenant_id=? and id=?",a.tenantId(),recurringId);
+            if(cycle.toString().equals(template.get("nextOn").toString())) {
+                LocalDate next=OperationsRules.next(cycle,template.get("frequency").toString());
+                db.update("update ap_recurring set next_on=? where tenant_id=? and id=?",V.sql(next),a.tenantId(),recurringId);
+                c.audit(a,"RECURRING_CYCLE_POSTED",recurringId,cycle.toString(),next.toString());
+            }
+        }
         return Map.of("id",id);
     }
     @Transactional public Object reverseExpense(Account a,UUID id,Map<String,Object> p) {
@@ -220,22 +253,76 @@ import java.math.*;
     }
     public List<Map<String,Object>> recurring(Account a) {
         a.requireStaff();
-        return db.rows("select * from ap_recurring where tenant_id=? order by next_on",a.tenantId());
+        return db.rows("select r.*,v.name as vendor_name from ap_recurring r left join ap_contact v on v.tenant_id=r.tenant_id and v.id=r.vendor_id where r.tenant_id=? order by r.next_on",a.tenantId());
+    }
+    public Map<String,Object> recurringDetail(Account a,UUID id) {
+        a.requireStaff();
+        return db.one("select r.*,v.name as vendor_name from ap_recurring r left join ap_contact v on v.tenant_id=r.tenant_id and v.id=r.vendor_id where r.tenant_id=? and r.id=?",a.tenantId(),id);
+    }
+    private Map<String,Object> recurringCommand(UUID id,Map<String,Object> input,Set<String> allowed) {
+        if(input.keySet().stream().anyMatch(key->!allowed.contains(key)))throw new IllegalArgumentException("Unsupported recurring command field.");
+        Map<String,Object> command=new LinkedHashMap<>(input);
+        command.put("recurringId",id.toString());
+        return command;
+    }
+    @Transactional public Object recurringActive(Account a,UUID id,Map<String,Object> input) {
+        a.requireStaff();
+        Map<String,Object> p=recurringCommand(id,input,Set.of("active","expectedActive","requestKey"));
+        if(!(input.get("active") instanceof Boolean)||!(input.get("expectedActive") instanceof Boolean))throw new IllegalArgumentException("Confirm the current and requested active state.");
+        db.lockTenant(a.tenantId());
+        var template=recurringDetail(a,id);
+        var old=c.previous(a,"RECURRING_ACTIVE",p);
+        if(old.isPresent())return Map.of("id",old.get());
+        boolean active=V.bool(p,"active",true);
+        if(!Objects.equals(template.get("active"),p.get("expectedActive")))throw ApiError.conflict("This template changed. Refresh before saving.");
+        if(!Objects.equals(template.get("active"),active)) {
+            db.update("update ap_recurring set active=? where tenant_id=? and id=?",active,a.tenantId(),id);
+            c.audit(a,"RECURRING_ACTIVE_CHANGED",id,template.get("active").toString(),Boolean.toString(active));
+        }
+        c.remember(a,"RECURRING_ACTIVE",p,id);
+        return Map.of("id",id);
+    }
+    @Transactional public Object prepareRecurring(Account a,UUID id,Map<String,Object> input) {
+        a.requireStaff();
+        Map<String,Object> p=recurringCommand(id,input,Set.of("cycle","requestKey"));
+        LocalDate cycle=V.date(p,"cycle");
+        db.lockTenant(a.tenantId());
+        var template=recurringDetail(a,id);
+        var old=c.previous(a,"RECURRING_PREPARE",p);
+        if(old.isPresent())return Map.of("id",old.get());
+        if(!Boolean.TRUE.equals(template.get("active")))throw ApiError.conflict("Resume this recurring expense first.");
+        if(!cycle.toString().equals(template.get("nextOn").toString()))throw ApiError.conflict("The cycle changed. Refresh before preparing.");
+        var existing=db.find("select id from ap_expense where tenant_id=? and recurring_id=? and recurring_on=?",a.tenantId(),id,V.sql(cycle));
+        UUID expenseId;
+        if(existing.isPresent())expenseId=V.uid(existing.get().get("id"));
+        else {
+            expenseId=UUID.randomUUID();
+            db.update("insert into ap_expense(id,tenant_id,title,category,amount,paid_on,paid,public,mode,notes,created_by,request_key,recurring_id,recurring_on,vendor_id) values(?,?,?,?,?,?,false,true,'BANK_TRANSFER','Recurring draft',?,?,?,?,?)",expenseId,a.tenantId(),template.get("title"),template.get("category"),template.get("amount"),V.sql(cycle),a.id(),V.id(p,"requestKey"),id,V.sql(cycle),template.get("vendorId"));
+            c.audit(a,"RECURRING_EXPENSE_PREPARED",expenseId,null,template.get("title")+" · "+cycle);
+        }
+        c.remember(a,"RECURRING_PREPARE",p,expenseId);
+        return Map.of("id",expenseId);
     }
     @Transactional public Object recurring(Account a,UUID id,Map<String,Object> p) {
         a.requireStaff();
         db.lockTenant(a.tenantId());
         var old=c.previous(a,"RECURRING",p);
-        if(old.isPresent())return Map.of("id",old.get());
+        if(old.isPresent()) {
+            if(id!=null&&!id.equals(old.get()))throw ApiError.conflict("This request key belongs to another recurring template.");
+            return Map.of("id",old.get());
+        }
         String title=V.text(p,"title",100),category=V.text(p,"category",30),frequency=V.choice(p,"frequency","MONTHLY","QUARTERLY","HALF_YEARLY","YEARLY");
         LocalDate next=V.date(p,"nextOn");
         BigDecimal amount=V.money(p,"amount");
+        UUID vendor=V.optionalId(p,"vendorId");
+        if(vendor!=null)db.one("select id from ap_contact where tenant_id=? and id=? and kind='VENDOR' and active=true",a.tenantId(),vendor);
         if(id==null) {
             id=UUID.randomUUID();
-            db.update("insert into ap_recurring values(?,?,?,?,?,?,?,?,?)",id,a.tenantId(),title,category,amount,frequency,V.sql(next),V.bool(p,"active",true),a.id());
+            db.update("insert into ap_recurring(id,tenant_id,title,category,amount,frequency,next_on,active,created_by,vendor_id) values(?,?,?,?,?,?,?,?,?,?)",id,a.tenantId(),title,category,amount,frequency,V.sql(next),V.bool(p,"active",true),a.id(),vendor);
         } else {
-            db.one("select id from ap_recurring where tenant_id=? and id=?",a.tenantId(),id);
-            db.update("update ap_recurring set title=?,category=?,amount=?,frequency=?,next_on=?,active=? where tenant_id=? and id=?",title,category,amount,frequency,V.sql(next),V.bool(p,"active",true),a.tenantId(),id);
+            var existing=db.one("select id,vendor_id from ap_recurring where tenant_id=? and id=?",a.tenantId(),id);
+            if(!p.containsKey("vendorId"))vendor=existing.get("vendorId")==null?null:V.uid(existing.get("vendorId"));
+            db.update("update ap_recurring set title=?,category=?,amount=?,frequency=?,next_on=?,active=?,vendor_id=? where tenant_id=? and id=?",title,category,amount,frequency,V.sql(next),V.bool(p,"active",true),vendor,a.tenantId(),id);
         }
         c.remember(a,"RECURRING",p,id);
         c.audit(a,"RECURRING_SAVED",id,null,title);

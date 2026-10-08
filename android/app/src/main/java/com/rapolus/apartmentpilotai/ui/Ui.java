@@ -115,31 +115,86 @@ import java.util.*;
         return b;
     }
     public void iconRow(LinearLayout parent,String title,String detail,int icon,Runnable action) {
+        iconRow(parent,title,detail,icon,action,28,13,11,74);
+    }
+    public void prominentIconRow(LinearLayout parent,String title,String detail,int icon,Runnable action) {
+        iconRow(parent,title,detail,icon,action,32,15,13,80);
+    }
+    private void iconRow(LinearLayout parent,String title,String detail,int icon,Runnable action,int iconSize,int titleSize,int detailSize,int minHeight) {
         LinearLayout r=row();
-        r.setMinimumHeight(dp(74));
+        r.setMinimumHeight(dp(minHeight));
         r.setPadding(dp(8),dp(9),dp(8),dp(9));
         ImageView image=new ImageView(c);
         image.setImageResource(icon);
         image.setImageTintList(ColorStateList.valueOf(color(R.color.ap_pine)));
-        r.addView(image,new LinearLayout.LayoutParams(dp(28),dp(28)));
+        r.addView(image,new LinearLayout.LayoutParams(dp(iconSize),dp(iconSize)));
         LinearLayout texts=column();
         LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,-2,1);
         tp.leftMargin=dp(13);
         texts.setLayoutParams(tp);
-        texts.addView(text(title,13,true,R.color.ap_ink));
+        texts.addView(text(title,titleSize,true,R.color.ap_ink));
         if(detail!=null&&!detail.isEmpty()) {
             gap(texts,4);
-            texts.addView(text(detail,11,false,R.color.ap_muted));
+            texts.addView(text(detail,detailSize,false,R.color.ap_muted));
         }
         r.addView(texts);
         if(action!=null) {
             ImageView chevron=new ImageView(c);
             chevron.setImageResource(R.drawable.ic_arrow_right);
             chevron.setImageTintList(ColorStateList.valueOf(color(R.color.ap_muted)));
-            r.addView(chevron,new LinearLayout.LayoutParams(dp(18),dp(18)));
+            r.addView(chevron,new LinearLayout.LayoutParams(dp(iconSize>28?20:18),dp(iconSize>28?20:18)));
             r.setOnClickListener(v->action.run());
             r.setFocusable(true);
             r.setContentDescription(title+". "+detail);
+        }
+        parent.addView(r);
+    }
+    public void statusIconRow(LinearLayout parent,String title,String status,String detail,int icon,Runnable action) {
+        String normalized=status==null?"":status.trim().toLowerCase(Locale.ROOT);
+        int foreground=normalized.equals("pending")?R.color.ap_amber:
+            normalized.equals("in review")?R.color.ap_blue:
+            normalized.equals("next")||normalized.equals("upcoming")?R.color.ap_violet:
+            normalized.equals("paid")||normalized.equals("approved")?R.color.ap_green:R.color.ap_muted;
+        int background=normalized.equals("pending")?R.color.ap_ambg:
+            normalized.equals("in review")?R.color.ap_bluebg:
+            normalized.equals("next")||normalized.equals("upcoming")?R.color.ap_vbg:
+            normalized.equals("paid")||normalized.equals("approved")?R.color.ap_mint:R.color.ap_soft;
+        LinearLayout r=row();
+        r.setMinimumHeight(dp(74));
+        r.setPadding(dp(8),dp(9),dp(8),dp(9));
+        ImageView image=new ImageView(c);
+        image.setImageResource(icon);
+        image.setImageTintList(ColorStateList.valueOf(color(foreground)));
+        r.addView(image,new LinearLayout.LayoutParams(dp(32),dp(32)));
+        LinearLayout texts=column();
+        LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,-2,1);
+        tp.leftMargin=dp(13);
+        texts.setLayoutParams(tp);
+        texts.addView(text(title,15,true,R.color.ap_ink));
+        gap(texts,5);
+        LinearLayout meta=row();
+        TextView badge=text(status,12,true,foreground);
+        badge.setPadding(dp(7),dp(2),dp(7),dp(2));
+        android.graphics.drawable.GradientDrawable shape=new android.graphics.drawable.GradientDrawable();
+        shape.setColor(color(background));
+        shape.setCornerRadius(dp(999));
+        badge.setBackground(shape);
+        meta.addView(badge,new LinearLayout.LayoutParams(-2,-2));
+        if(detail!=null&&!detail.isEmpty()) {
+            TextView amount=text(" · "+detail,13,false,R.color.ap_muted);
+            amount.setGravity(Gravity.CENTER_VERTICAL);
+            meta.addView(amount,new LinearLayout.LayoutParams(-2,-2));
+        }
+        texts.addView(meta);
+        r.addView(texts);
+        if(action!=null) {
+            ImageView chevron=new ImageView(c);
+            chevron.setImageResource(R.drawable.ic_arrow_right);
+            chevron.setImageTintList(ColorStateList.valueOf(color(R.color.ap_muted)));
+            r.addView(chevron,new LinearLayout.LayoutParams(dp(20),dp(20)));
+            r.setOnClickListener(v->action.run());
+            r.setFocusable(true);
+            r.setContentDescription(title+". "+status+" · "+detail);
         }
         parent.addView(r);
     }
@@ -236,29 +291,44 @@ import java.util.*;
             this.ui=ui;
             this.parent=parent;
         }
+        public void placeholder(String key,String value) {
+            EditText edit=inputs.get(key);
+            if(edit==null)return;
+            android.view.ViewParent ancestor=edit.getParent();
+            while(ancestor instanceof View&&!(ancestor instanceof TextInputLayout))ancestor=ancestor.getParent();
+            if(ancestor instanceof TextInputLayout)((TextInputLayout)ancestor).setPlaceholderText(value);
+        }
         public EditText field(String key,String label,String value,int inputType) {
+            boolean inviteExpiry=key.equals("expiry");
             TextInputLayout wrap=new TextInputLayout(ui.c);
-            wrap.setHint(label);
+            wrap.setHint(inviteExpiry?null:label);
             wrap.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE);
-            wrap.setBoxCornerRadii(ui.dp(13),ui.dp(13),ui.dp(13),ui.dp(13));
+            int fieldRadius=ui.dp(inviteExpiry?11:13);
+            wrap.setBoxCornerRadii(fieldRadius,fieldRadius,fieldRadius,fieldRadius);
             wrap.setBoxBackgroundColor(ui.color(R.color.ap_surface));
             TextInputEditText edit=new TextInputEditText(wrap.getContext());
+            edit.setContentDescription(label);
             edit.setInputType(inputType);
-            if((key.equalsIgnoreCase("pin")||key.toLowerCase(java.util.Locale.ROOT).endsWith("pin"))) {
-                edit.setTransformationMethod(android.text.method.PasswordTransformationMethod.getInstance());
-                wrap.setEndIconMode(TextInputLayout.END_ICON_PASSWORD_TOGGLE);
-            }
             edit.setText(value);
             edit.setSingleLine((inputType&android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE)==0);
-            edit.setTextSize(13);
+            // setSingleLine can replace the transformation; password masking must be last.
+            if((key.equalsIgnoreCase("pin")||key.toLowerCase(java.util.Locale.ROOT).endsWith("pin"))) {
+                wrap.setEndIconMode(TextInputLayout.END_ICON_PASSWORD_TOGGLE);
+                edit.setTransformationMethod(android.text.method.PasswordTransformationMethod.getInstance());
+            }
+            edit.setTextSize(inviteExpiry?11.5f:13f);
             edit.setTextColor(ui.color(R.color.ap_ink));
-            edit.setMinHeight(ui.dp(50));
+            edit.setMinHeight(ui.dp(inviteExpiry?42:50));
             wrap.addView(edit,new LinearLayout.LayoutParams(-1,-2));
             LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);
             p.bottomMargin=ui.dp(16);
+            if(inviteExpiry) {
+                parent.addView(ui.text(label,10,true,R.color.ap_sub));
+                ui.gap(parent,5);
+            }
             parent.addView(wrap,p);
             inputs.put(key,edit);
-            boolean dateField=label.contains("YYYY-MM-DD")||java.util.Arrays.asList("startOn","endOn","nextOn","paidOn","receivedOn","dueDate","completedOn","amcEnd").contains(key);
+            boolean dateField=label.contains("YYYY-MM-DD")||java.util.Arrays.asList("startOn","endOn","nextOn","paidOn","receivedOn","dueDate","completedOn","amcEnd","expiry").contains(key);
             if(dateField) {
                 wrap.setEndIconMode(TextInputLayout.END_ICON_CUSTOM);
                 wrap.setEndIconDrawable(R.drawable.ic_calendar);
@@ -267,11 +337,11 @@ import java.util.*;
                     java.time.LocalDate current=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Kolkata"));
                     String previous=edit.getText().toString();
                     try {
-                        current=java.time.LocalDate.parse(previous.length()>10?previous.substring(0,10):previous);
+                        current=inviteExpiry?java.time.LocalDate.parse(previous,java.time.format.DateTimeFormatter.ofPattern("dd-MM-uuuu",java.util.Locale.ROOT)):java.time.LocalDate.parse(previous.length()>10?previous.substring(0,10):previous);
                     } catch(Exception ignored) {
                     }
                     android.app.DatePickerDialog dialog=new android.app.DatePickerDialog(ui.c,(picker,year,month,day)-> {
-                        String chosen=java.time.LocalDate.of(year,month+1,day).toString();
+                        String chosen=inviteExpiry?java.time.LocalDate.of(year,month+1,day).format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-uuuu",java.util.Locale.ROOT)):java.time.LocalDate.of(year,month+1,day).toString();
                         if(label.contains("THH:mm")) {
                             new android.app.TimePickerDialog(ui.c,(clock,hour,minute)->edit.setText(chosen+String.format(java.util.Locale.ROOT,"T%02d:%02d",hour,minute)),17,0,true).show();
                         } else edit.setText(chosen);
@@ -282,6 +352,10 @@ import java.util.*;
                 );
             }
             return edit;
+        }
+        public void limit(String key,int max) {
+            EditText edit=inputs.get(key);
+            if(edit!=null)edit.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(max)});
         }
         public void select(String key,String label,String[] labels,String[] values) {
             parent.addView(ui.text(label,11,true,R.color.ap_sub));

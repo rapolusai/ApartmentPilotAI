@@ -9,8 +9,12 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.*;
 import androidx.core.view.*;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.button.MaterialButton;
 import com.rapolus.apartmentpilotai.data.ApiClient;
 import com.rapolus.apartmentpilotai.data.HttpFailurePolicy;
+import com.rapolus.apartmentpilotai.data.NavigationPolicy;
+import com.rapolus.apartmentpilotai.data.LoginPolicy;
+import com.rapolus.apartmentpilotai.data.RegistrationPolicy;
 import com.rapolus.apartmentpilotai.ui.Ui;
 import com.rapolus.apartmentpilotai.ui.FeatureHost;
 import com.rapolus.apartmentpilotai.ui.FeatureScreens;
@@ -29,6 +33,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     private FeatureScreens featureScreens;
     private LocalFiles localFiles;
     private String operationKey=UUID.randomUUID().toString(),attachmentKind="",attachmentParent="";
+    private String saveAttachmentId="",saveAttachmentAccount="";
     private final java.util.concurrent.ExecutorService fileWorker=java.util.concurrent.Executors.newSingleThreadExecutor();
     private ApiClient api;
     private Ui ui;
@@ -36,10 +41,11 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     private BottomNavigationView nav;
     private TextView title,subtitle;
     private View progress;
+    private View inlineError;
     private Ui.Fields fields;
     private JSONObject restoreFields;
-    private String page="welcome",id="",loginRole="ADMIN",month=YearMonth.now(ZoneId.of("Asia/Kolkata")).toString(),inviteCode="",paymentRequestKey=UUID.randomUUID().toString(),reminderRequestKey=UUID.randomUUID().toString(),expenseRequestKey=UUID.randomUUID().toString();
-    private String resumePage="",resumeId="";
+    private String page="welcome",id="",loginRole="ADMIN",month=YearMonth.now(ZoneId.of("Asia/Kolkata")).toString(),inviteCode="",offlineDetail="The connection dropped. Check the previous action before submitting it again.",paymentRequestKey=UUID.randomUUID().toString(),reminderRequestKey=UUID.randomUUID().toString(),expenseRequestKey=UUID.randomUUID().toString();
+    private String resumePage="",resumeId="",resumeAccount="";
     private JSONObject resumeFields;
     private JSONObject signupDraft=new JSONObject(),invitePreview=new JSONObject();
     private JSONObject pageDrafts=new JSONObject();
@@ -59,6 +65,8 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         ui=new Ui(this);
         content=findViewById(R.id.content);
         nav=findViewById(R.id.navigation);
+        nav.setBackgroundColor(ui.color(R.color.ap_surface));
+        ViewCompat.setOnApplyWindowInsetsListener(nav,(v,insets)->insets);
         title=findViewById(R.id.title);
         subtitle=findViewById(R.id.subtitle);
         progress=findViewById(R.id.progress);
@@ -73,6 +81,8 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         }
         );
         boolean dark=(getResources().getConfiguration().uiMode&Configuration.UI_MODE_NIGHT_MASK)==Configuration.UI_MODE_NIGHT_YES;
+        ((ImageButton)findViewById(R.id.theme)).setImageResource(dark?R.drawable.ic_sun:R.drawable.ic_moon);
+        findViewById(R.id.theme).setContentDescription(dark?"Switch to light theme":"Switch to dark theme");
         new WindowInsetsControllerCompat(getWindow(),root).setAppearanceLightStatusBars(!dark);
         findViewById(R.id.back).setOnClickListener(v->back());
         findViewById(R.id.theme).setOnClickListener(v-> {
@@ -99,6 +109,8 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             operationKey=b.getString("operationKey",operationKey);
             attachmentKind=b.getString("attachmentKind","");
             attachmentParent=b.getString("attachmentParent","");
+            saveAttachmentId=b.getString("saveAttachmentId","");
+            saveAttachmentAccount=b.getString("saveAttachmentAccount","");
             page=b.getString("page","welcome");
             id=b.getString("id","");
             month=b.getString("month",month);
@@ -119,7 +131,9 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             }
             resumePage=b.getString("resumePage","");
             resumeId=b.getString("resumeId","");
+            resumeAccount=b.getString("resumeAccount","");
         } else if(api.signedIn())page="home";
+        else if(api.pendingJoin()!=null)page="signup-pending";
         render();
     }
     @Override protected void onSaveInstanceState(Bundle b) {
@@ -127,6 +141,8 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         b.putString("operationKey",operationKey);
         b.putString("attachmentKind",attachmentKind);
         b.putString("attachmentParent",attachmentParent);
+        b.putString("saveAttachmentId",saveAttachmentId);
+        b.putString("saveAttachmentAccount",saveAttachmentAccount);
         b.putString("page",page);
         b.putString("id",id);
         b.putString("month",month);
@@ -140,6 +156,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         b.putString("pageDrafts",pageDrafts.toString());
         b.putString("resumePage",resumePage);
         b.putString("resumeId",resumeId);
+        b.putString("resumeAccount",resumeAccount);
         b.putString("resumeFields",resumeFields==null?"{}":resumeFields.toString());
         if(fields!=null) {
             JSONObject safeValues=fields.values();
@@ -170,6 +187,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         page=p;
         id=record;
         resetCommandKey();
+        if(p.equals("mark-paid"))paymentRequestKey=UUID.randomUUID().toString();
         restoreFields=null;
         if(!p.equals("bulk-approval")&&!p.equals("bulk-review"))selected.clear();
         render();
@@ -177,6 +195,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     }
     private void back() {
         if(busy)return;
+        if(page.equals("subscription-required"))return;
         if(history.isEmpty()) {
             if(api.signedIn()&&!page.equals("home")) {
                 page="home";
@@ -195,20 +214,30 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         title.setText(s);
     }
     private void render() {
+        android.util.Log.d("ApartmentPilotAI.Activity","screen="+page);
         generation++;
         busy=false;
         progress.setVisibility(View.GONE);
         content.removeAllViews();
+        inlineError=null;
         fields=null;
         boolean authPage=Arrays.asList("welcome","login","admin-login","treasurer-login","resident-login","forgot-pin","verify-reset","reset-pin","invite-invalid","admin-signup","setup-apartment","setup-done","join","signup","choose-flat","signup-pending","connection","status","offline","session-expired","error-state","not-found","loading-state").contains(page);
         if(!api.signedIn()&&!authPage) {
             page="welcome";
             id="";
         }
-        nav.setVisibility(api.signedIn()?View.VISIBLE:View.GONE);
+        if(api.signedIn()&&!staff()&&page.equals("payment"))page="payment-status";
+        nav.setVisibility(api.signedIn()&&!page.equals("subscription-required")?View.VISIBLE:View.GONE);
         nav.getMenu().findItem(R.id.nav_money).setTitle(staff()?R.string.money:R.string.dues);
-        findViewById(R.id.notifications).setVisibility(api.signedIn()?View.VISIBLE:View.GONE);
+        if(api.signedIn()) {
+            NavigationPolicy.Group group=NavigationPolicy.group(page,id);
+            int tab=group==NavigationPolicy.Group.HOME?R.id.nav_home:group==NavigationPolicy.Group.MONEY?R.id.nav_money:group==NavigationPolicy.Group.ISSUES?R.id.nav_issues:group==NavigationPolicy.Group.COMMUNITY?R.id.nav_community:R.id.nav_more;
+            nav.getMenu().findItem(tab).setChecked(true);
+        }
+        boolean homeShell=api.signedIn()&&page.equals("home");
+        findViewById(R.id.notifications).setVisibility(homeShell?View.VISIBLE:View.GONE);
         subtitle.setText(api.signedIn()?api.account().optString("apartmentName","ApartmentCare"):"ApartmentCare");
+        subtitle.setVisibility(homeShell?View.VISIBLE:View.GONE);
         header(page.substring(0,1).toUpperCase(Locale.ROOT)+page.substring(1).replace('-',' '));
         if(featureScreens.render(page,id)) {
             if(fields!=null&&restoreFields!=null) {
@@ -242,20 +271,17 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             break;
             case "choose-flat":chooseFlat();
             break;
-            case "signup-pending":ui.empty(content,"Almost home.","Your request is waiting for admin approval.");
-            ui.button(content,"Sign in",R.drawable.ic_arrow_right,true,()-> {
-                loginRole="RESIDENT";
-                go("resident-login");
-            }
-            );
+            case "signup-pending":joinPending();
             break;
             case "setup-done":setupDone();
             break;
-            case "offline":systemState("Connection paused","Saved information is still available.",R.drawable.ic_error,true,R.color.ap_amber,R.color.ap_ambg,this::resumePrevious,"Retry connection");
+            case "offline":systemState("Connection paused",offlineDetail,R.drawable.ic_error,true,R.color.ap_amber,R.color.ap_ambg,this::retryConnection,"Retry connection");
             break;
             case "session-expired":systemState("Sign in again","Your session expired. Your records are safe.",R.drawable.ic_shield,true,R.color.ap_green,R.color.ap_mint,this::signInAfterExpiry,"Sign in");
             break;
             case "access-denied":systemState("This page is restricted","Use an account with the right permission.",R.drawable.ic_shield,true,R.color.ap_green,R.color.ap_mint,()->go("home"),"Back to home");
+            break;
+            case "subscription-required":subscriptionRequired();
             break;
             case "empty-state":systemState("A fresh start","Your first record will appear here.",R.drawable.ic_building,false,R.color.ap_green,R.color.ap_mint,()->go("home"),"Back to home");
             break;
@@ -343,6 +369,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         final boolean authenticatedRequest=api.signedIn();
         final String originPage=page,originId=id,originRole=authenticatedRequest?api.account().optString("role",loginRole):loginRole;
         final JSONObject originFields=safeFieldSnapshot();
+        final String originAccount=api.signedIn()?api.account().optString("id"):"";
         busy=true;
         progress.setVisibility(View.VISIBLE);
         setButtons(content,false);
@@ -361,7 +388,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 }
                 HttpFailurePolicy.Destination destination=HttpFailurePolicy.destination(error.status,authenticatedRequest);
                 if(destination!=HttpFailurePolicy.Destination.INLINE) {
-                    showFailureState(destination,originPage,originId,originRole,originFields);
+                    showFailureState(destination,originPage,originId,originRole,originFields,originAccount);
                     return;
                 }
                 showError(error.message);
@@ -387,7 +414,10 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         }
     }
     private void showError(String text) {
+        if(inlineError!=null&&inlineError.getParent()==content)content.removeView(inlineError);
+        int childIndex=content.getChildCount();
         LinearLayout card=ui.card(content);
+        inlineError=content.getChildAt(childIndex);
         card.addView(ui.text(text,12,false,R.color.ap_red));
         ui.button(card,"Retry / refresh",R.drawable.ic_clock,false,()-> {
             restoreFields=fields==null?null:fields.values();
@@ -406,16 +436,24 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         privateKeys.forEach(values::remove);
         return values;
     }
-    private void showFailureState(HttpFailurePolicy.Destination destination,String originPage,String originId,String originRole,JSONObject originFields) {
+    private void showFailureState(HttpFailurePolicy.Destination destination,String originPage,String originId,String originRole,JSONObject originFields,String originAccount) {
         resumePage=originPage;
         resumeId=originId;
         resumeFields=originFields;
+        resumeAccount=originAccount;
         if(destination==HttpFailurePolicy.Destination.SESSION_EXPIRED) {
             loginRole=originRole;
             history.clear();
             page="session-expired";
-        } else if(destination==HttpFailurePolicy.Destination.OFFLINE)page="offline";
+        } else if(destination==HttpFailurePolicy.Destination.OFFLINE) {
+            offlineDetail="The connection dropped. Your previous action may have reached the server; check its result before submitting again.";
+            page="offline";
+        }
         else if(destination==HttpFailurePolicy.Destination.ACCESS_DENIED)page="access-denied";
+        else if(destination==HttpFailurePolicy.Destination.SUBSCRIPTION_REQUIRED) {
+            history.clear();
+            page="subscription-required";
+        }
         else if(destination==HttpFailurePolicy.Destination.NOT_FOUND)page="not-found";
         else page="error-state";
         id="";
@@ -428,13 +466,37 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         resumePage="";
         resumeId="";
         resumeFields=null;
+        resumeAccount="";
         page=target.isEmpty()?(api.signedIn()?"home":"welcome"):target;
         id=record;
         restoreFields=values;
         render();
     }
+    private void retryConnection() {
+        if(busy)return;
+        busy=true;
+        progress.setVisibility(View.VISIBLE);
+        setButtons(content,false);
+        final int version=generation;
+        api.call("GET","/status",null,(result,error)-> {
+            if(isFinishing()||isDestroyed()||version!=generation)return;
+            busy=false;
+            progress.setVisibility(View.GONE);
+            setButtons(content,true);
+            if(error==null&&result instanceof JSONObject&&((JSONObject)result).optBoolean("localRegistration")) {
+                offlineDetail="The connection dropped. Check the previous action before submitting it again.";
+                resumePrevious();
+                return;
+            }
+            offlineDetail=error==null
+                ?"The backend is reachable, but local apartment registration is disabled. Start the local server profile before continuing."
+                :"Still unable to reach the backend. Keep the PC server running and reconnect the phone bridge, then retry.";
+            render();
+        }
+        );
+    }
     private void signInAfterExpiry() {
-        page="ADMIN".equals(loginRole)?"admin-login":"TREASURER".equals(loginRole)?"treasurer-login":"resident-login";
+        page=LoginPolicy.routeForRole(loginRole);
         id="";
         history.clear();
         render();
@@ -442,6 +504,13 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     private void systemState(String heading,String detail,int icon,boolean primary,int accent,int background,Runnable action,String actionLabel) {
         ui.state(content,icon,heading,detail,accent,background);
         ui.button(content,actionLabel,R.drawable.ic_arrow_right,primary,action);
+    }
+    private void subscriptionRequired() {
+        header("Subscription required");
+        ui.state(content,R.drawable.ic_shield,"Apartment access paused","The apartment’s 3-day free trial has ended. An active subscription or earned referral credit is required to continue. One apartment subscription covers its Admin, Treasurer, and Residents.",R.color.ap_amber,R.color.ap_ambg);
+        if(admin())ui.button(content,"View subscription",R.drawable.ic_receipt,true,()->go("subscription"));
+        else ui.note(content,"Please ask your apartment Admin to review Subscription & referrals.");
+        ui.button(content,"Sign out",R.drawable.ic_logout,false,()->ui.confirm("Sign out?","You can sign in again after the apartment Admin restores access.","Sign out",()->request("POST","/logout",json(),r->exitSession())));
     }
     private void loadingState() {
         ui.state(content,R.drawable.ic_clock,"Loading","Please wait while the latest information is retrieved.",R.color.ap_green,R.color.ap_mint);
@@ -469,15 +538,29 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         fields=new Ui.Fields(ui,content);
     }
     private void welcome() {
-        header("Welcome");
-        LinearLayout art=ui.card(content);
-        ImageView logo=new ImageView(this);
-        logo.setImageResource(R.drawable.ic_building);
-        art.setGravity(Gravity.CENTER);
-        art.addView(logo,new LinearLayout.LayoutParams(ui.dp(100),ui.dp(124)));
-        ui.gap(content,12);
+        header("Choose login");
+        FrameLayout art=new FrameLayout(this);
+        art.setLayoutParams(new LinearLayout.LayoutParams(-1,ui.dp(128)));
+        ImageView buildings=new ImageView(this);
+        buildings.setImageResource(R.drawable.welcome_community);
+        buildings.setScaleType(ImageView.ScaleType.FIT_XY);
+        buildings.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        art.addView(buildings,new FrameLayout.LayoutParams(-1,-1));
+        TextView badge=ui.text("✓  A little less admin.",11,true,R.color.ap_onlime);
+        badge.setGravity(Gravity.CENTER);
+        badge.setPadding(ui.dp(10),ui.dp(6),ui.dp(10),ui.dp(6));
+        android.graphics.drawable.GradientDrawable badgeBg=new android.graphics.drawable.GradientDrawable();
+        badgeBg.setColor(ui.color(R.color.ap_surface));
+        badgeBg.setCornerRadius(ui.dp(13));
+        badge.setBackground(badgeBg);
+        FrameLayout.LayoutParams bp=new FrameLayout.LayoutParams(-2,ui.dp(32),Gravity.TOP|Gravity.START);
+        bp.topMargin=ui.dp(12); bp.leftMargin=ui.dp(15);
+        art.addView(badge,bp);
+        content.addView(art);
+        ui.gap(content,19);
         content.addView(ui.text("Your building.\nAll together.",30,true,R.color.ap_ink));
-        ui.note(content,"Choose how you sign in.");
+        TextView sub=ui.text("Choose how you sign in.",14,false,R.color.ap_sub);
+        content.addView(sub);
         ui.button(content,"Admin login",R.drawable.ic_shield,true,()-> {
             loginRole="ADMIN";
             go("admin-login");
@@ -493,54 +576,112 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             go("treasurer-login");
         }
         );
-        ui.gap(content,12);
-        ui.button(content,"New apartment",R.drawable.ic_building,false,()->go("admin-signup"));
-        ui.button(content,"Join with invite",R.drawable.ic_users,false,()->go("join"));
+        LinearLayout divider=ui.row();
+        divider.setGravity(Gravity.CENTER_VERTICAL);
+        View line1=new View(this); line1.setBackgroundColor(ui.color(R.color.ap_line));
+        divider.addView(line1,new LinearLayout.LayoutParams(0,ui.dp(1),1));
+        TextView or=ui.text("or",11,false,R.color.ap_muted); or.setGravity(Gravity.CENTER);
+        divider.addView(or,new LinearLayout.LayoutParams(ui.dp(42),ui.dp(24)));
+        View line2=new View(this); line2.setBackgroundColor(ui.color(R.color.ap_line));
+        divider.addView(line2,new LinearLayout.LayoutParams(0,ui.dp(1),1));
+        LinearLayout.LayoutParams dp=new LinearLayout.LayoutParams(-1,ui.dp(24)); dp.topMargin=ui.dp(12); content.addView(divider,dp);
+        LinearLayout actions=ui.row();
+        MaterialButton create=ui.button(actions,"New apartment",R.drawable.ic_building,false,()->go("admin-signup"));
+        MaterialButton join=ui.button(actions,"Join with invite",R.drawable.ic_users,false,()->go("join"));
+        create.setTextSize(12); join.setTextSize(12);
+        create.setLayoutParams(new LinearLayout.LayoutParams(0,ui.dp(48),1));
+        join.setLayoutParams(new LinearLayout.LayoutParams(0,ui.dp(48),1));
+        ((LinearLayout.LayoutParams)join.getLayoutParams()).leftMargin=ui.dp(8);
+        content.addView(actions);
+        if(BuildConfig.DEBUG)ui.note(content,"Local testing build · use test accounts only.");
         if(BuildConfig.DEBUG)ui.button(content,"Local server",R.drawable.ic_settings,false,()->go("connection"));
     }
     private void login() {
         header(pretty(loginRole)+" login");
-        ui.heading(content,loginRole.equals("RESIDENT")?"Your flat & community":"Apartment management");
+        LinearLayout heading=ui.row();
+        ImageView roleIcon=new ImageView(this);
+        roleIcon.setImageResource(loginRole.equals("RESIDENT")?R.drawable.ic_user:loginRole.equals("TREASURER")?R.drawable.ic_wallet:R.drawable.ic_shield);
+        roleIcon.setImageTintList(android.content.res.ColorStateList.valueOf(ui.color(R.color.ap_pine)));
+        roleIcon.setPadding(ui.dp(12),ui.dp(12),ui.dp(12),ui.dp(12));
+        android.graphics.drawable.GradientDrawable roleBackground=new android.graphics.drawable.GradientDrawable();
+        roleBackground.setColor(ui.color(R.color.ap_mint));
+        roleBackground.setCornerRadius(ui.dp(14));
+        roleIcon.setBackground(roleBackground);
+        roleIcon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        heading.addView(roleIcon,new LinearLayout.LayoutParams(ui.dp(48),ui.dp(48)));
+        LinearLayout headingText=ui.column();
+        LinearLayout.LayoutParams headingParams=new LinearLayout.LayoutParams(0,-2,1);
+        headingParams.leftMargin=ui.dp(12);
+        heading.addView(headingText,headingParams);
+        headingText.addView(ui.text(pretty(loginRole)+" login",22,true,R.color.ap_ink));
+        headingText.addView(ui.text(loginRole.equals("RESIDENT")?"Your flat & community":loginRole.equals("TREASURER")?"Payments & accounts":"Apartment management",12,false,R.color.ap_sub));
+        content.addView(heading);
+        ui.gap(content,20);
         formStart();
-        fields.field("mobile","Mobile number","",InputType.TYPE_CLASS_PHONE);
-        fields.field("pin","PIN · 4–6 digits","",NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);
-        ui.button(content,"Sign in",R.drawable.ic_arrow_right,true,()->request("POST","/auth/login",json("mobile",fields.get("mobile"),"pin",fields.get("pin"),"role",loginRole),r-> {
+        EditText mobile=fields.field("mobile","Mobile number","",InputType.TYPE_CLASS_PHONE);
+        mobile.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(10)});
+        fields.placeholder("mobile","10-digit mobile number");
+        EditText pin=fields.field("pin","PIN","",NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        pin.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(6)});
+        fields.placeholder("pin","4–6 digit PIN");
+        LinearLayout tools=ui.row();
+        MaterialButton switchLogin=ui.button(tools,"Switch login",R.drawable.ic_arrow_left,false,()->go("welcome"));
+        MaterialButton forgotPin=ui.button(tools,"Forgot PIN?",R.drawable.ic_key,false,()->go("forgot-pin"));
+        for(MaterialButton tool:new MaterialButton[]{switchLogin,forgotPin}) {
+            tool.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
+            tool.setTextSize(12);
+            tool.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
+        }
+        content.addView(tools);
+        ui.note(content,"Use your server account. Mobile verification and recovery are not configured in this local build.");
+        ui.button(content,"Sign in",R.drawable.ic_arrow_right,true,()-> {
+            String validation=LoginPolicy.validationMessage(fields.get("mobile"),fields.get("pin"));
+            if(!validation.isEmpty()) {showError(validation);return;}
+            request("POST","/auth/login",json("mobile",fields.get("mobile"),"pin",fields.get("pin"),"role",loginRole),r-> {
             api.session((JSONObject)r);
             history.clear();
-            if(resumePage.isEmpty()) {
+            if(!LoginPolicy.canResume(resumePage,resumeAccount,api.account().optString("id"))) {
+                resumePage="";
+                resumeId="";
+                resumeFields=null;
+                resumeAccount="";
+                pageDrafts=new JSONObject();
+                selected.clear();
+                restoreFields=null;
                 page="home";
                 render();
             } else resumePrevious();
         }
-        ));
-        ui.button(content,"Switch login",R.drawable.ic_arrow_left,false,()->go("welcome"));
-        ui.button(content,"Forgot PIN?",R.drawable.ic_clock,false,()->go("forgot-pin"));
-        ui.note(content,"Use accounts created on your local server. Mobile verification is not configured in this build.");
+        );
+        });
+        if(loginRole.equals("ADMIN"))ui.button(content,"New apartment? Set up",R.drawable.ic_building,false,()->go("admin-signup"));
+        else if(loginRole.equals("RESIDENT"))ui.button(content,"New resident? Join",R.drawable.ic_users,false,()->go("join"));
+        else ui.note(content,"Treasurer access is assigned by your apartment admin.");
     }
     private void recoveryUnavailable() {
         header("Reset PIN");
         ui.state(content,R.drawable.ic_shield,"Reset PIN unavailable","Verified mobile recovery is not configured. Contact your apartment administrator; no test code can reset a release account.",R.color.ap_amber,R.color.ap_ambg);
-        ui.button(content,"Back to sign in",R.drawable.ic_arrow_left,true,()->go("login"));
+        ui.button(content,"Back to sign in",R.drawable.ic_arrow_left,true,()->go(LoginPolicy.routeForRole(loginRole)));
     }
     private void register() {
         header("Create apartment");
         ui.heading(content,"Less admin. More community.");
+        ui.note(content,"Start with your apartment basics.");
         formStart();
         fields.field("name","Your name",signupDraft.optString("name"),TEXT);
         fields.field("mobile","Mobile number",signupDraft.optString("mobile"),InputType.TYPE_CLASS_PHONE);
         fields.field("pin","Create PIN",signupDraft.optString("pin"),NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);
         fields.check("authorised","I am authorised to manage this apartment.",false);
+        fields.limit("name",80);fields.limit("mobile",10);fields.limit("pin",6);
         ui.button(content,"Continue",R.drawable.ic_arrow_right,true,()-> {
-            if(!fields.checked("authorised")) {
-                showError("Confirm you are authorised to manage this apartment.");
-                return;
-            }
+            String validation=RegistrationPolicy.person(fields.get("name"),fields.get("mobile"),fields.get("pin"),fields.checked("authorised"),true);
+            if(!validation.isEmpty()) {showError(validation);return;}
             signupDraft=fields.values();
             ((PilotApplication)getApplication()).transientSignup=signupDraft;
             go("setup-apartment");
         }
         );
-        ui.note(content,"Local test accounts only. Do not use a real PIN.");
+        if(BuildConfig.DEBUG)ui.note(content,"Local test accounts only. Do not use a real PIN.");
     }
     private void setup() {
         header("Apartment details");
@@ -552,21 +693,34 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         formStart();
         fields.field("apartmentName","Apartment name","",TEXT);
         fields.select("city","City",new String[] {
-            "Hyderabad","Bengaluru","Chennai","Pune","Mumbai","Other"
+            "Hyderabad","Bengaluru","Chennai","Pune","Mumbai","Delhi NCR","Other"
         }
         ,new String[] {
-            "Hyderabad","Bengaluru","Chennai","Pune","Mumbai","Other"
+            "Hyderabad","Bengaluru","Chennai","Pune","Mumbai","Delhi NCR","Other"
         }
         );
+        fields.field("address","Address","",TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        fields.field("pinCode","PIN code","",NUMBER);
         fields.field("flats","Number of flats · 5–50","10",NUMBER);
-        ui.note(content,"Initial units are A-101 onward. Detailed block/flat editing is a later increment.");
+        fields.limit("apartmentName",80);fields.limit("address",300);fields.limit("pinCode",6);fields.limit("flats",2);
+        ui.note(content,"Flats start at A-101. You can rename them after setup.");
         ui.button(content,"Create apartment",R.drawable.ic_building,true,()->safe(()-> {
-            JSONObject body=json("name",signupDraft.optString("name"),"mobile",signupDraft.optString("mobile"),"pin",signupDraft.optString("pin"),"apartmentName",fields.get("apartmentName"),"city",fields.get("city"),"flats",Integer.parseInt(fields.get("flats")));
-            request("POST","/auth/register",body,r-> {
-                api.session((JSONObject)r);
-                signupDraft=new JSONObject();
-                ((PilotApplication)getApplication()).transientSignup=new JSONObject();
-                go("setup-done");
+            String validation=RegistrationPolicy.apartment(fields.get("apartmentName"),fields.get("address"),fields.get("pinCode"),fields.get("flats"));
+            if(!validation.isEmpty()) {showError(validation);return;}
+            JSONObject body=json("name",signupDraft.optString("name"),"mobile",signupDraft.optString("mobile"),"pin",signupDraft.optString("pin"),"apartmentName",fields.get("apartmentName"),"city",fields.get("city"),"flats",Integer.parseInt(fields.get("flats")),"address",fields.get("address"),"pinCode",fields.get("pinCode"));
+            request("GET","/status",null,statusResult-> {
+                JSONObject status=(JSONObject)statusResult;
+                if(!status.optBoolean("localRegistration")) {
+                    showError("Apartment registration is not available on this server. Contact support; your details have not been submitted.");
+                    return;
+                }
+                request("POST","/auth/register",body,r-> {
+                    api.session((JSONObject)r);
+                    signupDraft=new JSONObject();
+                    ((PilotApplication)getApplication()).transientSignup=new JSONObject();
+                    go("setup-done");
+                }
+                );
             }
             );
         }
@@ -585,8 +739,10 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     private void join() {
         header("Join your apartment");
         ui.heading(content,"You’re invited.");
+        ui.note(content,"Enter the code shared by your admin.");
         formStart();
         fields.field("invite","Invite code","",TEXT|InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
+        fields.limit("invite",60);
         ui.button(content,"Find apartment",R.drawable.ic_arrow_right,true,()-> {
             inviteCode=fields.get("invite").toUpperCase(Locale.ROOT);
             if(!inviteCode.matches("[A-Z0-9_-]{8,60}")) {
@@ -595,6 +751,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             }
             request("GET","/auth/invites/"+inviteCode,null,r-> {
                 invitePreview=(JSONObject)r;
+                savePageDraft("registration-flat",new JSONObject());
                 signupDraft=new JSONObject();
                 ((PilotApplication)getApplication()).transientSignup=signupDraft;
                 go("signup");
@@ -606,17 +763,17 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     private void signup() {
         header("Create your account");
         ui.heading(content,invitePreview.optString("apartmentName","Your apartment"));
+        ui.note(content,invitePreview.optString("city",""));
         formStart();
         fields.field("name","Your name","",TEXT);
         fields.field("mobile","Mobile number","",InputType.TYPE_CLASS_PHONE);
         fields.select("residentType","I am an",new String[] {"Owner","Tenant"},new String[] {"OWNER","TENANT"});
         fields.field("pin","Create PIN","",NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);
         fields.check("consent","I agree to share my details with the apartment admin.",false);
+        fields.limit("name",80);fields.limit("mobile",10);fields.limit("pin",6);
         ui.button(content,"Choose flat",R.drawable.ic_arrow_right,true,()-> {
-            if(!fields.checked("consent")) {
-                showError("Confirm your agreement to join.");
-                return;
-            }
+            String validation=RegistrationPolicy.person(fields.get("name"),fields.get("mobile"),fields.get("pin"),fields.checked("consent"),false);
+            if(!validation.isEmpty()) {showError(validation);return;}
             signupDraft=fields.values();
             ((PilotApplication)getApplication()).transientSignup=signupDraft;
             go("choose-flat");
@@ -639,14 +796,54 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         String[] labels=new String[flats.length()];
         for(int i=0; i<labels.length; i++)labels[i]=flats.optJSONObject(i).optString("label");
         ui.state(content,R.drawable.ic_home,"Make yourself at home.","One resident account per flat.",R.color.ap_green,R.color.ap_mint);
-        formStart();
-        fields.select("flatLabel","Choose flat",labels,labels);
-        ui.button(content,"Request to join",R.drawable.ic_users,true,()->request("POST","/auth/join",json("invite",inviteCode,"name",signupDraft.optString("name"),"mobile",signupDraft.optString("mobile"),"pin",signupDraft.optString("pin"),"residentType",signupDraft.optString("residentType"),"flatLabel",fields.get("flatLabel")),r-> {
+        String selectedFlat=pageDraft("registration-flat").optString("flatLabel");
+        android.widget.GridLayout grid=new android.widget.GridLayout(this);
+        grid.setColumnCount(3);
+        for(String label:labels) {
+            LinearLayout holder=ui.column();
+            MaterialButton choice=ui.button(holder,label,R.drawable.ic_home,label.equals(selectedFlat),()-> {
+                savePageDraft("registration-flat",json("flatLabel",label));render();
+            });
+            choice.setContentDescription("Choose flat "+label);
+            android.widget.GridLayout.LayoutParams params=new android.widget.GridLayout.LayoutParams();
+            params.width=0;params.height=ui.dp(64);
+            params.columnSpec=android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED,1f);
+            params.setMargins(ui.dp(3),ui.dp(3),ui.dp(3),ui.dp(3));
+            holder.removeView(choice);
+            grid.addView(choice,params);
+        }
+        content.addView(grid,new LinearLayout.LayoutParams(-1,-2));
+        ui.button(content,"Request to join",R.drawable.ic_users,true,()-> {
+            if(selectedFlat.isEmpty()||!Arrays.asList(labels).contains(selectedFlat)) {showError("Choose a flat.");return;}
+            request("POST","/auth/join",json("invite",inviteCode,"name",signupDraft.optString("name"),"mobile",signupDraft.optString("mobile"),"pin",signupDraft.optString("pin"),"residentType",signupDraft.optString("residentType"),"flatLabel",selectedFlat),r-> {
+            api.pendingJoin((JSONObject)r);
             signupDraft=new JSONObject();
             ((PilotApplication)getApplication()).transientSignup=signupDraft;
             go("signup-pending");
-        }));
+        });});
         ui.note(content,"Access begins only after the apartment admin approves this flat claim.");
+    }
+    private void joinPending() {
+        header("Join request");
+        JSONObject pending=api.pendingJoin();
+        if(pending==null) {
+            ui.empty(content,"Check your access","The status receipt is unavailable or expired. Sign in after approval, or contact your admin.");
+        } else {
+            String status=pending.optString("status","PENDING");
+            boolean approved=status.equals("ACTIVE"),rejected=status.equals("REJECTED");
+            ui.state(content,approved?R.drawable.ic_check:rejected?R.drawable.ic_error:R.drawable.ic_clock,approved?"Welcome home!":rejected?"Request not approved":"Almost home.",rejected?pending.optString("reason","Contact your apartment admin."):pending.optString("flatLabel")+" · "+(approved?"Access approved":"Awaiting admin approval"),approved?R.color.ap_green:R.color.ap_amber,approved?R.color.ap_mint:R.color.ap_ambg);
+            LinearLayout card=ui.card(content);
+            ui.kv(card,"Apartment",pending.optString("apartmentName"));
+            ui.kv(card,"Flat",pending.optString("flatLabel"));
+            ui.kv(card,"Status",approved?"Approved":rejected?"Rejected":status.equals("PENDING")?"Pending":"Not active");
+            ui.button(content,"Check status",R.drawable.ic_clock,false,()->request("POST","/auth/join-status",json("receipt",pending.optString("receipt")),r-> {
+                JSONObject refreshed=(JSONObject)r;
+                refreshed.put("receipt",pending.getString("receipt"));refreshed.put("expiresAt",pending.getString("expiresAt"));
+                api.pendingJoin(refreshed);render();
+            }));
+            if(rejected)ui.button(content,"Try again",R.drawable.ic_arrow_left,false,()-> {api.clearPendingJoin();go("join");});
+        }
+        ui.button(content,"Back to sign in",R.drawable.ic_arrow_right,true,()-> {loginRole="RESIDENT";go("resident-login");});
     }
     private void monthSelector() {
         ui.button(content,month+"  ·  Change month",R.drawable.ic_calendar,false,()-> {
@@ -668,28 +865,127 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     }
     private void home() {
         header("Home");
-        content.addView(ui.text("Hello, "+api.account().optString("name").split(" ")[0],26,true,R.color.ap_ink));
+        content.addView(ui.text(LocalDate.now(ZoneId.of("Asia/Kolkata")).format(DateTimeFormatter.ofPattern("EEEE, d MMMM",Locale.ENGLISH)),11,false,R.color.ap_muted));
+        ui.gap(content,5);
+        content.addView(ui.text("Hello, "+api.account().optString("name").split(" ")[0]+" ✦",26,true,R.color.ap_ink));
         ui.gap(content,16);
+        if(!staff()) {
+            request("GET","/bills?month="+month,null,r->{
+                JSONArray bills=(JSONArray)r;
+                JSONObject own=null;
+                for(int i=0;i<bills.length();i++)if("MAINTENANCE".equals(bills.getJSONObject(i).optString("kind","MAINTENANCE"))){own=bills.getJSONObject(i);break;}
+                if(own==null) {
+                    ui.hero(content,monthLabel()+" maintenance","Not billed","Your apartment has not generated this month's bill.");
+                    ui.button(content,"My dues",R.drawable.ic_receipt,true,()->go("dues"));
+                } else {
+                    JSONObject bill=own;
+                    BigDecimal due=Ui.decimal(bill.opt("amount")).subtract(Ui.decimal(bill.opt("paid")));
+                    String state=due.signum()<=0?"Paid":bill.optBoolean("inReview")?"In review":"Pending";
+                    ui.hero(content,monthLabel()+" maintenance",Ui.money(due),bill.optString("flatLabel")+" · Due "+bill.optString("dueDate")+" · "+state);
+                    ui.button(content,due.signum()<=0?"Payment history":bill.optBoolean("inReview")?"Track payment":"I've paid",R.drawable.ic_wallet,true,()->go(due.signum()<=0?"history":bill.optBoolean("inReview")?"bill":"mark-paid",bill.optString("id")));
+                }
+                homeActions(false);
+                homeCommunity();
+            });
+            return;
+        }
+        request("GET","/billing/rules",null,rules->{
+            if(admin()&&((JSONArray)rules).length()==0) {
+                ui.iconRow(ui.card(content),"Set monthly maintenance","Add your apartment's amount and due date",R.drawable.ic_receipt,()->go("billing-settings"));
+            }
+            homeStaff();
+        });
+    }
+    private void homeStaff() {
         request("GET","/reports/monthly?month="+month,null,r-> {
             JSONObject j=(JSONObject)r;
-            ui.hero(content,staff()?"Maintenance collection":"Apartment this month",Ui.money(j.opt("collectedForBills")),month+" · "+Ui.money(j.opt("outstanding"))+" outstanding");
-            LinearLayout c=ui.card(content);
-            ui.kv(c,"Money received",Ui.money(j.opt("received")));
-            ui.kv(c,"Expenses",Ui.money(j.opt("spent")));
-            ui.kv(c,"Closing balance",Ui.money(j.opt("closing")));
-            ui.button(content,staff()?"Maintenance":"My dues",R.drawable.ic_receipt,true,()->go("dues"));
-            if(staff()) {
-                ui.button(content,"Review payments · "+j.optLong("pendingPayments"),R.drawable.ic_check,false,()->go("approvals"));
-                ui.button(content,"Add expense",R.drawable.ic_expense,false,()-> {
-                    expenseRequestKey=UUID.randomUUID().toString();
-                    go("expense-form");
+            request("GET","/bills?month="+month,null,rows->{
+                JSONArray bills=(JSONArray)rows;
+                Set<String> flats=new HashSet<>(),paid=new HashSet<>();
+                for(int i=0;i<bills.length();i++) {
+                    JSONObject bill=bills.getJSONObject(i);
+                    if(!"MAINTENANCE".equals(bill.optString("kind","MAINTENANCE")))continue;
+                    flats.add(bill.optString("flatId"));
+                    if(Ui.decimal(bill.opt("paid")).compareTo(Ui.decimal(bill.opt("amount")))>=0)paid.add(bill.optString("flatId"));
                 }
-                );
-            }
-            ui.button(content,"Notices",R.drawable.ic_notice,false,()->go("notices"));
-            if(admin())ui.button(content,"Invite residents",R.drawable.ic_users,false,()->go("invite"));
+                BigDecimal billed=Ui.decimal(j.opt("billed")),collected=Ui.decimal(j.opt("collectedForBills"));
+                int percent=billed.signum()==0?0:collected.multiply(BigDecimal.valueOf(100)).divide(billed,0,java.math.RoundingMode.HALF_UP).intValue();
+                LinearLayout hero=ui.hero(content,monthLabel()+" collection",Ui.money(collected),"of "+Ui.money(billed)+" billed");
+                ProgressBar collection=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);
+                collection.setProgress(Math.max(0,Math.min(100,percent)));
+                collection.setProgressTintList(android.content.res.ColorStateList.valueOf(ui.color(R.color.ap_lime)));
+                collection.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(0xff447568));
+                collection.setContentDescription(percent+" percent collected");
+                hero.addView(collection,new LinearLayout.LayoutParams(-1,ui.dp(8)));
+                ui.gap(hero,10);
+                TextView footer=ui.text(paid.size()+" paid / "+flats.size()+" billed flats     "+percent+"% collected",11,true,R.color.ap_bg);
+                footer.setTextColor(0xfff1f8ed); hero.addView(footer);
+                LinearLayout metrics=ui.row();
+                homeMetric(metrics,"Outstanding",Ui.money(j.opt("outstanding")),"outstanding");
+                homeMetric(metrics,"Available balance",Ui.money(j.opt("closing")),"reports");
+                content.addView(metrics);
+                if(j.optLong("pendingPayments")>0)ui.button(content,j.optLong("pendingPayments")+" payments need your review",R.drawable.ic_check,false,()->go("approvals"));
+                homeActions(true);
+                homeCommunity();
+                ui.heading(content,"Recent activity");
+                ui.iconRow(ui.card(content),"Activity log","Changes and decisions in your apartment",R.drawable.ic_clock,()->go("audit"));
+            });
         }
         );
+    }
+    private String monthLabel() {return YearMonth.parse(month).format(DateTimeFormatter.ofPattern("MMMM",Locale.ENGLISH));}
+    private void homeMetric(LinearLayout parent,String label,String value,String route) {
+        LinearLayout column=ui.column();
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-2,1); p.rightMargin=ui.dp(4); column.setLayoutParams(p);
+        LinearLayout card=ui.card(column);
+        card.addView(ui.text(label,10,false,R.color.ap_muted)); ui.gap(card,8);
+        card.addView(ui.text(value,21,true,R.color.ap_ink));
+        card.setContentDescription(label+" "+value);card.setFocusable(true);card.setOnClickListener(v->go(route));
+        parent.addView(column);
+    }
+    private void homeActions(boolean management) {
+        LinearLayout actions=ui.row();
+        String[] labels=management?new String[]{"Dues","Expense","Notice",admin()?"Invite":"Report"}:new String[]{"History","Report issue","My requests","Contacts"};
+        String[] routes=management?new String[]{"dues","expense-form","notice-form",admin()?"invite":"reports"}:new String[]{"history","issue-categories","complaints","contacts"};
+        int[] icons=management?new int[]{R.drawable.ic_receipt,R.drawable.ic_expense,R.drawable.ic_notice,admin()?R.drawable.ic_users:R.drawable.ic_report}:new int[]{R.drawable.ic_receipt,R.drawable.ic_tools,R.drawable.ic_tools,R.drawable.ic_phone};
+        for(int i=0;i<4;i++) {
+            final String route=routes[i];
+            LinearLayout tile=ui.column();tile.setGravity(Gravity.CENTER);tile.setPadding(0,ui.dp(12),0,ui.dp(12));
+            tile.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
+            ImageView icon=new ImageView(this);icon.setImageResource(icons[i]);icon.setImageTintList(android.content.res.ColorStateList.valueOf(ui.color(R.color.ap_pine)));
+            tile.addView(icon,new LinearLayout.LayoutParams(ui.dp(24),ui.dp(24)));ui.gap(tile,7);
+            TextView label=ui.text(labels[i],10,true,R.color.ap_ink);label.setGravity(Gravity.CENTER);tile.addView(label);
+            tile.setFocusable(true);tile.setContentDescription(labels[i]);tile.setBackgroundResource(android.R.drawable.list_selector_background);tile.setOnClickListener(v->{if(route.equals("expense-form"))expenseRequestKey=UUID.randomUUID().toString();go(route);});
+            actions.addView(tile);
+        }
+        content.addView(actions);
+    }
+    private void homeCommunity() {
+        ui.heading(content,staff()?"Needs attention":"In your building");
+        LinearLayout issues=ui.column();content.addView(issues);
+        String kind=admin()?"COMPLAINT":"ISSUE";
+        request("GET","/ops/tickets?kind="+kind,null,r->{
+            JSONArray rows=(JSONArray)r;JSONObject current=null;int activeCount=0;
+            for(int i=0;i<rows.length();i++) {
+                JSONObject issue=rows.getJSONObject(i);
+                if(!Arrays.asList("RESOLVED","CLOSED").contains(issue.optString("status"))) {
+                    activeCount++;
+                    if(current==null)current=issue;
+                }
+            }
+            if(admin())ui.iconRow(ui.card(issues),"Active complaints",activeCount+" open · View all",R.drawable.ic_tools,()->go("complaints"));
+            else if(current==null)ui.empty(issues,"All caught up","No open common issues.");
+            else {JSONObject issue=current;ui.iconRow(ui.card(issues),issue.optString("title"),pretty(issue.optString("status")),R.drawable.ic_tools,()->go("issue",issue.optString("id")));}
+            if(!staff()) {
+                ui.heading(content,"Community update");
+                LinearLayout notices=ui.column();content.addView(notices);
+                request("GET","/notices",null,n->{
+                    JSONArray items=(JSONArray)n;
+                    if(items.length()==0)ui.empty(notices,"No notices yet","");
+                    else {JSONObject notice=items.getJSONObject(0);ui.iconRow(ui.card(notices),notice.optString("title"),notice.optString("createdAt"),R.drawable.ic_notice,()->go("notice",notice.optString("id")));}
+                });
+            }
+        });
     }
     private void moneyMenu() {
         header("Money");
@@ -698,13 +994,18 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         ui.iconRow(c,"Monthly dues","Bills and outstanding",R.drawable.ic_receipt,()->go("dues"));
         ui.iconRow(c,"Payments","Verify resident declarations",R.drawable.ic_check,()->go("approvals"));
         ui.iconRow(c,"Expenses","Apartment spending",R.drawable.ic_expense,()->go("expenses"));
+        ui.iconRow(c,"Recurring expenses","Prepare expense drafts by schedule",R.drawable.ic_clock,()->go("recurring"));
         ui.iconRow(c,"Reports","Monthly money in and out",R.drawable.ic_report,()->go("reports"));
         ui.iconRow(c,"Maintenance amount","Future bills only",R.drawable.ic_settings,()->go("billing-settings"));
     }
     private void dues() {
         header("Maintenance");
         monthSelector();
-        if(staff())ui.button(content,"Maintenance amount",R.drawable.ic_settings,false,()->go("billing-settings"));
+        if(staff()) {
+            MaterialButton amount=ui.button(content,"Maintenance amount",R.drawable.ic_settings,false,()->go("billing-settings"));
+            amount.setTextSize(15);amount.setIconSize(ui.dp(23));amount.setMinHeight(ui.dp(54));
+            ui.gap(content,12);
+        }
         request("GET","/bills?month="+month,null,r-> {
             JSONArray arr=(JSONArray)r;
             if(arr.length()==0)ui.empty(content,"No dues for this month",staff()?"Configure maintenance, then generate bills.":"The admin has not generated a bill for your flat.");
@@ -713,7 +1014,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 BigDecimal due=Ui.decimal(b.opt("amount")).subtract(Ui.decimal(b.opt("paid")));
                 String state=due.signum()==0?"Paid":b.optBoolean("inReview")?"In review":"Pending";
                 LinearLayout c=ui.card(content);
-                ui.iconRow(c,b.optString("flatLabel"),state+" · "+Ui.money(due),R.drawable.ic_receipt,()->go("bill",b.optString("id")));
+                ui.statusIconRow(c,b.optString("flatLabel"),state,Ui.money(due),R.drawable.ic_receipt,()->go("bill",b.optString("id")));
             }
             if(staff()) {
                 ui.button(content,"Unpaid flats",R.drawable.ic_clock,false,()->go("outstanding"));
@@ -740,7 +1041,8 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 go("mark-paid",b.optString("id"));
             }
             );
-            ui.button(content,"Payment history",R.drawable.ic_clock,false,()->go("payments"));
+            if(b.optBoolean("inReview")&&!b.isNull("pendingPaymentId"))ui.button(content,staff()?"Review payment":"Track payment",R.drawable.ic_clock,true,()->go(staff()?"payment":"payment-status",b.optString("pendingPaymentId")));
+            ui.button(content,"Payment history",R.drawable.ic_clock,false,()->go("history"));
             ui.button(content,"Association payment details",R.drawable.ic_wallet,false,()->go("payee"));
         }
         );
@@ -765,7 +1067,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             ui.note(content,"Submitting does not mark the bill paid. The admin or treasurer verifies it.");
             ui.button(content,"Submit payment",R.drawable.ic_check,true,()->safe(()-> {
                 if(!fields.checked("verified"))throw new IllegalArgumentException("Confirm the payment was already made.");
-                request("POST","/payments",json("billId",id,"amount",new BigDecimal(fields.get("amount")),"mode",fields.get("mode"),"reference",fields.get("reference"),"paidOn",LocalDate.parse(fields.get("paidOn")).toString(),"note",fields.get("note"),"requestKey",paymentRequestKey),x->go("payment",((JSONObject)x).getString("id")));
+                request("POST","/payments",json("billId",id,"amount",new BigDecimal(fields.get("amount")),"mode",fields.get("mode"),"reference",fields.get("reference"),"paidOn",LocalDate.parse(fields.get("paidOn")).toString(),"note",fields.get("note"),"requestKey",paymentRequestKey),x->go("payment-status",((JSONObject)x).getString("id")));
             }
             ));
             if(restoreFields!=null) {
@@ -818,8 +1120,8 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         );
     }
     private void payments() {
-        header(staff()?"Payment approvals":"Payment history");
         boolean approvals=page.equals("approvals");
+        header(approvals&&staff()?"Payment approvals":"Payment history");
         request("GET","/payments",null,r-> {
             JSONArray arr=(JSONArray)r;
             int displayed=0;
@@ -828,7 +1130,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 if(approvals&&!"PENDING".equals(p.optString("status")))continue;
                 displayed++;
                 LinearLayout c=ui.card(content);
-                ui.iconRow(c,p.optString("flatLabel")+" · "+Ui.money(p.opt("amount")),(p.optBoolean("reversed")?"Reversed":pretty(p.optString("status")))+" · "+pretty(p.optString("mode")),R.drawable.ic_wallet,()->go("payment",p.optString("id")));
+                ui.iconRow(c,p.optString("flatLabel")+" · "+Ui.money(p.opt("amount")),(p.optBoolean("reversed")?"Reversed":pretty(p.optString("status")))+" · "+pretty(p.optString("mode")),R.drawable.ic_wallet,()->go(staff()?"payment":"payment-status",p.optString("id")));
             }
             if(displayed==0)ui.empty(content,"No payments here","Submitted payments appear here for verification.");
             if(approvals&&staff())ui.button(content,"Select multiple",R.drawable.ic_check,true,()-> {
@@ -1060,15 +1362,11 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     }
     private void payment() {
         header("Payment");
-        request("GET","/payments",null,r-> {
-            JSONObject p=find((JSONArray)r,id);
-            if(p==null) {
-                ui.empty(content,"Payment not found","Refresh payment history.");
-                return;
-            }
+        request("GET","/payments/"+id,null,r-> {
+            JSONObject p=(JSONObject)r;
             LinearLayout c=ui.card(content);
             ui.hero(c,p.optBoolean("reversed")?"Reversed":pretty(p.optString("status")),Ui.money(p.opt("amount")),p.optString("flatLabel"));
-            ui.button(content,"Payment proof",R.drawable.ic_copy,false,()->go("attachments","PAYMENT:"+id));
+            ui.button(content,"Payment proof",R.drawable.ic_copy,false,()->go("proof",id));
             if(staff()&&"APPROVED".equals(p.optString("status"))&&!p.optBoolean("reversed"))ui.button(content,"Record reversal",R.drawable.ic_error,false,()->go("payment-reverse",id));
             ui.kv(c,"Paid using",pretty(p.optString("mode")));
             ui.kv(c,"Reference",p.isNull("reference")?"—":p.optString("reference"));
@@ -1116,17 +1414,70 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             go("expense-form");
         }
         );
+        LinearLayout summary=ui.card(content);
+        summary.addView(ui.text("Paid expenses · "+monthLabel().split(" ")[0],11,false,R.color.ap_muted));
+        TextView total=ui.text("—",32,true,R.color.ap_ink);
+        summary.addView(total);
+        Ui.Fields searchFields=new Ui.Fields(ui,content);
+        EditText search=searchFields.field("search","Search spending","",TEXT);
+        LinearLayout filters=ui.row();
+        content.addView(filters);
+        LinearLayout list=ui.column();
+        content.addView(list);
+        String[] selected={"All"};
+        String[] options=staff()?new String[]{"All","Paid","Drafts"}:new String[]{"All"};
+        for(String option:options) {
+            MaterialButton filter=ui.button(filters,option,0,selected[0].equals(option),()->{
+                selected[0]=option;
+                for(int i=0;i<filters.getChildCount();i++) {
+                    View child=filters.getChildAt(i);
+                    if(child instanceof MaterialButton) {
+                        MaterialButton button=(MaterialButton)child;
+                        boolean active=button.getText().toString().equals(option);
+                        int ink=ui.color(active?R.color.ap_bg:R.color.ap_ink);
+                        button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(ui.color(active?R.color.ap_pine:R.color.ap_soft)));
+                        button.setTextColor(ink);
+                        button.setIconTint(android.content.res.ColorStateList.valueOf(ink));
+                    }
+                }
+                renderExpenseRows(expenses, list, search.getText().toString(), selected[0]);
+            });
+            filter.setSingleLine(true);
+            filter.setTextSize(11);
+            filter.setPadding(ui.dp(4),0,ui.dp(4),0);
+            LinearLayout.LayoutParams params=(LinearLayout.LayoutParams)filter.getLayoutParams();
+            params.width=0;params.weight=1;params.setMarginEnd(ui.dp(6));filter.setLayoutParams(params);
+        }
         request("GET","/expenses?month="+month,null,r-> {
-            JSONArray arr=(JSONArray)r;
-            if(arr.length()==0)ui.empty(content,"No expenses here","Paid expenses appear in monthly reports.");
-            for(int i=0; i<arr.length(); i++) {
-                JSONObject e=arr.getJSONObject(i);
-                LinearLayout c=ui.card(content);
-                ui.iconRow(c,e.optString("title"),e.optString("category")+" · "+e.optString("paidOn"),R.drawable.ic_expense,()->go("expense",e.optString("id")));
-                ui.kv(c,!e.isNull("reversedOn")?"Reversed":e.optBoolean("paid")?"Paid":"Draft",Ui.money(e.opt("amount")));
-            }
+            expenses=(JSONArray)r;
+            renderExpenseRows(expenses,list,search.getText().toString(),selected[0]);
+            search.addTextChangedListener(new android.text.TextWatcher() {
+                public void beforeTextChanged(CharSequence s,int start,int count,int after) {}
+                public void onTextChanged(CharSequence s,int start,int before,int count) {renderExpenseRows(expenses,list,s.toString(),selected[0]);}
+                public void afterTextChanged(android.text.Editable value) {}
+            });
+            request("GET","/reports/monthly?month="+month,null,report->total.setText(Ui.money(((JSONObject)report).opt("spent"))));
         }
         );
+        if(staff())ui.button(content,"Recurring expenses",R.drawable.ic_clock,false,()->go("recurring"));
+    }
+    private JSONArray expenses=new JSONArray();
+    private void renderExpenseRows(JSONArray rows,LinearLayout list,String query,String filter) {
+        list.removeAllViews();
+        String term=query==null?"":query.trim().toLowerCase(Locale.ROOT);
+        int visible=0;
+        for(int i=0;i<rows.length();i++) {
+            JSONObject expense=rows.optJSONObject(i);
+            if(expense==null)continue;
+            boolean paid=expense.optBoolean("paid");
+            if(filter.equals("Paid")&&!paid||filter.equals("Drafts")&&paid)continue;
+            if(!term.isEmpty()&&!expense.optString("title").toLowerCase(Locale.ROOT).contains(term)&&!expense.optString("category").toLowerCase(Locale.ROOT).contains(term))continue;
+            LinearLayout card=ui.card(list);
+            ui.iconRow(card,expense.optString("title"),expense.optString("category")+" · "+expense.optString("paidOn"),R.drawable.ic_expense,()->go("expense",expense.optString("id")));
+            ui.kv(card,!expense.isNull("reversedOn")?"Reversed":paid?"Paid":"Draft",Ui.money(expense.opt("amount")));
+            visible++;
+        }
+        if(visible==0)ui.empty(list,term.isEmpty()&&filter.equals("All")?"No expenses here":"No matching expenses",term.isEmpty()&&filter.equals("All")?"Paid expenses appear in monthly reports.":"Try another search or filter.");
     }
     private void expenseForm() {
         header("Add expense");
@@ -1215,19 +1566,87 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     }
     private void invite() {
         header("Invite residents");
-        ui.note(content,"Generate a code, share it with residents, then approve their flat requests.");
-        ui.button(content,"Generate new invite",R.drawable.ic_plus,true,()->ui.confirm("Create a new invite?","Previous invite codes stop working. Pending resident requests are not removed.","Generate",()->request("POST","/invites",json(),r-> {
-            JSONObject j=(JSONObject)r;
-            LinearLayout c=ui.card(content);
-            ui.hero(c,"Resident invite",j.getString("code"),"Expires "+j.optString("expiresAt").substring(0,10));
-            ui.button(c,"Copy code",R.drawable.ic_copy,false,()-> {
-                ((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("Apartment invite",j.optString("code")));
-                Toast.makeText(this,"Invite copied",Toast.LENGTH_SHORT).show();
-            }
-            );
-            ui.button(c,"Share invite",R.drawable.ic_users,true,()->startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,"Join "+api.account().optString("apartmentName")+" in ApartmentCare. Invite: "+j.optString("code")),"Share invite")));
+        if(!admin()) {
+            ui.empty(content,"Admin access required","Only your apartment Admin can share resident invites.");
+            return;
         }
-        )));
+        LinearLayout introduction=ui.column();
+        introduction.setGravity(Gravity.CENTER_HORIZONTAL);
+        introduction.setPadding(ui.dp(10),ui.dp(16),ui.dp(10),ui.dp(20));
+        ImageView invitationIcon=new ImageView(this);
+        invitationIcon.setImageResource(R.drawable.ic_users);
+        invitationIcon.setImageTintList(android.content.res.ColorStateList.valueOf(ui.color(R.color.ap_pine)));
+        invitationIcon.setPadding(ui.dp(16),ui.dp(16),ui.dp(16),ui.dp(16));
+        android.graphics.drawable.GradientDrawable iconBackground=new android.graphics.drawable.GradientDrawable();
+        iconBackground.setColor(ui.color(R.color.ap_mint));
+        iconBackground.setCornerRadius(ui.dp(24));
+        invitationIcon.setBackground(iconBackground);
+        introduction.addView(invitationIcon,new LinearLayout.LayoutParams(ui.dp(64),ui.dp(64)));
+        ui.gap(introduction,12);
+        TextView invitationTitle=ui.text("A place for everyone.",22,true,R.color.ap_ink);
+        invitationTitle.setGravity(Gravity.CENTER);
+        introduction.addView(invitationTitle);
+        ui.gap(introduction,4);
+        TextView invitationDetail=ui.text("Share this code with your residents.",12,false,R.color.ap_muted);
+        invitationDetail.setGravity(Gravity.CENTER);
+        introduction.addView(invitationDetail);
+        content.addView(introduction);
+        request("GET","/invites/current",null,r-> {
+            JSONObject invite=(JSONObject)r;
+            String code=invite.isNull("code")?"":invite.optString("code");
+            String day=invite.isNull("expiresOn")?"—":invite.optString("expiresOn","—");
+            String shownDate=day.equals("—")?day:LocalDate.parse(day).format(DateTimeFormatter.ofPattern("d MMM uuuu",Locale.ENGLISH));
+            LinearLayout display=ui.column();
+            display.setGravity(Gravity.CENTER_HORIZONTAL);
+            display.setPadding(ui.dp(18),ui.dp(18),ui.dp(18),ui.dp(18));
+            android.graphics.drawable.GradientDrawable codeBackground=new android.graphics.drawable.GradientDrawable();
+            codeBackground.setColor(ui.color(R.color.ap_pine));
+            codeBackground.setCornerRadius(ui.dp(20));
+            display.setBackground(codeBackground);
+            TextView codeLabel=ui.text("APARTMENT INVITE",10,true,R.color.ap_bg);
+            codeLabel.setTextColor(0xffe7f3e7);
+            codeLabel.setGravity(Gravity.CENTER);
+            display.addView(codeLabel);
+            ui.gap(display,8);
+            TextView codeText=ui.text(code.isEmpty()?"Code unavailable":code,22,true,R.color.ap_bg);
+            codeText.setTextColor(0xfff1f8ed);
+            codeText.setGravity(Gravity.CENTER);
+            codeText.setSingleLine(true);
+            codeText.setTextSize(code.length()>18?17:22);
+            display.addView(codeText);
+            ui.gap(display,8);
+            TextView codeStatus=ui.text(!invite.optBoolean("exists")?"No code has been issued.":!invite.optBoolean("active")?"Revoked":!invite.optBoolean("valid")?"Expired":"Expires "+shownDate,11,false,R.color.ap_bg);
+            codeStatus.setTextColor(0xffd3e0d4);
+            codeStatus.setGravity(Gravity.CENTER);
+            display.addView(codeStatus);
+            content.addView(display);
+            ui.gap(content,6);
+            if(!invite.optBoolean("displayConfigured"))ui.note(content,"Invite encryption NOT_CONFIGURED on the server. Configure the display key before issuing a code.");
+            else if(!invite.isNull("displayError")&&!invite.optString("displayError").isEmpty())ui.note(content,invite.optString("displayError"));
+            else if(invite.optBoolean("exists")&&!invite.optBoolean("codeAvailable"))ui.note(content,"Legacy code cannot be redisplayed. Generate a new code to replace it.");
+            if(!code.isEmpty()&&invite.optBoolean("valid")) {
+                LinearLayout actions=ui.row();
+                Button copy=ui.button(actions,"Copy code",R.drawable.ic_copy,false,()-> {
+                    ((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("Apartment invite",code));
+                    Toast.makeText(this,"Invite copied",Toast.LENGTH_SHORT).show();
+                });
+                Button share=ui.button(actions,"Share",R.drawable.ic_users,true,()->startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,"Join "+api.account().optString("apartmentName")+" in ApartmentCare. Invite: "+code+". Valid until "+day+". Flat access needs Admin approval."),"Share invite")));
+                copy.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
+                LinearLayout.LayoutParams shareParams=new LinearLayout.LayoutParams(0,-2,1);
+                shareParams.setMarginStart(ui.dp(8));
+                share.setLayoutParams(shareParams);
+                content.addView(actions);
+            }
+            ui.heading(content,"Invite settings");
+            LinearLayout settings=ui.card(content);
+            settings.setPadding(0,0,0,0);
+            ui.iconRow(settings,"Expiry date",shownDate,R.drawable.ic_calendar,()->go("invite-settings"));
+            View divider=new View(this);
+            divider.setBackgroundColor(ui.color(R.color.ap_line));
+            settings.addView(divider,new LinearLayout.LayoutParams(-1,ui.dp(1)));
+            ui.iconRow(settings,"Approval required","One active account per flat",R.drawable.ic_shield,()->go("join-requests"));
+            ui.button(content,"Manage invite",R.drawable.ic_settings,false,()->go("invite-settings"));
+        });
     }
     private void notices() {
         header("Notice board");
@@ -1313,6 +1732,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 c.addView(ui.text(pretty(a.optString("action")),13,true,R.color.ap_ink));
                 ui.note(c,a.optString("createdAt"));
                 if(!a.isNull("afterValue"))ui.note(c,a.optString("afterValue"));
+                ui.button(c,"View activity",R.drawable.ic_arrow_right,false,()->go("audit-detail",a.optString("id")));
             }
         }
         );
@@ -1327,10 +1747,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         ui.iconRow(c,"Implementation status","Cumulative development 02",R.drawable.ic_grid,()->go("status"));
         if(BuildConfig.DEBUG)ui.iconRow(c,"Local server",api.base(),R.drawable.ic_settings,()->go("connection"));
         ui.button(content,"Sign out",R.drawable.ic_logout,false,()->ui.confirm("Sign out?","Your records remain on the server.","Sign out",()->request("POST","/logout",json(),r-> {
-            api.clear();
-            history.clear();
-            page="welcome";
-            render();
+            exitSession();
         }
         )));
     }
@@ -1360,10 +1777,12 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         ));
         ui.button(content,"Test backend",R.drawable.ic_building,false,()->request("GET","/status",null,r-> {
             JSONObject j=(JSONObject)r;
+            boolean registration=j.optBoolean("localRegistration");
             LinearLayout c=ui.card(content);
             ui.kv(c,"Connection","Successful");
             ui.kv(c,"Backend",j.optString("version"));
-            ui.kv(c,"Local registration",j.optBoolean("localRegistration")?"Enabled":"Disabled");
+            ui.kv(c,"Local registration",registration?"Enabled":"Disabled");
+            if(!registration) c.addView(ui.text("Apartment creation is disabled. Start Spring Boot with the local profile before creating an apartment.",12,false,R.color.ap_red));
         }
         ));
     }
@@ -1431,6 +1850,17 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     @Override public void openPage(String page,String record) {
         go(page,record);
     }
+    @Override public void openPageWithBackTarget(String next,String record,String backPage) {
+        history.clear();
+        history.push(new String[]{backPage,""});
+        page=next;
+        id=record;
+        resetCommandKey();
+        restoreFields=null;
+        selected.clear();
+        render();
+        ((ScrollView)findViewById(R.id.scroll)).scrollTo(0,0);
+    }
     @Override public void refreshPage() {
         render();
     }
@@ -1461,6 +1891,13 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         resumePage="";
         resumeId="";
         resumeFields=null;
+        resumeAccount="";
+        restoreFields=null;
+        selected.clear();
+        attachmentKind="";
+        attachmentParent="";
+        saveAttachmentId="";
+        saveAttachmentAccount="";
         render();
     }
     @Override public void chooseAttachment(String kind,String parent) {
@@ -1474,6 +1911,24 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     }
     @Override protected void onActivityResult(int requestCode,int resultCode,Intent data) {
         super.onActivityResult(requestCode,resultCode,data);
+        if(requestCode==2203) {
+            String fileId=saveAttachmentId,account=saveAttachmentAccount;
+            saveAttachmentId="";saveAttachmentAccount="";
+            if(resultCode!=RESULT_OK||data==null||data.getData()==null)return;
+            if(fileId.isEmpty()||!api.signedIn()||!account.equals(api.account().optString("id"))){showError("Sign in again before saving the attachment.");return;}
+            android.net.Uri destination=data.getData();
+            request("GET","/ops/files/"+fileId,null,result->{
+                final int screen=generation;
+                JSONObject file=(JSONObject)result;
+                fileWorker.execute(()->{
+                    try {
+                        localFiles.save(file,destination);
+                        runOnUiThread(()->{if(!isDestroyed()&&screen==generation)Toast.makeText(this,"Attachment saved",Toast.LENGTH_SHORT).show();});
+                    } catch(Exception e){runOnUiThread(()->{if(!isDestroyed()&&screen==generation)showError("Could not save attachment: "+e.getMessage());});}
+                });
+            });
+            return;
+        }
         if(requestCode!=2202||resultCode!=RESULT_OK||data==null||data.getData()==null)return;
         android.net.Uri uri=data.getData();
         String kind=attachmentKind,parent=attachmentParent;
@@ -1532,12 +1987,44 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             showError("Export failed: "+e.getMessage());
         }
     }
+    @Override public void exportCsv(String title,java.util.List<java.util.List<String>> rows) {
+        try {
+            localFiles.exportCsv(title,rows);
+        } catch(Exception e) {
+            showError("CSV export failed: "+e.getMessage());
+        }
+    }
     @Override public void openSharedFile(JSONObject file) {
         try {
             localFiles.open(file);
         } catch(Exception e) {
             showError("Could not open attachment: "+e.getMessage());
         }
+    }
+    @Override public void previewAttachment(JSONObject file,LinearLayout target) {
+        final int screen=generation;
+        final Object selection=target.getTag();
+        fileWorker.execute(()->{
+            try {
+                android.graphics.Bitmap bitmap=localFiles.preview(file);
+                runOnUiThread(()->{
+                    if(isDestroyed()||screen!=generation||!target.isAttachedToWindow()||!java.util.Objects.equals(selection,target.getTag())){bitmap.recycle();return;}
+                    ImageView image=new ImageView(this);image.setAdjustViewBounds(true);image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                    image.setContentDescription(file.optString("name","Attachment preview"));image.setImageBitmap(bitmap);
+                    target.addView(image,new LinearLayout.LayoutParams(-1,-2));
+                });
+            } catch(Exception e){runOnUiThread(()->{if(!isDestroyed()&&screen==generation&&target.isAttachedToWindow()&&java.util.Objects.equals(selection,target.getTag()))ui.note(target,"Preview unavailable. You can still open or save the original file.");});}
+        });
+    }
+    @Override public void saveAttachment(JSONObject file) {
+        if(!api.signedIn())return;
+        try {
+            String mime=file.getString("mime");
+            saveAttachmentId=file.getString("id");saveAttachmentAccount=api.account().optString("id");
+            Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(mime)
+                .putExtra(Intent.EXTRA_TITLE,com.rapolus.apartmentpilotai.data.AttachmentPolicy.name(file.optString("name"),mime));
+            startActivityForResult(intent,2203);
+        } catch(Exception e){saveAttachmentId="";saveAttachmentAccount="";showError("Could not choose save destination: "+e.getMessage());}
     }
     @Override protected void onDestroy() {
         super.onDestroy();

@@ -17,6 +17,7 @@ public interface FeatureHost {
     String recordId();
     String commandKey();
     void openPage(String page,String id);
+    void openPageWithBackTarget(String page,String id,String backPage);
     void refreshPage();
     void pageTitle(String title);
     void problem(String text);
@@ -28,7 +29,10 @@ public interface FeatureHost {
     void clearPageDraft(String key);
     void chooseAttachment(String kind,String id);
     void exportPdf(String title,JSONObject record);
+    void exportCsv(String title,java.util.List<java.util.List<String>> rows);
     void openSharedFile(JSONObject file);
+    void previewAttachment(JSONObject file,LinearLayout target);
+    void saveAttachment(JSONObject file);
     void exitSession();
     void monthControl();
 }

@@ -1,6 +1,6 @@
 # Screen coverage — source traceability, not completion percentage
 
-Reference routes: 203. Three resident-join routes have bounded local-emulator evidence; all other UI parity and runtime acceptance remain unverified for increment02.
+Reference routes: 203. Current source map: 139 connected-source routes without complete runtime acceptance, 8 with bounded local-emulator evidence, 48 partial/merged destinations, and 8 reference-only tools. These are traceability categories, not QA completion percentages. Dedicated native production-route coverage: 147/195 (75.4%). Recorded connected API-route coverage: 131/185 API-dependent routes (70.8%). All whole-app visual, QA and release gates remain open. See [local validation](LOCAL_VALIDATION_2026-09-26.md) for the tested scope.
 
 | Reference ID | Native destination | Source status |
 |---|---|---|
@@ -10,15 +10,15 @@ Reference routes: 203. Three resident-join routes have bounded local-emulator ev
 | `bill` | `bill` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `payee` | `payee` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `mark-paid` | `mark-paid` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `payment-status` | `payment` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
+| `payment-status` | `payment-status` | CONNECTED_LOCAL_EMULATOR_VERIFIED |
 | `approvals` | `approvals` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `payment` | `payment` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `proof` | `attachments` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
+| `proof` | `proof` | CONNECTED_LOCAL_EMULATOR_VERIFIED |
 | `bulk-approval` | `bulk-approval` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `bulk-review` | `bulk-review` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `payment-reject` | `payment-reject` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `receipt` | `receipt` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `history` | `payments` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
+| `history` | `history` | CONNECTED_LOCAL_EMULATOR_VERIFIED |
 | `outstanding` | `outstanding` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `reminder-preview` | `reminder-preview` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `billing-settings` | `billing-settings` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
@@ -28,13 +28,13 @@ Reference routes: 203. Three resident-join routes have bounded local-emulator ev
 | `expense-proof` | `attachments` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `expense-form` | `expense-form` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `recurring` | `recurring` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `recurring-detail` | `recurring-form` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
+| `recurring-detail` | `recurring-detail` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `recurring-form` | `recurring-form` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `reports` | `reports` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `expense-report` | `expenses` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `collection-report` | `reports` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
+| `expense-report` | `expense-report` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
+| `collection-report` | `collection-report` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `transparency` | `transparency` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `export-report` | `reports` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
+| `export-report` | `export-report` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `income` | `income` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `income-form` | `income-form` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `cashbook` | `cashbook` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
@@ -102,12 +102,12 @@ Reference routes: 203. Three resident-join routes have bounded local-emulator ev
 | `join-requests` | `join-requests` | CONNECTED_LOCAL_EMULATOR_VERIFIED |
 | `join-review` | `join-review` | CONNECTED_LOCAL_EMULATOR_VERIFIED |
 | `join-reject` | `join-reject` | CONNECTED_LOCAL_EMULATOR_VERIFIED |
-| `invite` | `invite` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `invite-settings` | `—` | NOT_IMPLEMENTED_AS_REFERENCE_ROUTE |
+| `invite` | `invite` | CONNECTED_LOCAL_EMULATOR_VERIFIED |
+| `invite-settings` | `invite-settings` | CONNECTED_LOCAL_EMULATOR_VERIFIED |
 | `handover` | `handover` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `roles` | `roles` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `role-form` | `role-form` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `permissions` | `—` | NOT_IMPLEMENTED_AS_REFERENCE_ROUTE |
+| `permissions` | `permissions` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `more` | `more` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `profile` | `profile` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `profile-edit` | `profile-edit` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
@@ -122,11 +122,11 @@ Reference routes: 203. Three resident-join routes have bounded local-emulator ev
 | `automation` | `automation` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `automation-log` | `audit` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `audit` | `audit` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `audit-detail` | `—` | NOT_IMPLEMENTED_AS_REFERENCE_ROUTE |
+| `audit-detail` | `audit-detail` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `subscription` | `subscription` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `help` | `help` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `payment-help` | `—` | NOT_IMPLEMENTED_AS_REFERENCE_ROUTE |
-| `support` | `—` | NOT_IMPLEMENTED_AS_REFERENCE_ROUTE |
+| `payment-help` | `payment-help` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
+| `support` | `support` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `about` | `status` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `offline` | `offline` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `session-expired` | `session-expired` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
@@ -181,17 +181,17 @@ Reference routes: 203. Three resident-join routes have bounded local-emulator ev
 | `contribution` | `bill` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `opening-dues` | `opening-dues` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `opening-due-form` | `opening-dues` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `subscription-plans` | `—` | NOT_IMPLEMENTED_AS_REFERENCE_ROUTE |
+| `subscription-plans` | `subscription-plans` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `subscription-invoices` | `subscription` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `subscription-invoice` | `subscription` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `subscription-renewal` | `subscription` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `referrals` | `subscription` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `referral-offer` | `—` | NOT_IMPLEMENTED_AS_REFERENCE_ROUTE |
+| `referral-offer` | `referral-offer` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `referral-progress` | `subscription` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `referral-add` | `referral-claim` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `referral-detail` | `subscription` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `referral-reward` | `subscription` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
-| `referral-rules` | `—` | NOT_IMPLEMENTED_AS_REFERENCE_ROUTE |
+| `referral-rules` | `referral-rules` | CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `subscription-overdue` | `subscription` | PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED |
 | `provider-simulation` | `—` | REFERENCE_ONLY_NOT_A_PRODUCTION_FEATURE |
 | `activation-simulation` | `—` | REFERENCE_ONLY_NOT_A_PRODUCTION_FEATURE |

@@ -10,8 +10,13 @@ import org.json.JSONObject;
 /** Device-bound encrypted session storage. Authentication and expiry remain server-authoritative. */ final class SessionVault {
     private static final String ALIAS="ApartmentPilotAI.Session.v1";
     private final Context context;
+    private final String storage;
     SessionVault(Context context) {
+        this(context,"secure-session");
+    }
+    SessionVault(Context context,String storage) {
         this.context=context.getApplicationContext();
+        this.storage=storage;
     }
     private javax.crypto.SecretKey key()throws Exception {
         KeyStore store=KeyStore.getInstance("AndroidKeyStore");
@@ -26,14 +31,14 @@ import org.json.JSONObject;
             Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE,key());
             String iv=Base64.encodeToString(cipher.getIV(),Base64.NO_WRAP),data=Base64.encodeToString(cipher.doFinal(session.toString().getBytes(StandardCharsets.UTF_8)),Base64.NO_WRAP);
-            context.getSharedPreferences("secure-session",0).edit().putString("iv",iv).putString("data",data).apply();
+            context.getSharedPreferences(storage,0).edit().putString("iv",iv).putString("data",data).apply();
         } catch(Exception e) {
             clear();
         }
     }
     JSONObject load() {
         try {
-            var prefs=context.getSharedPreferences("secure-session",0);
+            var prefs=context.getSharedPreferences(storage,0);
             String data=prefs.getString("data",""),iv=prefs.getString("iv","");
             if(data.isEmpty()||iv.isEmpty())return null;
             Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");
@@ -50,6 +55,6 @@ import org.json.JSONObject;
         }
     }
     void clear() {
-        context.getSharedPreferences("secure-session",0).edit().clear().apply();
+        context.getSharedPreferences(storage,0).edit().clear().apply();
     }
 }

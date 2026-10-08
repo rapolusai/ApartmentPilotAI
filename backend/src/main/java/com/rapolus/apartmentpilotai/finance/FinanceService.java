@@ -127,7 +127,9 @@ import org.springframework.transaction.annotation.Transactional;
     public Map<String,Object> bill(Account a,UUID id) {
         var b=ownedBill(a,id);
         b.put("paid",((BigDecimal)b.get("amount")).subtract(balance(a.tenantId(),id)));
-        b.put("inReview",db.count("select count(*) from ap_payment where tenant_id=? and bill_id=? and status='PENDING'",a.tenantId(),id)>0);
+        var pending=db.find("select id from ap_payment where tenant_id=? and bill_id=? and status='PENDING' order by submitted_at limit 1",a.tenantId(),id);
+        b.put("inReview",pending.isPresent());
+        b.put("pendingPaymentId",pending.map(p->p.get("id")).orElse(null));
         return b;
     }
     private Map<String,Object> ownedBill(Account a,UUID id) {
@@ -156,13 +158,28 @@ import org.springframework.transaction.annotation.Transactional;
         return Map.of("id",id,"status","PENDING");
     }
     public List<Map<String,Object>> payments(Account a) {
-        Object[] args=a.staff()?new Object[] {
+        return payments(a,null);
+    }
+    public List<Map<String,Object>> payments(Account a,UUID requestedFlat) {
+        UUID scopedFlat=a.staff()?requestedFlat:a.flatId();
+        if(requestedFlat!=null) {
+            if(!a.staff()&&!Objects.equals(requestedFlat,a.flatId()))throw ApiError.forbidden();
+            db.one("select id from ap_flat where tenant_id=? and id=?",a.tenantId(),requestedFlat);
+        }
+        Object[] args=scopedFlat==null?new Object[] {
             a.tenantId()
         }
         :new Object[] {
-            a.tenantId(),a.flatId()
+            a.tenantId(),scopedFlat
         };
-        return db.rows("select p.id,p.bill_id,f.label as flat_label,b.billing_month,p.amount,p.mode,p.reference,p.paid_on,p.note,p.status,p.reason,p.receipt_number,p.reviewed_at,exists(select 1 from ap_payment_reversal rv where rv.payment_id=p.id) as reversed from ap_payment p join ap_bill b on b.id=p.bill_id join ap_flat f on f.id=b.flat_id where p.tenant_id=?"+(a.staff()?"":" and b.flat_id=?")+" order by p.submitted_at desc",args);
+        return db.rows("select p.id,p.bill_id,f.label as flat_label,b.billing_month,p.amount,p.mode,p.reference,p.paid_on,p.note,p.status,p.reason,p.receipt_number,p.reviewed_at,exists(select 1 from ap_payment_reversal rv where rv.payment_id=p.id) as reversed from ap_payment p join ap_bill b on b.id=p.bill_id and b.tenant_id=p.tenant_id join ap_flat f on f.id=b.flat_id and f.tenant_id=p.tenant_id where p.tenant_id=?"+(scopedFlat==null?"":" and b.flat_id=?")+" order by p.submitted_at desc",args);
+    }
+    public Map<String,Object> payment(Account a,UUID id) {
+        var p=db.one("select p.id,p.bill_id,b.flat_id,f.label as flat_label,b.billing_month,p.amount,p.mode,p.reference,p.paid_on,p.note,p.status,p.reason,p.receipt_number,p.submitted_at,p.reviewed_at,p.submitted_by,u.name as reviewed_by,exists(select 1 from ap_payment_reversal rv where rv.payment_id=p.id) as reversed from ap_payment p join ap_bill b on b.id=p.bill_id and b.tenant_id=p.tenant_id join ap_flat f on f.id=b.flat_id and f.tenant_id=p.tenant_id left join ap_user u on u.id=p.reviewed_by and u.tenant_id=p.tenant_id where p.tenant_id=? and p.id=?",a.tenantId(),id);
+        if(!a.staff()&&!Objects.equals(a.flatId(),p.get("flatId")))throw ApiError.forbidden();
+        p.put("canAttach", "PENDING".equals(p.get("status"))&&(a.staff()||a.id().equals(p.get("submittedBy"))));
+        p.remove("submittedBy");
+        return p;
     }
     @Transactional public Map<String,Object> approve(Account a,Requests.Review r) {
         a.requireStaff();

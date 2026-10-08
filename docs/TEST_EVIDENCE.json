@@ -30,7 +30,7 @@
   },
   "xml_well_formedness": {
     "status": "PASSED",
-    "files": 44,
+    "files": 47,
     "scope": "XML parse and resource-name inspection, not Android resource linking."
   },
   "approximate_stub_checks": [
@@ -59,7 +59,7 @@
     {
       "name": "XML well-formedness",
       "passed": true,
-      "detail": "44 XML files; not Android resource linking"
+      "detail": "47 source XML files; not Android resource linking"
     },
     {
       "name": "Native project resource name references",
@@ -101,11 +101,11 @@
     "java_runtime": "Oracle JDK 21.0.10 LTS",
     "maven_test": {
       "status": "PASSED",
-      "tests": 14,
+      "tests": 16,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "production_sources_compiled": 30
+      "production_sources_compiled": 31
     },
     "maven_package": {
       "status": "PASSED",
@@ -115,8 +115,8 @@
       "status": "PASSED_EXISTING_SCHEMA_VALIDATION",
       "database": "partmentpilotai_dev",
       "postgresql_version": "18.6",
-      "schema_version": "4",
-      "history_entries_validated": 5,
+      "schema_version": "5",
+      "history_entries_validated": 6,
       "fresh_database_path": "NOT_EXECUTED",
       "v1_clone_upgrade_path": "NOT_EXECUTED"
     },
@@ -128,49 +128,87 @@
       "port_note": "Port 8080 was occupied by the system AgentService; checked-in Android endpoint was not changed.",
       "local_api_checks": 50,
       "local_api_status": "PASSED",
-      "local_api_run": "d6de74c8",
+      "local_api_run": "c7a882a5",
+      "invite_controls_checks": 33,
+      "invite_controls_status": "PASSED",
+      "invite_controls_run": "c762e7cf",
+      "invite_wrong_key_assertions": 4,
+      "invite_wrong_key_status": "PASSED_BOUNDED_LOCALHOST_PROBE",
       "operations_checks": 112,
       "operations_status": "PASSED_WITH_CONCURRENCY",
-      "operations_evidence": "test-results/operations-bcb91bec.json"
+      "operations_evidence": "test-results/operations-4c2af10d.json"
     },
     "android": {
       "clean_assemble_debug": "PASSED",
       "tasks_executed": 41,
+      "latest_shell_rebuild_status": "PASSED_INCREMENTAL_TEST_DEBUG_UNIT_TEST_AND_ASSEMBLE_DEBUG",
+      "latest_shell_rebuild_executed_tasks": 7,
+      "latest_shell_rebuild_up_to_date_tasks": 33,
       "apk": "android/app/build/outputs/apk/debug/app-debug.apk",
-      "apk_bytes": 6464704,
-      "apk_sha256": "67D26DE389DF1F956C818B179C2096693EBA69A81F98BEB3501EA35AC649103A",
+      "apk_bytes": 7604044,
+      "apk_sha256": "542E950ED741B7A25697D61F5223851733C3D0CCA3A6FB0779819E77ADF9EA38",
       "unit_test_task": "PASSED",
       "unit_tests": 2,
       "unit_test_failures": 0,
-      "device_runtime": "PARTIAL_PIXEL_10_PRO_JOIN_FLOW_PASSED",
-      "ui_parity": "PARTIAL_JOIN_FLOW_REFERENCE_COMPARED",
+      "device_runtime": "PARTIAL_PIXEL_10_PRO_JOIN_AND_INVITE_PLUS_PIXEL_TABLET_EMULATOR_AND_PHYSICAL_XIAOMI_PAD_7_INVITE_BOUNDED_LEAD_QA_PASSED",
+      "ui_parity": "BOUNDED_INVITE_LIGHT_PHONE_VISUAL_QA_96_3_TRANSFER_PASSED_ON_CURRENT_APK_NOT_WHOLE_APP",
       "emulator_profile": "Pixel_10_Pro Android 37, 1080x2400 rendered display at 480 dpi",
       "emulator_network": "adb reverse tcp:8080 tcp:8081; checked-in endpoint unchanged",
       "emulator_join_flow": "PASSED_LIGHT_DARK_PORTRAIT_LANDSCAPE_BACK_AND_PERSISTED_REJECTION",
-      "emulator_note": "Initial System UI startup dialog recovered after Wait; app process stayed healthy. No physical device or tablet was connected."
+      "emulator_invite_flow": "PASSED_EXPIRY_ROTATE_REDISPLAY_AFTER_RELAUNCH_COPY_SHARE_CHOOSER_REVOKE_ACTIVATE_DARK_LANDSCAPE_SCROLL",
+      "emulator_invite_approval_link": "PASSED_OPENS_JOIN_REQUESTS_ON_FINAL_REBUILT_APK",
+      "emulator_invite_polished_date": "PASSED_DD_MM_YYYY_PICKER_INITIALIZES_SAVED_DATE_AND_REAL_API_SAVE_PRESERVES_INCLUSIVE_EXPIRY",
+      "emulator_shell_regression": "LEAD_AND_QA_PASSED_HOME_NOTIFICATIONS_ANDROID_BACK_JOIN_REQUESTS_TABS_AND_INVITE_PORTRAIT_LANDSCAPE_ACTION_REACHABILITY",
+      "emulator_shell_clipping_fix": "FIRST_FIXED_60_DP_NAV_CLIPPED_ICONS; FIXED_WITH_WRAP_CONTENT_AND_REBUILT_BEFORE_QA",
+      "tablet_lead_status": "PASSED_BOUNDED_PIXEL_TABLET_ANDROID_37_LANDSCAPE_PORTRAIT_DARK_PORTRAIT_AND_LIVE_SYNTHETIC_SAVE",
+      "tablet_independent_qa_status": "PASSED_BOUNDED_PIXEL_TABLET_LIGHT_DARK_PORTRAIT_LANDSCAPE_ENTRY_PATHS_PICKER_BACK_CONFIRMATIONS_DISMISSED_NAV_FOOTER",
+      "tablet_emulator": "emulator-5556, 2560x1600 landscape and 1600x2560 portrait, 320dpi; phone emulator-5554 remained connected",
+      "tablet_connection": "adb reverse tcp:8080 tcp:8081 plus tablet-only debug URL http://127.0.0.1:8080/api/v1; backend UI test Successful",
+      "tablet_synthetic_records": "Two labelled synthetic localhost test apartments retained; first login Offline with default 10.0.2.2 endpoint, second signed in after tablet-only URL correction",
+      "physical_tablet_lead_status": "PASSED_BOUNDED_XIAOMI_PAD_7_ANDROID_16_PORTRAIT_INSTALL_LOCAL_BACKEND_SYNTHETIC_ADMIN_INVITE_CONTROLS_PICKER_AND_CANCELLED_CONFIRMATIONS",
+      "physical_tablet": "ADB serial a04cd04e, market name Xiaomi Pad 7, model 2410CRP4CI, 2136x3200 portrait; separate debug package installed without clearing data; current APK SHA256 542E950ED741B7A25697D61F5223851733C3D0CCA3A6FB0779819E77ADF9EA38",
+      "physical_tablet_connection": "pinned adb reverse tcp:8080 tcp:8081; debug-only URL http://127.0.0.1:8080/api/v1; Local server UI test Successful",
+      "physical_tablet_exclusions": "No invite code or token captured; no code rotation/revocation; physical live Save/persistence and measured 95 percent physical-tablet or whole-app visual parity not claimed; no physical phone connected",
+      "offline_login_recovery_source_fix": "Login-route resume after successful sign-in now discarded; Lead runtime controlled client-only endpoint failure/recovery PASSED on current APK; independent QA static PASSED, runtime NOT_RUN",
+      "emulator_note": "Initial emulator-phone System UI startup dialog recovered after Wait; bounded Pixel phone/tablet emulator evidence remains separate from later physical Xiaomi Pad 7 Android 16 tablet Lead checks."
+    },
+    "independent_invite_qa": {
+      "api_checks": 49,
+      "api_status": "PASSED_BOUNDED_SYNTHETIC_LOCALHOST",
+      "tenants_retained": ["INVITE INDEPENDENT QA A/B 829f3f10", "INVITE RACE INDEPENDENT QA 06f45afd"],
+      "visual_gate": "PASSED_BOUNDED_LIGHT_PHONE_INVITE_96_3_ON_CURRENT_APK",
+      "visual_note": "Independent QA scored approximately 96.3 percent using 13 geometry, 10 typography/icon and 8 categorical checks with readable-date and two-entry-path Community hard gates. Fresh code-free current APK 542E950E phone screenshots transferred identical geometry/color runs; tablet responsive QA passed separately without a tablet visual percentage. Not whole-app/device parity.",
+      "shared_shell_regression": "PASSED_HOME_NOTIFICATIONS_ANDROID_BACK_COMMUNITY_MEMBERS_JOIN_REQUESTS_TABS_AND_INVITE_PORTRAIT_LANDSCAPE_REACHABILITY",
+      "shared_shell_api_qa_rerun": "NOT_RUN_UI_ONLY_SHELL_CHANGE_PRIOR_49_OF_49_REMAINS_BOUNDED_EVIDENCE",
+      "independent_not_run": ["wrong-key recovery", "missing-key live 503", "true session expiry", "server failure"],
+      "tablet_qa_status": "PASSED_BOUNDED_ON_CURRENT_APK",
+      "physical_tablet_qa_status": "PASSED_BOUNDED_XIAOMI_PAD_7_LIGHT_DARK_PORTRAIT_LANDSCAPE_ENTRY_PATHS_PICKER_BACK_CONFIRMATIONS_DISMISSED_NAV_FOOTER_RESTORED_ORIGINAL_SETTINGS",
+      "physical_phone_qa_status": "NOT_RUN_NO_PHYSICAL_PHONE_CONNECTED",
+      "offline_login_recovery_qa": "STATIC_PASSED_LIVE_NOT_RUN_LEAD_CONTROLLED_CLIENT_ENDPOINT_RUNTIME_PASSED",
+      "flow_qa_approved": false
     }
   },
   "source_traceability": {
     "reference_routes": 203,
     "statuses": {
-      "CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED": 129,
-      "CONNECTED_LOCAL_EMULATOR_VERIFIED": 3,
+      "CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED": 128,
+      "CONNECTED_LOCAL_EMULATOR_VERIFIED": 5,
       "PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED": 55,
-      "NOT_IMPLEMENTED_AS_REFERENCE_ROUTE": 8,
+      "NOT_IMPLEMENTED_AS_REFERENCE_ROUTE": 7,
       "REFERENCE_ONLY_NOT_A_PRODUCTION_FEATURE": 8
     },
-    "native_route_identifiers": 155,
+    "native_route_identifiers": 156,
     "product_completion_percentage": null,
     "scope": "Direct routes and merged partial subflows are not a finished/tested-product percentage. No frozen-reference visual parity claimed."
   },
   "unexecuted": [
     {
       "name": "Fresh database and V1-only clone migration matrix",
-      "reason": "The existing PostgreSQL 18.6 development schema migrated in place through V4 successfully, but fresh creation and a backed-up V1-only upgrade clone through V2/V3/V4 have not yet run."
+      "reason": "The retained PostgreSQL 18.6 development schema migrated in place through V5 successfully, but fresh creation and a backed-up V1-only upgrade clone through V2/V3/V4/V5 have not yet run."
     },
     {
       "name": "Android device/instrumentation/screenshots/accessibility",
-      "reason": "A clean debug APK build passed, but installation, instrumentation, device behavior, rotations and visual parity have not yet run."
+      "reason": "Resident join ran on a phone-sized emulator; Invite controls had bounded Lead and independent QA emulator-tablet checks plus Lead/QA physical Xiaomi Pad 7 tablet portrait/landscape/light/dark checks. Instrumentation, broader physical-device behavior, accessibility, physical-phone behavior, tablet-wide behavior and measured 95 percent whole-app parity have not run."
     },
     {
       "name": "PowerShell updater",

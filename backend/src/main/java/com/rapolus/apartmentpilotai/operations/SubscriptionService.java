@@ -12,6 +12,7 @@ import java.math.*;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 /** Subscription ledger only: no client claim is accepted as payment or independently verified activation. */ @Service public class SubscriptionService {
+    public record Entitlement(boolean allowed,String state,String trialEndsAt,boolean referralApplied) { }
     private final Db db;
     private final String providerKey;
     public SubscriptionService(Db db,@Value("${app.provider-key:}")String key) {
@@ -39,6 +40,14 @@ import java.security.MessageDigest;
         }
         return s;
     }
+    @Transactional(readOnly=true) public Entitlement entitlement(UUID tenant) {
+        LocalDate today=V.today();
+        var row=db.one("select t.trial_ends_at, exists(select 1 from ap_subscription_invoice i where i.tenant_id=t.id and i.starts_on<=? and i.ends_on>? and i.credit+i.paid=i.amount) as current_invoice_covered, exists(select 1 from ap_referral r where r.referred_id=t.id) as referral_applied from ap_tenant t where t.id=?",V.sql(today),V.sql(today),tenant);
+        Instant trialEndsAt=Instant.parse(row.get("trialEndsAt").toString());
+        boolean covered=Boolean.TRUE.equals(row.get("currentInvoiceCovered"));
+        var state=SubscriptionAccessPolicy.state(Instant.now(),trialEndsAt,covered);
+        return new Entitlement(SubscriptionAccessPolicy.allowed(state),state.name(),trialEndsAt.toString(),Boolean.TRUE.equals(row.get("referralApplied")));
+    }
     @Transactional public Map<String,Object> summary(Account a) {
         a.requireAdmin();
         var s=ensure(a.tenantId());
@@ -49,7 +58,11 @@ import java.security.MessageDigest;
         out.put("price",price(a.tenantId()));
         out.put("category",count<=10?"A":count<=30?"B":"C");
         out.put("invoices",invoices);
-        out.put("status",db.count("select count(*) from ap_subscription_invoice where tenant_id=? and starts_on<=? and ends_on>? and credit+paid=amount",a.tenantId(),V.sql(V.today()),V.sql(V.today()))>0?"ACTIVE":"PAYMENT_DUE");
+        Entitlement access=entitlement(a.tenantId());
+        out.put("status",access.state());
+        out.put("accessAllowed",access.allowed());
+        out.put("trialEndsAt",access.trialEndsAt());
+        out.put("referralApplied",access.referralApplied());
         out.put("referrals",db.rows("select r.id,r.created_at,r.rewarded,t.name as apartment_name,(s.installed_at is not null) as installed,(s.verified_at is not null) as verified from ap_referral r join ap_tenant t on t.id=r.referred_id left join ap_subscription s on s.tenant_id=r.referred_id where r.referrer_id=? order by r.created_at",a.tenantId()));
         out.put("checkoutConfigured",false);
         out.put("automaticDebit",false);
@@ -61,6 +74,18 @@ import java.security.MessageDigest;
         ensure(a.tenantId());
         db.update("update ap_subscription set installed_at=coalesce(installed_at,now()) where tenant_id=?",a.tenantId());
         return Map.of("recorded",true,"qualified",false,"message","App registration alone does not qualify a referral.");
+    }
+    @Transactional public Object acceptOffer(Account a,Map<String,Object> p) {
+        a.requireAdmin();
+        if(!Boolean.TRUE.equals(p.get("terms")))throw new IllegalArgumentException("Accept the referral offer rules.");
+        promotionLock();
+        var s=ensure(a.tenantId());
+        if(s.get("offerAcceptedAt")!=null)return Map.of("accepted",true,"qualified",award(a.tenantId()),"termsVersion",s.get("offerTermsVersion"));
+        if(!OperationsRules.withinFirstMonth(LocalDate.parse(s.get("activatedAt").toString()),LocalDate.parse(s.get("firstEnd").toString()),V.today()))throw ApiError.conflict("The first-month offer window has ended.");
+        db.update("update ap_subscription set offer_accepted_at=now(),offer_terms_version='2026-09-v1' where tenant_id=?",a.tenantId());
+        db.audit(a.tenantId(),a.id(),"REFERRAL_OFFER_ACCEPTED",a.tenantId(),null,"Terms 2026-09-v1; provider verification still required");
+        boolean qualified=award(a.tenantId());
+        return Map.of("accepted",true,"qualified",qualified,"termsVersion","2026-09-v1");
     }
     @Transactional public Object claim(Account a,Map<String,Object> p) {
         a.requireAdmin();
@@ -126,15 +151,16 @@ import java.security.MessageDigest;
         var s=ensure(tenant);
         return OperationsRules.withinFirstMonth(LocalDate.parse(s.get("activatedAt").toString()),LocalDate.parse(s.get("firstEnd").toString()),V.today());
     }
-    private void award(UUID root) {
-        if(db.count("select count(*) from ap_referral_award where referrer_id=?",root)>0||!eligible(root))return;
-        var rootState=db.one("select verified_at,installed_at from ap_subscription where tenant_id=?",root);
-        if(rootState.get("verifiedAt")==null||rootState.get("installedAt")==null)return;
+    private boolean award(UUID root) {
+        if(db.count("select count(*) from ap_referral_award where referrer_id=?",root)>0||!eligible(root))return false;
+        var rootState=db.one("select verified_at,installed_at,offer_accepted_at from ap_subscription where tenant_id=?",root);
+        // The referring Admin must accept the offer. Referred apartments are not required to opt in themselves.
+        if(rootState.get("verifiedAt")==null||rootState.get("installedAt")==null||rootState.get("offerAcceptedAt")==null)return false;
         var children=db.rows("select r.id,r.referred_id from ap_referral r join ap_subscription s on s.tenant_id=r.referred_id where r.referrer_id=? and s.verified_at is not null and s.installed_at is not null order by r.created_at,r.id",root);
-        if(children.size()<2)return;
+        if(children.size()<2)return false;
         List<Map<String,Object>> valid=new ArrayList<>();
         for(var child:children)if(eligible((UUID)child.get("referredId")))valid.add(child);
-        if(valid.size()<2)return;
+        if(valid.size()<2)return false;
         // Exactly one reward per first invoice. Further referrals never extend the period.
         db.update("insert into ap_referral_award(referrer_id,first_child,second_child) values(?,?,?)",root,valid.get(0).get("referredId"),valid.get(1).get("referredId"));
         waive(root);
@@ -142,6 +168,7 @@ import java.security.MessageDigest;
             waive((UUID)child.get("referredId"));
             db.update("update ap_referral set rewarded=true where id=?",child.get("id"));
         }
+        return true;
     }
     private void waive(UUID tenant) {
         var s=ensure(tenant);

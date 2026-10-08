@@ -13,7 +13,7 @@
     {
       "name": "XML well-formedness",
       "passed": true,
-      "detail": "44 XML files; not Android resource linking"
+      "detail": "47 source XML files; not Android resource linking"
     },
     {
       "name": "Native project resource name references",
@@ -52,15 +52,15 @@
     }
   ],
   "reference_routes": 203,
-  "native_route_identifiers": 155,
+  "native_route_identifiers": 156,
   "coverage_status_counts": {
-    "CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED": 129,
-    "CONNECTED_LOCAL_EMULATOR_VERIFIED": 3,
+    "CONNECTED_SOURCE_NOT_RUNTIME_VERIFIED": 128,
+    "CONNECTED_LOCAL_EMULATOR_VERIFIED": 5,
     "PARTIAL_MERGED_SOURCE_NOT_RUNTIME_VERIFIED": 55,
-    "NOT_IMPLEMENTED_AS_REFERENCE_ROUTE": 8,
+    "NOT_IMPLEMENTED_AS_REFERENCE_ROUTE": 7,
     "REFERENCE_ONLY_NOT_A_PRODUCTION_FEATURE": 8
   },
-  "xml_files": 44,
-  "checked_at": "2026-09-14T21:34:49.6169799Z",
-  "note": "Coverage counts include three bounded resident-join emulator routes. Other checks in this file are static source checks, not framework compile, PostgreSQL execution or broader Android runtime."
+  "xml_files": 47,
+  "checked_at": "2026-09-15T08:58:08.1890421Z",
+  "note": "Coverage counts include three bounded resident-join and two bounded invite-controls emulator routes. Other checks in this file are static source checks, not framework compile, PostgreSQL execution or broader Android runtime."
 }

@@ -8,8 +8,9 @@ Use `README_FIRST.md` for the safe updater. Keep your already-working setup; do 
 - JDK: installed Java21.
 - Environment: `SPRING_PROFILES_ACTIVE=local`, `DB_URL=jdbc:postgresql://localhost:5432/partmentpilotai_dev`, `DB_USER` your working local user, `DB_PASSWORD` entered locally. Port stays8080 unless intentionally changed.
 - `.env` is only an example of local secret storage. Spring Boot does not automatically import an arbitrary `.env` file; put values in IntelliJ's Environment variables or use the supplied launcher.
+- Invite rotation and activation require `APP_INVITE_DISPLAY_KEY`, a private base64-encoded 32-byte server key. Keep it stable across restarts and out of Git, Android, logs and screenshots. Configure it in IntelliJ's local environment or in an ignored `.env.invite-local` for `scripts/Start-Backend.ps1`; without it issuing/activating a code is explicitly `NOT_CONFIGURED`/503. Back up the key securely: losing it makes already encrypted codes non-redisplayable. Existing hash-only invites remain usable until rotated, but their plaintext cannot be recovered.
 - Preserve existing `application*.yml`; new code has safe defaults and no extra dependency. Optional `APP_PROVIDER_KEY` is read only by server-side operator endpoints; do not put it in Android or Git.
-- Flyway should validate V1 and apply V2 once. Do not modify a previously applied migration or use clean/repair as a shortcut. Back up your database first.
+- Flyway should validate applied V1/V2/V3/V4 and apply additive V5 once. Do not modify a previously applied migration or use clean/repair as a shortcut. Back up your database first.
 
 ## Android
 - Open only `D:\ApartmentPilotAI\android`, not the unrelated ParkingPilotAI project.

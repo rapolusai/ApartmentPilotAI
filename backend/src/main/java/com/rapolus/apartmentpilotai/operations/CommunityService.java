@@ -21,9 +21,11 @@ import java.time.*;
     }
     @Transactional public Object saveApartment(Account a,Map<String,Object> p) {
         a.requireAdmin();
-        db.lockTenant(a.tenantId());
         String name=V.text(p,"name",80);
-        db.update("update ap_tenant set name=?,city=?,address=?,pincode=? where id=?",name,V.text(p,"city",80),V.opt(p,"address",300),V.opt(p,"pincode",6),a.tenantId());
+        String city=V.text(p,"city",80),address=V.text(p,"address",300),pincode=V.text(p,"pincode",6);
+        if(!pincode.matches("[0-9]{6}"))throw new IllegalArgumentException("Enter a 6-digit PIN code.");
+        db.lockTenant(a.tenantId());
+        db.update("update ap_tenant set name=?,city=?,address=?,pincode=? where id=?",name,city,address,pincode,a.tenantId());
         commands.audit(a,"APARTMENT_UPDATED",a.tenantId(),null,name);
         return apartment(a);
     }
@@ -55,6 +57,10 @@ import java.time.*;
     public List<Map<String,Object>> flats(Account a) {
         if(!a.staff())return db.rows("select id,label,block,floor,occupied,active from ap_flat where tenant_id=? and id=?",a.tenantId(),a.flatId());
         return db.rows("select f.id,f.label,f.block,f.floor,f.active,f.occupied,u.id as member_id,u.name,u.role,u.status from ap_flat f left join ap_user u on u.tenant_id=f.tenant_id and u.flat_id=f.id and u.status in ('ACTIVE','PENDING') where f.tenant_id=? order by f.label",a.tenantId());
+    }
+    public Map<String,Object> flat(Account a,UUID id) {
+        a.requireAdmin();
+        return db.one("select f.id,f.label,f.block,f.floor,f.active,f.occupied,u.id as member_id,u.name,u.role,u.status from ap_flat f left join ap_user u on u.tenant_id=f.tenant_id and u.flat_id=f.id and u.status in ('ACTIVE','PENDING') where f.tenant_id=? and f.id=?",a.tenantId(),id);
     }
     @Transactional public Object saveFlat(Account a,UUID id,Map<String,Object> p) {
         a.requireAdmin();

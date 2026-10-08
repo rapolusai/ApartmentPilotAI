@@ -45,6 +45,9 @@ import java.util.*;
     @GetMapping("/flats") Object flats(@AuthenticationPrincipal Account a) {
         return community.flats(a);
     }
+    @GetMapping("/flats/{id}") Object flat(@AuthenticationPrincipal Account a,@PathVariable UUID id) {
+        return community.flat(a,id);
+    }
     @PostMapping("/flats") Object flat(@AuthenticationPrincipal Account a,@RequestBody Map<String,Object> p) {
         return community.saveFlat(a,null,p);
     }
@@ -97,6 +100,9 @@ import java.util.*;
     @PostMapping("/settings") Object settings(@AuthenticationPrincipal Account a,@RequestBody Map<String,Object> p) {
         return accounting.saveSettings(a,p);
     }
+    @PostMapping("/settings/{section}") Object settingsSection(@AuthenticationPrincipal Account a,@PathVariable String section,@RequestBody Map<String,Object> p) {
+        return accounting.saveSettingsSection(a,section,p);
+    }
     @PostMapping("/opening") Object opening(@AuthenticationPrincipal Account a,@RequestBody Map<String,Object> p) {
         return accounting.opening(a,p);
     }
@@ -138,6 +144,15 @@ import java.util.*;
     }
     @PostMapping("/recurring") Object recurring(@AuthenticationPrincipal Account a,@RequestBody Map<String,Object> p) {
         return accounting.recurring(a,null,p);
+    }
+    @GetMapping("/recurring/{id}") Object recurringDetail(@AuthenticationPrincipal Account a,@PathVariable UUID id) {
+        return accounting.recurringDetail(a,id);
+    }
+    @PostMapping("/recurring/{id}/active") Object recurringActive(@AuthenticationPrincipal Account a,@PathVariable UUID id,@RequestBody Map<String,Object> p) {
+        return accounting.recurringActive(a,id,p);
+    }
+    @PostMapping("/recurring/{id}/prepare") Object prepareRecurring(@AuthenticationPrincipal Account a,@PathVariable UUID id,@RequestBody Map<String,Object> p) {
+        return accounting.prepareRecurring(a,id,p);
     }
     @PostMapping("/recurring/{id}") Object recurring(@AuthenticationPrincipal Account a,@PathVariable UUID id,@RequestBody Map<String,Object> p) {
         return accounting.recurring(a,id,p);
@@ -241,6 +256,9 @@ import java.util.*;
     }
     @PostMapping("/subscription/install") Object install(@AuthenticationPrincipal Account a) {
         return subscriptions.installed(a);
+    }
+    @PostMapping("/subscription/offer") Object offer(@AuthenticationPrincipal Account a,@RequestBody Map<String,Object> p) {
+        return subscriptions.acceptOffer(a,p);
     }
     @PostMapping("/referrals/claim") Object claim(@AuthenticationPrincipal Account a,@RequestBody Map<String,Object> p) {
         return subscriptions.claim(a,p);

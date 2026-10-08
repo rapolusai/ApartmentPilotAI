@@ -4,6 +4,22 @@ All ordinary APIs derive tenant/role from a bearer session. JSON bodies contain 
 
 ## Routes declared by the delivered controllers
 
+### Additions and verification guard — 27 September 2026
+
+- `POST /api/v1/auth/register`: additive `address` (up to 300 characters) and `pinCode` (six digits) persist to the existing V2 tenant columns. The new native form requires both; legacy local test clients may omit them. Registration remains disabled outside the explicit local profile until verified-mobile onboarding is configured.
+- `POST /api/v1/auth/join`: returns `status`, `apartmentName`, `flatLabel`, `reason`, a random `receipt` and `expiresAt`; it never issues a login token. Identical pending retries require the same PIN and tenant/flat identity and do not duplicate the resident. Rejected claims can be resubmitted with their existing PIN; old status receipts are revoked. Active/foreign accounts cannot be overwritten.
+- `POST /api/v1/auth/join-status`: `{receipt}`; validates a 43-character opaque receipt, hashes it and reads only its bound request while unexpired. No account UUID/mobile lookup is accepted. Returns only status/apartment/flat/rejection reason; cannot authenticate or grant apartment access. Rate-limited to 60 requests per IP per 15-minute window. Android stores the receipt in a separate Keystore-encrypted vault, never the PIN.
+- `POST /api/v1/members/{id}/approve`: now requires `{verified:true}` from an authenticated Admin. Missing/false verification is rejected; supplied client role/tenant never grants authority. Existing tenant lock, pending-only transition, tenant parent check, audit and notification remain. API callers must supply the explicit verification flag.
+- `POST /api/v1/ops/apartment`: authenticated Admin only; requires `name` and `city` (nonblank, up to 80 characters), `address` (nonblank, up to 300 characters) and `pincode` (six digits). Values are trimmed and validated before mutation; supplied tenant/role cannot change the update scope. Legacy empty profiles must supply the required details when saving. Existing tenant lock and audit remain; no migration was added.
+
+### Additions — 26 September 2026
+
+- `GET /api/v1/ops/support`: only the authenticated requester's own records in their authenticated tenant.
+- `POST /api/v1/ops/support`: `{topic, message, requestKey}`; topic is Payment approval, Account access, Flat mapping or Something else. Message is required, up to 1000 characters. Identical request-key retries return the original private record; changed retries return 409. Status RECORDED does not mean delivery to an external help desk.
+- `GET /api/v1/audit/{id}`: Admin/Treasurer only, parent-checked within their tenant; foreign IDs return 404.
+- `POST /api/v1/ops/subscription/offer`: Admin only, `{terms:true}` records offer consent and version, not qualification, verification or a reward. Repeat acceptance is idempotent.
+- `POST /api/v1/ops/settings/{section}`: Admin/Treasurer only. Section is payment, billing, verification, reminders or booking. Only that section's fields can change. The server locks the authenticated tenant and merges current settings to avoid overwriting another focused form. Optional `requestKey` is automatically sent by Android; identical retries return the original result, changed retries return 409. A supplied `tenantId` or cross-section field is rejected. Existing full-document `/ops/settings` remains compatible.
+
 | Method | Path | Controller |
 |---|---|---|
 | GET | `/api/v1/status` | `ApiController.java` |
@@ -11,12 +27,17 @@ All ordinary APIs derive tenant/role from a bearer session. JSON bodies contain 
 | POST | `/api/v1/auth/login` | `ApiController.java` |
 | GET | `/api/v1/auth/invites/{code}` | `ApiController.java` |
 | POST | `/api/v1/auth/join` | `ApiController.java` |
+| POST | `/api/v1/auth/join-status` | `ApiController.java` |
 | POST | `/api/v1/logout` | `ApiController.java` |
 | GET | `/api/v1/me` | `ApiController.java` |
 | GET | `/api/v1/flats` | `ApiController.java` |
 | GET | `/api/v1/members` | `ApiController.java` |
 | GET | `/api/v1/members/{id}` | `ApiController.java` |
 | POST | `/api/v1/invites` | `ApiController.java` |
+| GET | `/api/v1/invites/current` | `ApiController.java` |
+| PUT | `/api/v1/invites/current/expiry` | `ApiController.java` |
+| POST | `/api/v1/invites/current/revoke` | `ApiController.java` |
+| POST | `/api/v1/invites/current/activate` | `ApiController.java` |
 | POST | `/api/v1/members/{id}/approve` | `ApiController.java` |
 | POST | `/api/v1/members/{id}/reject` | `ApiController.java` |
 | POST | `/api/v1/members/{id}/treasurer` | `ApiController.java` |
@@ -177,5 +198,13 @@ Notice drafts also accept `noticeType` GENERAL/MAINTENANCE/SERVICE_ALERT/EMERGEN
 
 Provider routes use an independent operator header, not apartment bearer privileges. See PROVIDER_BILLING.md. They are manual operator interfaces, not a connected payment gateway.
 
+Invite controls are Admin-only and tenant-derived. `POST /invites` requires a UUID `requestKey`; a retry returns the same issuance, while a new key invalidates the previous code without revoking approved residents. `GET /invites/current` returns `exists`, `active`, `valid`, `codeAvailable`, `displayConfigured`, nullable `code`/`displayError`, `expiresAt` and inclusive Asia/Kolkata `expiresOn`. Legacy hash-only codes and ciphertext protected by a mismatched server key are not redisplayed. The latter returns an explicit recovery warning with no code; activation fails 503, while a separately confirmed rotation may replace it. `PUT /invites/current/expiry` accepts `{"expiry":"YYYY-MM-DD"}` from today through one year; the date remains valid through its local end of day. Issuance/activation without `APP_INVITE_DISPLAY_KEY` is `NOT_CONFIGURED`/503. Resident code lookup uses the existing hash and remains denied after revoke/rotation.
+
 ## Executable request examples
+Recurring expenses are staff-only and tenant-derived. `GET /ops/recurring/{id}` returns the selected template and optional vendor name. Create/update accepts optional `vendorId`; a supplied ID must refer to an active vendor in the same tenant. Omission on update preserves the existing link; an empty value explicitly removes it. V7 snapshots the linked vendor on newly prepared expenses without rewriting existing records.
+
+`POST /ops/recurring/{id}/active` accepts boolean `active`, boolean `expectedActive` and UUID `requestKey`. A stale expected state fails 409. `POST /ops/recurring/{id}/prepare` accepts `cycle` (YYYY-MM-DD, exactly the template's current `nextOn`) and UUID `requestKey`. It creates or returns one unpaid draft for that cycle under the tenant lock, never posts cash or verifies payment. A valid retry returns its original draft even if the template later pauses or advances; changing the target with the same key is rejected. Explicit paid confirmation advances a still-current manual cycle once. Existing scheduled automation catch-up behavior remains unchanged and reuses an already prepared cycle rather than duplicating it.
+
+Payment tracking: authenticated `GET /payments/{id}` returns server-scoped declaration details, status, optional receipt/rejection/reversal information and `canAttach`. Residents are limited to their own flat; foreign tenants receive 404 and another flat in the same tenant is denied. Internal submitter IDs are not exposed. `GET /bills/{id}` includes the authoritative nullable `pendingPaymentId`. Payment proof continues through the existing parent-checked file API; proof upload is permitted only while pending and does not verify bank settlement.
+
 See scripts/Test-Local-Api.ps1 and scripts/Test-Operations.ps1. These tests create only synthetic local records. Both have been run against the local PostgreSQL development database; the latest observed counts and exclusions are recorded in TEST_EVIDENCE.md.

@@ -1,0 +1,9 @@
+<resources>
+ <dimen name="m3_bottom_nav_min_height">54dp</dimen>
+ <dimen name="m3_bottom_nav_item_padding_top">4dp</dimen>
+ <dimen name="m3_bottom_nav_item_padding_bottom">4dp</dimen>
+ <dimen name="design_bottom_navigation_margin">0dp</dimen>
+ <dimen name="design_bottom_navigation_label_padding">4dp</dimen>
+ <dimen name="m3_bottom_nav_item_active_indicator_height">28dp</dimen>
+ <dimen name="m3_bottom_nav_item_active_indicator_width">51dp</dimen>
+</resources>

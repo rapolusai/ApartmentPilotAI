@@ -35,3 +35,4 @@ app:
   local-registration-enabled: false
   session-hours: 12
   billing-job-enabled: false
+  invite-display-key: ${APP_INVITE_DISPLAY_KEY:}

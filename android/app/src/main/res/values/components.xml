@@ -2,4 +2,8 @@
  <style name="ApNavIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
   <item name="android:color">@color/ap_lime</item>
  </style>
+ <style name="ApNavLabel" parent="TextAppearance.Material3.LabelSmall">
+  <item name="android:textSize">10sp</item>
+  <item name="android:textStyle">bold</item>
+ </style>
 </resources>

@@ -22,12 +22,12 @@ Check ($a.Status -eq 200) 'Create apartment A';$tokenA=$a.Body.token
 $b=Api 'POST' '/auth/register' @{name='TEST Admin B';mobile=$mobileB;pin=$pin;apartmentName="TEST B $stamp";city='Bengaluru';flats=5}
 Check ($b.Status -eq 200) 'Create isolated apartment B';$tokenB=$b.Body.token
 $wrong=Api 'POST' '/auth/login' @{mobile=$mobileA;pin=$pin;role='TREASURER'};Check ($wrong.Status -eq 401) 'Choosing a different login card does not grant its role'
-$invite=Api 'POST' '/invites' @{} $tokenA;Check ($invite.Status -eq 200) 'Admin creates resident invite'
+$invite=Api 'POST' '/invites' @{requestKey=([guid]::NewGuid().ToString())} $tokenA;Check ($invite.Status -eq 200) 'Admin creates resident invite'
 $preview=Api 'GET' "/auth/invites/$($invite.Body.code)";Check ($preview.Body.flats.Count -eq 5) 'Invite lists available flats'
 $j=Api 'POST' '/auth/join' @{invite=$invite.Body.code;flatLabel='A-101';name='TEST Resident';mobile=$mobileR;pin=$pin;residentType='OWNER'};Check ($j.Body.status -eq 'PENDING') 'Resident starts pending, not active'
 $preLogin=Api 'POST' '/auth/login' @{mobile=$mobileR;pin=$pin;role='RESIDENT'};Check ($preLogin.Status -eq 403) 'Pending member cannot sign in'
 $members=Api 'GET' '/members' $null $tokenA;$member=$members.Body|Where-Object {$_.mobile -eq $mobileR}
-$approved=Api 'POST' "/members/$($member.id)/approve" @{} $tokenA;Check ($approved.Status -eq 200) 'Admin approves resident'
+$approved=Api 'POST' "/members/$($member.id)/approve" @{verified=$true} $tokenA;Check ($approved.Status -eq 200) 'Admin approves resident'
 $loginR=Api 'POST' '/auth/login' @{mobile=$mobileR;pin=$pin;role='RESIDENT'};Check ($loginR.Status -eq 200) 'Approved resident signs in';$tokenR=$loginR.Body.token
 $month=Get-Date -Format 'yyyy-MM';$day=Get-Date -Format 'yyyy-MM-dd'
 $rule=@{amount=2000;effective=$month;billingDay=1;dueDay=10}
@@ -48,12 +48,22 @@ $reminderKey=[guid]::NewGuid().ToString();$reminder=Api 'POST' "/billing/reminde
 $reminderRetry=Api 'POST' "/billing/reminders/send?month=$month" @{requestKey=$reminderKey} $tokenA;Check ($reminderRetry.Body.created -eq 0 -and $reminderRetry.Body.alreadySent -eq 1) 'Reminder retry is idempotent'
 $declaration=@{billId=$bill.id;amount=500;mode='UPI';reference="TEST-$stamp-1";paidOn=$day;note='Synthetic test only';requestKey=[guid]::NewGuid().ToString()}
 $p=Api 'POST' '/payments' $declaration $tokenR;Check ($p.Body.status -eq 'PENDING') 'Payment declaration is not approval'
+$paymentDetail=Api 'GET' "/payments/$($p.Body.id)" $null $tokenR;Check ($paymentDetail.Status -eq 200 -and $paymentDetail.Body.status -eq 'PENDING' -and $paymentDetail.Body.canAttach -eq $true -and $null -eq $paymentDetail.Body.submittedBy) 'Resident tracks own pending payment without exposing internal submitter identity'
+Check ((Api 'GET' "/payments/$($p.Body.id)").Status -eq 401) 'Anonymous payment detail access denied'
+Check ((Api 'GET' "/payments/$($p.Body.id)" $null $tokenB).Status -eq 404) 'Foreign tenant cannot fetch payment detail by guessed ID'
+$pendingBill=Api 'GET' "/bills/$($bill.id)" $null $tokenR;Check ($pendingBill.Body.pendingPaymentId -eq $p.Body.id) 'Bill links to its authoritative pending payment'
+$proofPayload=@{kind='PAYMENT';parentId=$p.Body.id;name='QA-payment-proof.png';content='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jbs0AAAAASUVORK5CYII='}
+$proofUpload=Api 'POST' '/ops/files' $proofPayload $tokenR;Check ($proofUpload.Status -eq 200) 'Resident attaches a real file to their pending payment'
+$proofRetry=Api 'POST' '/ops/files' $proofPayload $tokenR;Check ($proofRetry.Body.id -eq $proofUpload.Body.id) 'Payment proof retry is deduplicated'
+Check ((Api 'GET' "/ops/files/$($proofUpload.Body.id)" $null $tokenB).Status -eq 404) 'Foreign tenant cannot download payment proof'
 $repeat=Api 'POST' '/payments' $declaration $tokenR;Check ($repeat.Body.id -eq $p.Body.id) 'Payment retry returns the same record'
 $preReceipt=Api 'GET' "/receipts/$($p.Body.id)" $null $tokenR;Check ($preReceipt.Status -eq 404) 'Pending payment has no approved receipt'
 $noVerify=Api 'POST' '/payments/approve' @{paymentIds=@($p.Body.id);verified=$false} $tokenA;Check ($noVerify.Status -eq 400) 'Approval requires explicit verification'
 $verified=Api 'POST' '/payments/approve' @{paymentIds=@($p.Body.id);verified=$true} $tokenA;Check ($verified.Body.approved -eq 1) 'Verified payment approved'
 $verifiedAgain=Api 'POST' '/payments/approve' @{paymentIds=@($p.Body.id);verified=$true} $tokenA;Check ($verifiedAgain.Body.approved -eq 0) 'Approval retry does not duplicate receipts'
 $receipt=Api 'GET' "/receipts/$($p.Body.id)" $null $tokenR;Check ($receipt.Body.amount -eq 500 -and $receipt.Body.receiptNumber) 'Resident can read approved receipt'
+$approvedDetail=Api 'GET' "/payments/$($p.Body.id)" $null $tokenR;Check ($approvedDetail.Body.status -eq 'APPROVED' -and $approvedDetail.Body.canAttach -eq $false -and $approvedDetail.Body.receiptNumber) 'Approved payment detail has its receipt and disables further proof uploads'
+Check ((Api 'POST' '/ops/files' $proofPayload $tokenR).Status -eq 403) 'Approved payment proof cannot be silently replaced'
 $billNow=Api 'GET' "/bills/$($bill.id)" $null $tokenR;Check ($billNow.Body.paid -eq 500) 'Partial payment retains the balance'
 $rejectDeclaration=@{billId=$bill.id;amount=100;mode='UPI';reference="TEST-$stamp-REJECT";paidOn=$day;note='Synthetic rejection';requestKey=[guid]::NewGuid().ToString()};$rejectPayment=Api 'POST' '/payments' $rejectDeclaration $tokenR;Check ($rejectPayment.Body.status -eq 'PENDING') 'A second declaration can enter review after the first is approved'
 $residentReject=Api 'POST' "/payments/$($rejectPayment.Body.id)/reject" @{reason='Resident must not reject'} $tokenR;Check ($residentReject.Status -eq 403) 'Resident cannot reject a payment declaration'
@@ -66,6 +76,7 @@ $expenseResult=Api 'POST' '/expenses' $expense $tokenA;Check ($expenseResult.Sta
 $expenseRetry=Api 'POST' '/expenses' $expense $tokenA;Check ($expenseRetry.Body.id -eq $expenseResult.Body.id) 'Expense retry does not double count'
 $report=Api 'GET' "/reports/monthly?month=$month" $null $tokenA;Check ($report.Body.closing -eq 376.55) 'Report uses approved payment minus paid expense'
 $bulkBills=@($bills.Body|Where-Object {$_.flatLabel -in @('A-102','A-103')});$bulkIds=@();foreach($bulkBill in $bulkBills){$bulkDeclaration=@{billId=$bulkBill.id;amount=100;mode='CASH';reference='';paidOn=$day;note='Synthetic bulk approval';requestKey=[guid]::NewGuid().ToString()};$bulkPayment=Api 'POST' '/payments' $bulkDeclaration $tokenA;$bulkIds+=$bulkPayment.Body.id};Check ($bulkIds.Count -eq 2) 'Two independent payments enter bulk review'
+Check ((Api 'GET' "/payments/$($bulkIds[0])" $null $tokenR).Status -eq 403) 'Resident cannot inspect another flat payment within the same apartment'
 $bulkApproval=Api 'POST' '/payments/approve' @{paymentIds=$bulkIds;verified=$true} $tokenA;Check ($bulkApproval.Body.approved -eq 2) 'Bulk approval verifies two payments atomically'
 $bulkRetry=Api 'POST' '/payments/approve' @{paymentIds=$bulkIds;verified=$true} $tokenA;Check ($bulkRetry.Body.approved -eq 0 -and $bulkRetry.Body.alreadyApproved -eq 2) 'Bulk approval retry creates no duplicate receipts'
 $notice=Api 'POST' '/notices' @{title='TEST Notice';body='Synthetic notice for this apartment only.';publish=$true} $tokenA;Check ($notice.Status -eq 200) 'Staff publishes notice'

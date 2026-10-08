@@ -56,12 +56,12 @@ try {
  Check ($a.Status -eq 200) 'Create synthetic apartment A';$ta=$a.Body.token
  $b=Api 'POST' '/auth/register' @{name='TEST02 Admin B';mobile=(Mobile);pin=$pin;apartmentName="TEST02 B $stamp";city='Bengaluru';flats=5}
  Check ($b.Status -eq 200) 'Create independent apartment B';$tb=$b.Body.token
- $invite=Api 'POST' '/invites' @{} $ta;Check ($invite.Status -eq 200) 'Create resident invite'
+ $invite=Api 'POST' '/invites' @{requestKey=(Key)} $ta;Check ($invite.Status -eq 200) 'Create resident invite'
  $rm=Mobile
  $joined=Api 'POST' '/auth/join' @{invite=$invite.Body.code;flatLabel='A-101';name='TEST02 Resident';mobile=$rm;pin=$pin;residentType='OWNER'}
  Check ($joined.Body.status -eq 'PENDING') 'Resident signup does not grant access'
  $all=Api 'GET' '/members' $null $ta;$member=@($all.Body|Where-Object {$_.mobile -eq $rm})[0]
- $approve=Api 'POST' "/members/$($member.id)/approve" @{} $ta;Check ($approve.Status -eq 200) 'Admin verifies resident'
+ $approve=Api 'POST' "/members/$($member.id)/approve" @{verified=$true} $ta;Check ($approve.Status -eq 200) 'Admin verifies resident'
  $login=Api 'POST' '/auth/login' @{mobile=$rm;pin=$pin;role='RESIDENT'};Check ($login.Status -eq 200) 'Resident signs in';$tr=$login.Body.token
  $flats=Api 'GET' '/ops/flats' $null $ta;$flat=@($flats.Body|Where-Object {$_.label -eq 'A-101'})[0]
  $own=Api 'GET' '/ops/flats' $null $tr;Check (@($own.Body).Count -eq 1) 'Resident flat selector is limited to own flat'
@@ -103,8 +103,26 @@ try {
  $denied=PostCommand '/ops/committee' @{name='TEST02 Forbidden';title='President';startOn=$date} $tr;Check ($denied.Status -eq 403) 'Resident cannot appoint committee members'
  $vendor=PostCommand '/ops/contacts' @{kind='VENDOR';name='TEST02 Lift service';category='Lift';phone='';notes='Synthetic';public=$true;active=$true} $ta
  Check ($vendor.Status -eq 200) 'Vendor created'
+ $serviceBody=@{title='TEST02 Lift preventive maintenance';category='Lift';vendorId=$vendor.Body.id;frequency='MONTHLY';nextOn=$date;active=$true}
+ $service=PostCommand '/ops/services' $serviceBody $ta;Check ($service.Status -eq 200 -and $service.Body.id) 'Admin creates a tenant-scoped service schedule';$serviceId=$service.Body.id
+ $serviceRetry=Api 'POST' '/ops/services' $serviceBody $ta;Check ($serviceRetry.Status -eq 200 -and $serviceRetry.Body.id -eq $serviceId) 'Service schedule retry is idempotent'
+ $residentServices=Api 'GET' '/ops/services' $null $tr;Check (@($residentServices.Body|Where-Object {$_.id -eq $serviceId}).Count -eq 1) 'Resident sees active service schedule'
+ $serviceWriteDenied=Api 'POST' '/ops/services' $serviceBody $tr;Check ($serviceWriteDenied.Status -eq 403) 'Resident cannot create service schedules'
+ $foreignService=Api 'GET' "/ops/services/$serviceId" $null $tb;Check ($foreignService.Status -eq 404) 'Another apartment cannot open guessed service ID'
+ $completionBody=@{scheduledOn=$date;completedOn=$date;cost=125.50;note='TEST02 filter changed and checked';paid=$false;requestKey=(Key)}
+ $completedService=Api 'POST' "/ops/services/$serviceId/complete" $completionBody $ta
+ Check ($completedService.Status -eq 200 -and $completedService.Body.expenseId -and ([string]$completedService.Body.nextOn -gt $date)) 'Service completion records visit and advances its next cycle';$serviceExpenseId=$completedService.Body.expenseId
+ $completionRetry=Api 'POST' "/ops/services/$serviceId/complete" $completionBody $ta
+ Check ($completionRetry.Status -eq 200 -and @($completionRetry.Body).Count -eq 1 -and $completionRetry.Body.id -eq $serviceId) 'Service completion retry is idempotent'
+ $staffService=Api 'GET' "/ops/services/$serviceId" $null $ta;$residentService=Api 'GET' "/ops/services/$serviceId" $null $tr
+ Check ($staffService.Body.visits.Count -eq 1 -and [decimal]$staffService.Body.visits[0].cost -eq 125.50 -and $staffService.Body.visits[0].expenseId -eq $serviceExpenseId) 'Staff history shows the service cost and linked draft expense'
+ Check ($residentService.Body.visits.Count -eq 1 -and $null -eq $residentService.Body.visits[0].cost -and $null -eq $residentService.Body.visits[0].expenseId) 'Resident service history hides financial internals'
  $ticket=PostCommand '/ops/tickets' @{kind='ISSUE';title='TEST02 Lift stopped';description='Synthetic incident';category='Lift';scope='ALL';priority='HIGH'} $tr
  Check ($ticket.Status -eq 200) 'Resident reports building incident';$tid=$ticket.Body.id
+ $residentTicketList=Api 'GET' '/ops/tickets?kind=ISSUE' $null $tr;$residentTicket=@($residentTicketList.Body|Where-Object {$_.id -eq $tid})[0]
+ Check ($residentTicketList.Status -eq 200 -and $residentTicket.following -eq $true -and $residentTicket.affectedCount -eq 1) 'Issue list marks the signed-in reporter as following with distinct affected-flat count'
+ $staffTicketList=Api 'GET' '/ops/tickets?kind=ISSUE' $null $ta;$staffTicket=@($staffTicketList.Body|Where-Object {$_.id -eq $tid})[0]
+ Check ($staffTicketList.Status -eq 200 -and $staffTicket.following -eq $false -and $staffTicket.affectedCount -eq 1) 'Issue list follow state is specific to the signed-in account'
  $forbidden=Api 'GET' "/ops/tickets/$tid" $null $tb;Check ($forbidden.Status -eq 404) 'Cross-apartment ticket denied'
  $affectedResident=Api 'GET' "/ops/tickets/$tid/affected" $null $tr;Check ($affectedResident.Status -eq 403) 'Resident cannot enumerate affected-flat identities'
  $affectedForeign=Api 'GET' "/ops/tickets/$tid/affected" $null $tb;Check ($affectedForeign.Status -eq 404) 'Another apartment cannot enumerate a guessed issue ID'
@@ -204,6 +222,10 @@ try {
  $sub=Api 'GET' '/ops/subscription' $null $ta;Check ($sub.Body.price -eq 99 -and !$sub.Body.checkoutConfigured) 'Subscription price is distinct from maintenance; live checkout not falsely enabled'
  $noProvider=Api 'POST' "/provider/apartments/$($a.Body.account.tenantId)/verify" @{verifiedBy='test';identityAndApartmentVerified=$true} $ta;Check ($noProvider.Status -eq 403) 'Apartment Admin cannot self-approve provider verification'
  $selfReferral=Api 'POST' '/ops/referrals/claim' @{code=$sub.Body.referralCode} $ta;Check ($selfReferral.Status -eq 409) 'Self-referral rejected'
+ $offerNoTerms=Api 'POST' '/ops/subscription/offer' @{terms=$false} $ta;Check ($offerNoTerms.Status -eq 400) 'Referral offer cannot be activated without accepting terms'
+ $offerResident=Api 'POST' '/ops/subscription/offer' @{terms=$true} $tr;Check ($offerResident.Status -eq 403) 'Only the authenticated apartment Admin may accept referral terms'
+ $offer=Api 'POST' '/ops/subscription/offer' @{terms=$true} $ta;Check ($offer.Status -eq 200 -and $offer.Body.accepted -and !$offer.Body.qualified -and $offer.Body.termsVersion -eq '2026-09-v1') 'Offer consent is audited but does not grant an unearned reward'
+ $offerAgain=Api 'POST' '/ops/subscription/offer' @{terms=$true} $ta;Check ($offerAgain.Status -eq 200 -and $offerAgain.Body.accepted) 'Offer consent retry is idempotent'
  if($Concurrency){
   $newStart=[DateTime]::UtcNow.Date.AddDays(3).AddHours(10).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
   $newEnd=[DateTime]::UtcNow.Date.AddDays(3).AddHours(12).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")

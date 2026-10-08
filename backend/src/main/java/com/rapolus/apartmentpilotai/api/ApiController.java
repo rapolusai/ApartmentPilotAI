@@ -45,6 +45,10 @@ import org.springframework.transaction.annotation.Transactional;
         RateGate.enforce(gate.count("join:"+req.getRemoteAddr()),20);
         return auth.join(r);
     }
+    @PostMapping("/auth/join-status") Object joinStatus(@Valid @RequestBody Requests.JoinStatus r,HttpServletRequest req) {
+        RateGate.enforce(gate.count("join-status:"+req.getRemoteAddr()),60);
+        return auth.joinStatus(r.receipt());
+    }
     @PostMapping("/logout") Object logout(@RequestHeader("Authorization")String token) {
         auth.logout(token);
         return Map.of("ok",true);
@@ -63,11 +67,23 @@ import org.springframework.transaction.annotation.Transactional;
     @GetMapping("/members/{id}") Object member(@AuthenticationPrincipal Account a,@PathVariable UUID id) {
         return auth.member(a,id);
     }
-    @PostMapping("/invites") Object invite(@AuthenticationPrincipal Account a) {
-        return auth.invite(a);
+    @GetMapping("/invites/current") Object inviteStatus(@AuthenticationPrincipal Account a) {
+        return auth.inviteStatus(a);
     }
-    @PostMapping("/members/{id}/approve") Object approveMember(@AuthenticationPrincipal Account a,@PathVariable UUID id) {
-        auth.approve(a,id);
+    @PostMapping("/invites") Object invite(@AuthenticationPrincipal Account a,@Valid @RequestBody Requests.InviteRotate request) {
+        return auth.invite(a,request);
+    }
+    @PutMapping("/invites/current/expiry") Object inviteExpiry(@AuthenticationPrincipal Account a,@Valid @RequestBody Requests.InviteExpiry request) {
+        return auth.inviteExpiry(a,request.expiry());
+    }
+    @PostMapping("/invites/current/revoke") Object revokeInvite(@AuthenticationPrincipal Account a) {
+        return auth.inviteActivation(a,false);
+    }
+    @PostMapping("/invites/current/activate") Object activateInvite(@AuthenticationPrincipal Account a) {
+        return auth.inviteActivation(a,true);
+    }
+    @PostMapping("/members/{id}/approve") Object approveMember(@AuthenticationPrincipal Account a,@PathVariable UUID id,@RequestBody Requests.ClaimReview review) {
+        auth.approve(a,id,review.verified());
         return Map.of("ok",true);
     }
     @PostMapping("/members/{id}/reject") Object rejectMember(@AuthenticationPrincipal Account a,@PathVariable UUID id,@Valid @RequestBody Requests.Reject r) {
@@ -103,8 +119,11 @@ import org.springframework.transaction.annotation.Transactional;
     @GetMapping("/bills/{id}") Object bill(@AuthenticationPrincipal Account a,@PathVariable UUID id) {
         return finance.bill(a,id);
     }
-    @GetMapping("/payments") Object payments(@AuthenticationPrincipal Account a) {
-        return finance.payments(a);
+    @GetMapping("/payments") Object payments(@AuthenticationPrincipal Account a,@RequestParam(required=false) UUID flatId) {
+        return finance.payments(a,flatId);
+    }
+    @GetMapping("/payments/{id}") Object payment(@AuthenticationPrincipal Account a,@PathVariable UUID id) {
+        return finance.payment(a,id);
     }
     @PostMapping("/payments") Object submit(@AuthenticationPrincipal Account a,@Valid @RequestBody Requests.Payment r) {
         return finance.submit(a,r);
@@ -168,6 +187,10 @@ import org.springframework.transaction.annotation.Transactional;
     }
     @GetMapping("/audit") Object audit(@AuthenticationPrincipal Account a) {
         a.requireStaff();
-        return db.rows("select action,record_id,before_value,after_value,created_at from ap_audit where tenant_id=? order by created_at desc limit 100",a.tenantId());
+        return db.rows("select a.id,a.action,a.record_id,a.before_value,a.after_value,a.created_at,u.name as actor from ap_audit a left join ap_user u on u.id=a.actor_id and u.tenant_id=a.tenant_id where a.tenant_id=? order by a.created_at desc limit 100",a.tenantId());
+    }
+    @GetMapping("/audit/{id}") Object auditDetail(@AuthenticationPrincipal Account a,@PathVariable UUID id) {
+        a.requireStaff();
+        return db.one("select a.id,a.action,a.record_id,a.before_value,a.after_value,a.created_at,u.name as actor from ap_audit a left join ap_user u on u.id=a.actor_id and u.tenant_id=a.tenant_id where a.tenant_id=? and a.id=?",a.tenantId(),id);
     }
 }

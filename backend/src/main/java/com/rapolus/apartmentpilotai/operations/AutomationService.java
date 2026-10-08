@@ -31,7 +31,7 @@ import java.util.*;
             LocalDate next=LocalDate.parse(r.get("nextOn").toString());
             int cycles=0;
             while(!next.isAfter(today)&&cycles++<12) {
-                int inserted=db.update("insert into ap_expense(id,tenant_id,title,category,amount,paid_on,paid,public,created_by,request_key,recurring_id,recurring_on) values(?,?,?,?,?,?,false,true,?,?,?,?) on conflict do nothing",UUID.randomUUID(),a.tenantId(),r.get("title"),r.get("category"),r.get("amount"),V.sql(next),a.id(),UUID.randomUUID(),r.get("id"),V.sql(next));
+                int inserted=db.update("insert into ap_expense(id,tenant_id,title,category,amount,paid_on,paid,public,created_by,request_key,recurring_id,recurring_on,vendor_id) values(?,?,?,?,?,?,false,true,?,?,?,?,?) on conflict do nothing",UUID.randomUUID(),a.tenantId(),r.get("title"),r.get("category"),r.get("amount"),V.sql(next),a.id(),UUID.randomUUID(),r.get("id"),V.sql(next),r.get("vendorId"));
                 drafts+=inserted;
                 next=OperationsRules.next(next,r.get("frequency").toString());
             }

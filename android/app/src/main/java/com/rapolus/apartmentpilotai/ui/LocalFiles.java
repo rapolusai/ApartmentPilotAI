@@ -5,6 +5,7 @@ import android.graphics.*;
 import android.graphics.pdf.PdfDocument;
 import android.net.Uri;
 import androidx.core.content.FileProvider;
+import com.rapolus.apartmentpilotai.data.AttachmentPolicy;
 import org.json.*;
 import java.io.*;
 import java.util.*;
@@ -36,15 +37,59 @@ import java.util.*;
     }
     public void open(JSONObject data)throws Exception {
         String mime=data.getString("mime");
-        if(!java.util.Arrays.asList("application/pdf","image/png","image/jpeg").contains(mime))throw new IllegalArgumentException("Unsupported document type.");
-        byte[] bytes=android.util.Base64.decode(data.getString("content"),android.util.Base64.DEFAULT);
-        if(bytes.length>5*1024*1024)throw new IllegalArgumentException("Attachment too large.");
-        String ext=mime.equals("application/pdf")?".pdf":mime.equals("image/png")?".png":".jpg";
+        byte[] bytes=attachmentBytes(data);
+        String ext=AttachmentPolicy.extension(mime);
         File file=new File(folder(),"attachment-"+UUID.randomUUID()+ext);
         try(OutputStream out=new FileOutputStream(file)) {
             out.write(bytes);
         }
         launch(file,mime,false);
+    }
+    private byte[] attachmentBytes(JSONObject data)throws Exception {
+        String encoded=data.getString("content");
+        if(encoded.length()>7000000)throw new IllegalArgumentException("Attachment too large.");
+        byte[] bytes=android.util.Base64.decode(encoded,android.util.Base64.DEFAULT);
+        AttachmentPolicy.validate(bytes,data.getString("mime"));
+        return bytes;
+    }
+    public Bitmap preview(JSONObject data)throws Exception {
+        byte[] bytes=attachmentBytes(data);
+        if(!data.getString("mime").equals("application/pdf")) {
+            BitmapFactory.Options options=new BitmapFactory.Options();options.inJustDecodeBounds=true;
+            BitmapFactory.decodeByteArray(bytes,0,bytes.length,options);
+            options.inSampleSize=AttachmentPolicy.sample(options.outWidth,options.outHeight);options.inJustDecodeBounds=false;
+            Bitmap bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.length,options);
+            if(bitmap==null)throw new IOException("Image cannot be decoded.");
+            return bitmap;
+        }
+        File file=new File(folder(),"preview-"+UUID.randomUUID()+".pdf");
+        try {
+            try(OutputStream out=new FileOutputStream(file)){out.write(bytes);}
+            try(android.os.ParcelFileDescriptor fd=android.os.ParcelFileDescriptor.open(file,android.os.ParcelFileDescriptor.MODE_READ_ONLY);
+                android.graphics.pdf.PdfRenderer renderer=new android.graphics.pdf.PdfRenderer(fd)) {
+                if(renderer.getPageCount()==0)throw new IOException("PDF contains no pages.");
+                try(android.graphics.pdf.PdfRenderer.Page page=renderer.openPage(0)) {
+                    float scale=Math.min(1200f/page.getWidth(),1600f/page.getHeight());
+                    Bitmap bitmap=Bitmap.createBitmap(Math.max(1,Math.round(page.getWidth()*scale)),Math.max(1,Math.round(page.getHeight()*scale)),Bitmap.Config.ARGB_8888);
+                    bitmap.eraseColor(Color.WHITE);page.render(bitmap,null,null,android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);return bitmap;
+                }
+            }
+        } finally {if(file.exists())file.delete();}
+    }
+    public void save(JSONObject data,Uri destination)throws Exception {
+        byte[] bytes=attachmentBytes(data);
+        try(OutputStream out=activity.getContentResolver().openOutputStream(destination,"w")) {
+            if(out==null)throw new IOException("Cannot write to the selected destination.");
+            out.write(bytes);out.flush();
+        }
+    }
+    public void exportCsv(String title,List<List<String>> rows)throws Exception {
+        File file=new File(folder(),"report-"+UUID.randomUUID()+".csv");
+        try(Writer writer=new OutputStreamWriter(new FileOutputStream(file),java.nio.charset.StandardCharsets.UTF_8)) {
+            writer.write('\uFEFF');
+            writer.write(com.rapolus.apartmentpilotai.data.CsvReport.encode(rows));
+        }
+        launch(file,"text/csv",true);
     }
     public void exportPdf(String heading,JSONObject data)throws Exception {
         List<String> lines=new ArrayList<>();

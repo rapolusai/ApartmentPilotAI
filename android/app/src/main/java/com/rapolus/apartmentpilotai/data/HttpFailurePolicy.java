@@ -7,6 +7,7 @@ public final class HttpFailurePolicy {
         OFFLINE,
         SESSION_EXPIRED,
         ACCESS_DENIED,
+        SUBSCRIPTION_REQUIRED,
         NOT_FOUND,
         ERROR
     }
@@ -18,6 +19,7 @@ public final class HttpFailurePolicy {
         if(status==0)return Destination.OFFLINE;
         if(status==401&&authenticatedRequest)return Destination.SESSION_EXPIRED;
         if(status==403&&authenticatedRequest)return Destination.ACCESS_DENIED;
+        if(status==402&&authenticatedRequest)return Destination.SUBSCRIPTION_REQUIRED;
         if(status==404&&authenticatedRequest)return Destination.NOT_FOUND;
         if(status>=500)return Destination.ERROR;
         return Destination.INLINE;

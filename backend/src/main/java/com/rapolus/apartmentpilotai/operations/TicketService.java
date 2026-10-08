@@ -16,13 +16,10 @@ import java.time.*;
     }
     public List<Map<String,Object>> list(Account a,String kind) {
         if(!Set.of("ISSUE","COMPLAINT").contains(kind))throw new IllegalArgumentException("Invalid issue type.");
-        return db.rows("select t.*,v.name as vendor_name,(select count(distinct u.flat_id) from ap_ticket_follow f join ap_user u on u.id=f.user_id where f.ticket_id=t.id and u.status='ACTIVE') as affected_count from ap_ticket t left join ap_contact v on v.id=t.vendor_id where t.tenant_id=? and t.kind=?"+(!a.staff()&&kind.equals("COMPLAINT")?" and t.flat_id=?":"")+" order by t.updated_at desc limit 300",!a.staff()&&kind.equals("COMPLAINT")?new Object[] {
-            a.tenantId(),kind,a.flatId()
-        }
-        :new Object[] {
-            a.tenantId(),kind
-        }
-        );
+        String sql="select t.*,f.label as flat_label,v.name as vendor_name,exists(select 1 from ap_ticket_follow mine where mine.tenant_id=t.tenant_id and mine.ticket_id=t.id and mine.user_id=?) as following,(select count(distinct u.flat_id) from ap_ticket_follow f join ap_user u on u.id=f.user_id where f.tenant_id=t.tenant_id and f.ticket_id=t.id and u.status='ACTIVE') as affected_count from ap_ticket t left join ap_flat f on f.tenant_id=t.tenant_id and f.id=t.flat_id left join ap_contact v on v.id=t.vendor_id where t.tenant_id=? and t.kind=?"+(!a.staff()&&kind.equals("COMPLAINT")?" and t.flat_id=?":"")+" order by t.updated_at desc limit 300";
+        ArrayList<Object> params=new ArrayList<>(List.of(a.id(),a.tenantId(),kind));
+        if(!a.staff()&&kind.equals("COMPLAINT"))params.add(a.flatId());
+        return db.rows(sql,params.toArray());
     }
     public Map<String,Object> get(Account a,UUID id) {
         var t=db.one("select t.*,v.name as vendor_name from ap_ticket t left join ap_contact v on v.id=t.vendor_id where t.tenant_id=? and t.id=?",a.tenantId(),id);

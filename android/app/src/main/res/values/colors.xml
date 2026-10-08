@@ -20,4 +20,5 @@
  <color name="ap_violet">#7662a7</color>
  <color name="ap_vbg">#f0ecfb</color>
  <color name="ap_body">#e8ece7</color>
+ <color name="app_icon_background">#0b1220</color>
 </resources>
