@@ -48,8 +48,8 @@ import java.time.*;
                 UUID other=V.uid(v);
                 if(other.equals(id))throw new IllegalArgumentException("A space cannot conflict with itself.");
                 db.one("select id from ap_resource where tenant_id=? and id=?",a.tenantId(),other);
-                db.update("insert into ap_resource_conflict values(?,?,?) on conflict do nothing",a.tenantId(),id,other);
-                db.update("insert into ap_resource_conflict values(?,?,?) on conflict do nothing",a.tenantId(),other,id);
+                db.update("insert into ap_resource_conflict(tenant_id,resource_id,other_id) values(?,?,?) on conflict do nothing",a.tenantId(),id,other);
+                db.update("insert into ap_resource_conflict(tenant_id,resource_id,other_id) values(?,?,?) on conflict do nothing",a.tenantId(),other,id);
             }
         }
         c.remember(a,"RESOURCE_SAVE",p,id);
@@ -136,7 +136,7 @@ import java.time.*;
         for(UUID id:ids)for(var r:db.rows("select other_id from ap_resource_conflict where tenant_id=? and resource_id=?",a.tenantId(),id))if(ids.contains((UUID)r.get("otherId")))throw ApiError.conflict("The event area occupies one of the selected parking spaces. Choose non-conflicting spaces.");
     }
     private void items(Account a,UUID id,List<Map<String,Object>> list,boolean offered) {
-        for(var i:list)db.update("insert into ap_booking_item values(?,?,?,?,?)",a.tenantId(),id,V.id(i,"resourceId"),V.num(i,"quantity",1,100),offered);
+        for(var i:list)db.update("insert into ap_booking_item(tenant_id,booking_id,resource_id,quantity,offered) values(?,?,?,?,?)",a.tenantId(),id,V.id(i,"resourceId"),V.num(i,"quantity",1,100),offered);
     }
     private void event(Account a,UUID id,String status,String note) {
         db.update("insert into ap_booking_event(id,tenant_id,booking_id,actor_id,status,note) values(?,?,?,?,?,?)",UUID.randomUUID(),a.tenantId(),id,a.id(),status,note);

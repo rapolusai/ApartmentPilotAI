@@ -1,6 +1,8 @@
 server:
   address: ${SERVER_ADDRESS:127.0.0.1}
   port: ${SERVER_PORT:8080}
+  # Behind a load balancer, use the forwarded client address for rate limits. Only private-range proxies are trusted.
+  forward-headers-strategy: native
   error:
     include-stacktrace: never
     include-message: never

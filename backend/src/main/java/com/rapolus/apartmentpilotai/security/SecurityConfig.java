@@ -70,8 +70,10 @@ import org.slf4j.LoggerFactory;
             if(header!=null && header.startsWith("Bearer ")) {
                 String token=header.substring(7);
                 var row=db.find("select u.id,u.tenant_id,u.flat_id,u.name,u.role from ap_session s join ap_user u on u.id=s.user_id where s.token_hash=? and s.expires_at>now() and u.status='ACTIVE'",Tokens.digest(token));
+                // An expired or unknown token stays unauthenticated: protected routes still receive the same JSON 401 from
+                // the entry point, while public routes such as login and status keep working for a client holding a stale token.
                 if(row.isEmpty()) {
-                    json401(res);
+                    chain.doFilter(req,res);
                     return;
                 }
                 var u=row.get();

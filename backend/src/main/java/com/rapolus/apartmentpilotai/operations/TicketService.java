@@ -47,7 +47,7 @@ import java.time.*;
         UUID id=UUID.randomUUID();
         db.update("insert into ap_ticket(id,tenant_id,kind,flat_id,created_by,title,description,category,scope,priority) values(?,?,?,?,?,?,?,?,?,?)",id,a.tenantId(),kind,flat,a.id(),title,V.text(p,"description",2000),category,scope,V.choice(p,"priority","NORMAL","HIGH","URGENT"));
         event(a,id,"OPEN","Reported");
-        if(kind.equals("ISSUE"))db.update("insert into ap_ticket_follow values(?,?,?) on conflict do nothing",a.tenantId(),id,a.id());
+        if(kind.equals("ISSUE"))db.update("insert into ap_ticket_follow(tenant_id,ticket_id,user_id) values(?,?,?) on conflict do nothing",a.tenantId(),id,a.id());
         db.notifyStaff(a.tenantId(),"TICKET:"+id,"New "+kind.toLowerCase(Locale.ROOT),title,"ticket:"+id);
         c.remember(a,"TICKET_CREATE",p,id);
         c.audit(a,"TICKET_CREATED",id,null,title);
@@ -92,7 +92,7 @@ import java.time.*;
         var t=get(a,id);
         if(!t.get("kind").equals("ISSUE"))throw ApiError.forbidden();
         if(Set.of("RESOLVED","CLOSED").contains(t.get("status")))throw ApiError.conflict("This incident has ended.");
-        db.update("insert into ap_ticket_follow values(?,?,?) on conflict do nothing",a.tenantId(),id,a.id());
+        db.update("insert into ap_ticket_follow(tenant_id,ticket_id,user_id) values(?,?,?) on conflict do nothing",a.tenantId(),id,a.id());
         return Map.of("following",true);
     }
     public List<Map<String,Object>> services(Account a) {

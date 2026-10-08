@@ -93,7 +93,7 @@ import java.time.*;
         if(recipients.isEmpty())throw new IllegalArgumentException("No active recipients in this audience.");
         db.update("update ap_notice set status='PUBLISHED',scheduled_at=null,schedule_confirmed=false where tenant_id=? and id=?",a.tenantId(),id);
         for(var u:recipients) {
-            db.update("insert into ap_notice_recipient values(?,?,?,null,null) on conflict do nothing",a.tenantId(),id,u.get("id"));
+            db.update("insert into ap_notice_recipient(tenant_id,notice_id,user_id) values(?,?,?) on conflict do nothing",a.tenantId(),id,u.get("id"));
             db.notify(a.tenantId(),(UUID)u.get("id"),"NOTICE:"+id,n.get("title").toString(),"New notice in your apartment","notice:"+id);
         }
         c.audit(a,"NOTICE_PUBLISHED",id,"Draft","Published to snapshot of selected recipients");
