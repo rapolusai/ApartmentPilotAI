@@ -17,6 +17,22 @@ class QaFixesTest {
         assertEquals("Title",ErrorHandler.label("title"));
         assertEquals("PIN",ErrorHandler.label("pin"));
     }
+    @Test void referralCodesAreReadableAndUnambiguous() {
+        java.util.Set<String> seen=new java.util.HashSet<>();
+        for(int i=0; i<500; i++) {
+            String code=SubscriptionService.referralCode();
+            assertTrue(code.matches("AP-[2-9A-HJKMNP-Z]{4}-[2-9A-HJKMNP-Z]{4}"),code);
+            seen.add(code);
+        }
+        assertTrue(seen.size()>490,"codes should not repeat in practice");
+    }
+    @Test void freeTrialCoversTheWholeFirstMonth() {
+        java.time.LocalDate firstEnd=java.time.LocalDate.of(2026,11,9);
+        java.time.Instant monthEnd=java.time.Instant.parse("2026-11-08T18:30:00Z"); // 9 Nov 00:00 IST
+        assertEquals(monthEnd,SubscriptionService.trialEnd(java.time.Instant.parse("2026-10-11T19:37:05Z"),firstEnd),"short stored trial extends to month end");
+        java.time.Instant later=java.time.Instant.parse("2026-12-01T00:00:00Z");
+        assertEquals(later,SubscriptionService.trialEnd(later,firstEnd),"a longer stored trial is kept");
+    }
     @Test void scheduledJobsAreAuditedAsSystemNotAsTheAdmin() {
         UUID admin=UUID.randomUUID(),tenant=UUID.randomUUID();
         Account system=Account.system(admin,tenant);

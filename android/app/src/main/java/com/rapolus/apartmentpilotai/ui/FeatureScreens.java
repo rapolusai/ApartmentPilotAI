@@ -2412,8 +2412,11 @@ import java.util.*;
             u.hero(b,"Category "+s.optString("category")+" · "+Ui.count(s.optInt("flats"),"flat","flats"),Ui.money(s.opt("price"))+" / month",friendly(subscriptionStatus));
             LinearLayout c=card();
             u.kv(c,"Resident access","One account per flat");
-            u.kv(c,"First month ends",s.optString("firstEnd"));
-            if(subscriptionStatus.equals("TRIAL"))u.kv(c,"Free trial ends",com.rapolus.apartmentpilotai.data.DateText.format(Instant.parse(s.optString("trialEndsAt"))));
+            // The whole first month is the free trial; the first paid month follows it.
+            if(subscriptionStatus.equals("TRIAL")) {
+                u.kv(c,"Free trial (first month) ends",com.rapolus.apartmentpilotai.data.DateText.format(Instant.parse(s.optString("trialEndsAt"))));
+                u.kv(c,"First paid month starts",com.rapolus.apartmentpilotai.data.DateText.day(s.optString("firstEnd")));
+            }
             else if(subscriptionStatus.equals("PAYMENT_DUE"))u.note(c,"Subscription required. Normal apartment access is paused until a verified subscription payment or earned referral credit is recorded.");
             u.kv(c,"Coverage","Admin, Treasurer & Residents");
             u.kv(c,"Automatic debit","Not enabled");
@@ -2423,7 +2426,7 @@ import java.util.*;
             u.heading(b,"Refer two new apartments");
             String code=s.optString("referralCode");
             u.kv(card(),"Your referral code",code);
-            u.button(b,"Share referral",R.drawable.ic_users,true,()->h.activity().startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,"ApartmentPilotAI referral: "+code+". Two new independently verified apartment activations qualify the three apartments for their first month only. Terms apply."),"Share referral")));
+            u.button(b,"Share referral",R.drawable.ic_users,true,()->h.activity().startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,"ApartmentPilotAI referral code: "+code+". Every apartment gets its first month free. If two new apartments join with this code and are verified within their first month, all three apartments also get their first paid month free. Terms apply."),"Share referral")));
             if(s.optBoolean("referralApplied"))u.note(b,"✓ A referral code has been applied to this apartment.");
             else u.button(b,"I was referred",R.drawable.ic_plus,false,()->go("referral-claim"));
             if(s.isNull("installedAt"))u.button(b,"Register this installation",R.drawable.ic_check,false,()->h.requestApi("POST","/ops/subscription/install",obj(),x->{Toast.makeText(h.activity(),"Installation reported. The service operator verifies it separately.",Toast.LENGTH_LONG).show();h.refreshPage();}));
@@ -2443,9 +2446,10 @@ import java.util.*;
             if(invoices!=null)for(int i=0; i<invoices.length(); i++) {
                 JSONObject x=invoices.getJSONObject(i);
                 LinearLayout invoice=card();
-                u.kv(invoice,x.optString("startsOn")+" – "+x.optString("endsOn"),friendly(x.optString("status")));
+                boolean trialMonth=x.optString("startsOn").equals(s.optString("activatedAt"));
+                u.kv(invoice,com.rapolus.apartmentpilotai.data.DateText.day(x.optString("startsOn"))+" – "+com.rapolus.apartmentpilotai.data.DateText.day(x.optString("endsOn")),trialMonth&&"WAIVED".equals(x.optString("status"))?"Free trial":friendly(x.optString("status")));
                 u.kv(invoice,"Price",Ui.money(x.opt("amount")));
-                u.kv(invoice,"Referral credit",Ui.money(x.opt("credit")));
+                u.kv(invoice,trialMonth?"Free trial credit":"Referral credit",Ui.money(x.opt("credit")));
                 u.kv(invoice,"Verified paid",Ui.money(x.opt("paid")));
                 u.button(invoice,"Share invoice PDF",R.drawable.ic_receipt,false,()->h.exportPdf("Subscription record · not a tax invoice",x));
             }
@@ -2566,16 +2570,17 @@ import java.util.*;
             u.state(b,R.drawable.ic_users,"Refer two. All three benefit.","Installation and independently verified activation required.",R.color.ap_green,R.color.ap_mint);
             LinearLayout c=card();
             u.kv(c,"You refer","2 distinct new apartments");
-            u.kv(c,"Reward","First software subscription month free");
+            u.kv(c,"Free trial","First month, for every apartment");
+            u.kv(c,"Reward","First paid month (month 2) free");
             u.kv(c,"Who benefits","Your apartment + both new apartments");
-            u.kv(c,"From month 2",Ui.money(s.opt("price"))+" / month");
+            u.kv(c,"From month 3",Ui.money(s.opt("price"))+" / month (month 2 without the reward)");
             if(!s.isNull("offerAcceptedAt"))u.note(b,"Offer rules accepted on "+s.optString("offerAcceptedAt")+". Activation verification is still required.");
             else {
                 Ui.Fields f=h.newFields();
                 f.check("terms","I accept the referral offer rules.",false);
                 submit("Activate offer",()->write("/ops/subscription/offer",obj("terms",f.checked("terms")),x->h.refreshPage()));
             }
-            u.note(b,"No automatic debit. Without two qualifying activations, the first-month subscription remains due.");
+            u.note(b,"No automatic debit. Without two qualifying activations, the subscription is due from month 2.");
             u.button(b,"Read referral rules",R.drawable.ic_shield,false,()->go("referral-rules"));
         });
     }
@@ -2585,10 +2590,11 @@ import java.util.*;
         LinearLayout c=card();
         u.iconRow(c,"Two new apartments","Distinct identities; no self-referrals",R.drawable.ic_users,null);
         u.iconRow(c,"Verified activation","Service provider verifies identity, setup and an approved resident",R.drawable.ic_check,null);
-        u.iconRow(c,"First month only","Qualify within the initial monthly period; one reward per apartment",R.drawable.ic_calendar,null);
-        u.iconRow(c,"All three benefit","Referrer and the two qualifying apartments receive their first-month credit",R.drawable.ic_building,null);
+        u.iconRow(c,"Free first month","Every new apartment uses the app free for its first month",R.drawable.ic_calendar,null);
+        u.iconRow(c,"Qualify in month one","Referrals must be verified within the initial monthly period; one reward per apartment",R.drawable.ic_calendar,null);
+        u.iconRow(c,"All three benefit","Referrer and the two qualifying apartments get their first paid month (month 2) free",R.drawable.ic_building,null);
         u.iconRow(c,"No stacking","Further referrals do not create another free month",R.drawable.ic_clock,null);
-        u.iconRow(c,"Paid from month two","Regular category price is due; no automatic debit",R.drawable.ic_receipt,null);
+        u.iconRow(c,"Paid after that","Regular category price is due; no automatic debit",R.drawable.ic_receipt,null);
     }
     private void status() {
         title("Development status · 02");
