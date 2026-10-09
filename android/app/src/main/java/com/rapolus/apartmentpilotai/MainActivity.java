@@ -38,6 +38,9 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     private ApiClient api;
     private Ui ui;
     private LinearLayout content;
+    // Tablet list + detail: sibling list shown beside Wave 1 detail pages.
+    private LinearLayout side;
+    private View sideScroll;
     private BottomNavigationView nav;
     private TextView title,subtitle;
     private View progress;
@@ -66,6 +69,8 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         api=((PilotApplication)getApplication()).api();
         ui=new Ui(this);
         content=findViewById(R.id.content);
+        side=findViewById(R.id.side);
+        sideScroll=findViewById(R.id.sideScroll);
         nav=findViewById(R.id.navigation);
         nav.setBackgroundColor(ui.color(R.color.ap_surface));
         ViewCompat.setOnApplyWindowInsetsListener(nav,(v,insets)->insets);
@@ -212,6 +217,74 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         render();
         ((ScrollView)findViewById(R.id.scroll)).scrollTo(0,0);
     }
+    /** On tablets, list sibling records beside a detail page so Admins can move between them without Back. */
+    private void renderSidePane() {
+        boolean wide=api.signedIn()&&com.rapolus.apartmentpilotai.data.TabletPolicy.split(getResources().getConfiguration().screenWidthDp);
+        String path=wide?com.rapolus.apartmentpilotai.data.TabletPolicy.sideListPath(page,staff(),admin()):null;
+        side.removeAllViews();
+        if(path==null) {
+            sideScroll.setVisibility(View.GONE);
+            return;
+        }
+        sideScroll.setVisibility(View.VISIBLE);
+        side.addView(ui.text(com.rapolus.apartmentpilotai.data.TabletPolicy.sideListTitle(page),13,true,R.color.ap_ink));
+        ui.gap(side,8);
+        LinearLayout card=ui.card(side);
+        List<String> paths=new ArrayList<>();
+        paths.add(path);
+        if(page.equals("ticket")&&staff())paths.add("/ops/tickets?kind=COMPLAINT");
+        loadSideRows(paths,0,card,page,id,generation);
+    }
+    // Uses ApiClient directly: request() allows one call at a time and the detail page is loading in parallel.
+    private void loadSideRows(List<String> paths,int index,LinearLayout card,String listPage,String current,int version) {
+        if(index>=paths.size())return;
+        api.call("GET",paths.get(index),null,(result,error)-> {
+            if(isFinishing()||isDestroyed()||version!=generation)return;
+            if(error!=null||!(result instanceof JSONArray)) {
+                ui.note(card,"List unavailable.");
+                return;
+            }
+            JSONArray rows=(JSONArray)result;
+            for(int i=0; i<rows.length(); i++) {
+                JSONObject r=rows.optJSONObject(i);
+                if(r==null)continue;
+                String rid=r.optString("id");
+                boolean selected=rid.equals(current);
+                String[] text=sideRow(listPage,r);
+                ui.iconRow(card,(selected?"▶ ":"")+text[0],text[1],sideIcon(listPage),selected?null:()->openSibling(listPage,rid));
+            }
+            if(index==paths.size()-1&&card.getChildCount()==0)ui.note(card,"Nothing here yet.");
+            loadSideRows(paths,index+1,card,listPage,current,version);
+        });
+    }
+    private String[] sideRow(String listPage,JSONObject r) {
+        switch(listPage) {
+            case "flat": return new String[] {r.optString("label"),"Block "+r.optString("block")+" · "+(r.optBoolean("occupied")?"Occupied":"Vacant")+(r.optBoolean("active",true)?"":" · Inactive")};
+            case "join-review": case "member": return new String[] {r.optString("name"),(r.isNull("flatLabel")?"Apartment team":r.optString("flatLabel"))+" · "+pretty(r.optString("status"))};
+            case "payment": return new String[] {r.optString("flatLabel")+" · "+Ui.money(r.opt("amount")),pretty(r.optString("status"))+" · "+pretty(r.optString("mode"))};
+            case "ticket": return new String[] {r.optString("title"),pretty(r.optString("status"))+" · "+r.optString("category")};
+            default: return new String[] {r.optString("title"),pretty(r.optString("status"))};
+        }
+    }
+    private int sideIcon(String listPage) {
+        switch(listPage) {
+            case "flat": return R.drawable.ic_home;
+            case "join-review": case "member": return R.drawable.ic_users;
+            case "payment": return R.drawable.ic_wallet;
+            case "ticket": return R.drawable.ic_tools;
+            default: return R.drawable.ic_notice;
+        }
+    }
+    /** Switch the detail pane to a sibling record; Back still returns to the list the user came from. */
+    private void openSibling(String listPage,String record) {
+        if(busy)return;
+        page=listPage;
+        id=record;
+        resetCommandKey();
+        restoreFields=null;
+        render();
+        ((ScrollView)findViewById(R.id.scroll)).scrollTo(0,0);
+    }
     /** Pages whose job ends when their command is saved; they must not stay reachable with Back. */
     private static boolean isFormPage(String p) {
         return p.endsWith("-form")||p.endsWith("-edit")||p.endsWith("-reverse")||p.endsWith("-settings")||p.endsWith("-preview")||Arrays.asList("mark-paid","payment-reject","bulk-review","change-pin","ticket-update","service-complete","join-reject","referral-claim","handover","opening-balance","opening-dues","transparency","booking-alternative","billing-options","payee","verification","reminders","booking-policy").contains(p);
@@ -250,6 +323,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             id="";
         }
         if(api.signedIn()&&!staff()&&page.equals("payment"))page="payment-status";
+        renderSidePane();
         nav.setVisibility(api.signedIn()&&!page.equals("subscription-required")?View.VISIBLE:View.GONE);
         nav.getMenu().findItem(R.id.nav_money).setTitle(staff()?R.string.money:R.string.dues);
         if(api.signedIn()) {
