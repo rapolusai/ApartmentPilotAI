@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.time.YearMonth;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,13 +17,15 @@ import org.springframework.transaction.annotation.Transactional;
     private final FinanceService finance;
     private final Db db;
     private final RateGate gate;
+    private final LoginGuard guard;
     private final boolean local;
-    public ApiController(com.rapolus.apartmentpilotai.operations.NoticeService noticeService,AuthService auth,FinanceService finance,Db db,RateGate gate,@Value("${app.local-registration-enabled:false}")boolean local) {
+    public ApiController(com.rapolus.apartmentpilotai.operations.NoticeService noticeService,AuthService auth,FinanceService finance,Db db,RateGate gate,LoginGuard guard,@Value("${app.local-registration-enabled:false}")boolean local) {
         this.noticeService=noticeService;
         this.auth=auth;
         this.finance=finance;
         this.db=db;
         this.gate=gate;
+        this.guard=guard;
         this.local=local;
     }
     @GetMapping("/status") Map<String,Object> status() {
@@ -33,9 +36,23 @@ import org.springframework.transaction.annotation.Transactional;
         return auth.register(r);
     }
     @PostMapping("/auth/login") Object login(@Valid @RequestBody Requests.Login r,HttpServletRequest req) {
-        RateGate.enforce(gate.count("login-ip:"+req.getRemoteAddr()),100);
-        RateGate.enforce(gate.count("login-mobile:"+r.mobile()),10);
-        return auth.login(r);
+        String ip=req.getRemoteAddr();
+        RateGate.enforce(gate.count("login-ip:"+ip),100);
+        if(!guard.enabled()) {
+            RateGate.enforce(gate.count("login-mobile:"+r.mobile()),10);
+            return auth.login(r);
+        }
+        guard.reserve(r.mobile(),ip);
+        try {
+            var session=auth.login(r);
+            guard.succeeded(r.mobile(),ip);
+            return session;
+        } catch(ApiError e) {
+            // 401 = wrong mobile, PIN or login type: the reserved failure stands. 403 = correct PIN on an inactive account.
+            if(e.status()==HttpStatus.UNAUTHORIZED)guard.failed(r.mobile());
+            else if(e.status()==HttpStatus.FORBIDDEN)guard.succeeded(r.mobile(),ip);
+            throw e;
+        }
     }
     @GetMapping("/auth/invites/{code}") Object previewInvite(@PathVariable String code,HttpServletRequest req) {
         RateGate.enforce(gate.count("invite-lookup:"+req.getRemoteAddr()),30);
@@ -185,12 +202,35 @@ import org.springframework.transaction.annotation.Transactional;
         if(db.update("update ap_inbox set read_at=coalesce(read_at,now()) where id=? and tenant_id=? and recipient_id=?",id,a.tenantId(),a.id())!=1)throw ApiError.missing();
         return Map.of("ok",true);
     }
-    @GetMapping("/audit") Object audit(@AuthenticationPrincipal Account a) {
+    // Rows with no person as actor: provider operations, login-protection notices and scheduled automation.
+    private static final String AUDIT_COLUMNS="select a.id,a.action,a.record_id,a.before_value,a.after_value,a.created_at,coalesce(u.name,case when a.actor_id is not null then null when a.action like 'PROVIDER%' or a.action in ('REFERRAL_REFUND_REVIEW','FIRST_MONTH_WAIVED') then 'Provider' when a.action='LOGIN_LOCKED' then 'Security' else 'Automation' end) as actor from ap_audit a left join ap_user u on u.id=a.actor_id and u.tenant_id=a.tenant_id where a.tenant_id=?";
+    /**
+     * No parameters: the newest 100 rows exactly as before. Paging (any parameter given): newest first with an id tie-break,
+     * {@code before=<createdAt>,<id>} taken from the last row of the previous page, {@code limit} 1-200 (larger values are
+     * capped), {@code action} an exact action name.
+     */
+    @GetMapping("/audit") Object audit(@AuthenticationPrincipal Account a,@RequestParam(required=false) String before,@RequestParam(required=false) Integer limit,@RequestParam(required=false) String action) {
         a.requireStaff();
-        return db.rows("select a.id,a.action,a.record_id,a.before_value,a.after_value,a.created_at,u.name as actor from ap_audit a left join ap_user u on u.id=a.actor_id and u.tenant_id=a.tenant_id where a.tenant_id=? order by a.created_at desc limit 100",a.tenantId());
+        if(before==null&&limit==null&&action==null)return db.rows(AUDIT_COLUMNS+" order by a.created_at desc limit 100",a.tenantId());
+        int size=limit==null?100:Math.min(limit,200);
+        if(size<1)throw new IllegalArgumentException("limit must be between 1 and 200.");
+        if(action!=null&&!action.matches("[A-Z_]{1,60}"))throw new IllegalArgumentException("Invalid action.");
+        java.sql.Timestamp beforeAt=null;
+        UUID beforeId=null;
+        if(before!=null) {
+            String[] parts=before.split(",",-1);
+            try {
+                if(parts.length!=2)throw new IllegalArgumentException();
+                beforeAt=java.sql.Timestamp.from(java.time.Instant.parse(parts[0].trim()));
+                beforeId=UUID.fromString(parts[1].trim());
+            } catch(RuntimeException e) {
+                throw new IllegalArgumentException("before must be <createdAt>,<id> from the last row of the previous page.");
+            }
+        }
+        return db.rows(AUDIT_COLUMNS+" and (?::text is null or a.action=?) and (?::timestamptz is null or (a.created_at,a.id)<(?::timestamptz,?::uuid)) order by a.created_at desc,a.id desc limit ?",a.tenantId(),action,action,beforeAt,beforeAt,beforeId,size);
     }
     @GetMapping("/audit/{id}") Object auditDetail(@AuthenticationPrincipal Account a,@PathVariable UUID id) {
         a.requireStaff();
-        return db.one("select a.id,a.action,a.record_id,a.before_value,a.after_value,a.created_at,u.name as actor from ap_audit a left join ap_user u on u.id=a.actor_id and u.tenant_id=a.tenant_id where a.tenant_id=? and a.id=?",a.tenantId(),id);
+        return db.one(AUDIT_COLUMNS+" and a.id=?",a.tenantId(),id);
     }
 }

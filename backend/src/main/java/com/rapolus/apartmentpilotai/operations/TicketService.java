@@ -47,7 +47,7 @@ import java.time.*;
         UUID id=UUID.randomUUID();
         db.update("insert into ap_ticket(id,tenant_id,kind,flat_id,created_by,title,description,category,scope,priority) values(?,?,?,?,?,?,?,?,?,?)",id,a.tenantId(),kind,flat,a.id(),title,V.text(p,"description",2000),category,scope,V.choice(p,"priority","NORMAL","HIGH","URGENT"));
         event(a,id,"OPEN","Reported");
-        if(kind.equals("ISSUE"))db.update("insert into ap_ticket_follow values(?,?,?) on conflict do nothing",a.tenantId(),id,a.id());
+        if(kind.equals("ISSUE"))db.update("insert into ap_ticket_follow(tenant_id,ticket_id,user_id) values(?,?,?) on conflict do nothing",a.tenantId(),id,a.id());
         db.notifyStaff(a.tenantId(),"TICKET:"+id,"New "+kind.toLowerCase(Locale.ROOT),title,"ticket:"+id);
         c.remember(a,"TICKET_CREATE",p,id);
         c.audit(a,"TICKET_CREATED",id,null,title);
@@ -57,6 +57,7 @@ import java.time.*;
         db.update("insert into ap_ticket_event(id,tenant_id,ticket_id,actor_id,message,status) values(?,?,?,?,?,?)",UUID.randomUUID(),a.tenantId(),id,a.id(),note,status);
     }
     @Transactional public Object update(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         db.lockTenant(a.tenantId());
         var t=get(a,id);
         var old=c.previous(a,"TICKET_UPDATE",p);
@@ -64,10 +65,12 @@ import java.time.*;
         String next=V.choice(p,"status","OPEN","ASSIGNED","IN_PROGRESS","RESOLVED","CLOSED"),note=V.text(p,"note",1000);
         if(!a.staff()&&!t.get("kind").equals("COMPLAINT")&&!Objects.equals(t.get("createdBy"),a.id()))throw ApiError.forbidden();
         OperationsRules.ticketTransition(t.get("status").toString(),next,a.staff());
-        UUID vendor=a.staff()?V.optionalId(p,"vendorId"):(UUID)t.get("vendorId");
-        if(a.staff())c.vendor(a,vendor);
+        // Omitted vendorId/eta keep the current values; only a staff update that sends the key (null or "") changes or clears it.
+        boolean newVendor=a.staff()&&p.containsKey("vendorId"),newEta=a.staff()&&p.containsKey("eta");
+        UUID vendor=newVendor?V.optionalId(p,"vendorId"):(UUID)t.get("vendorId");
+        if(newVendor)c.vendor(a,vendor);
         if(next.equals("ASSIGNED")&&vendor==null)throw new IllegalArgumentException("Choose a vendor before assigning.");
-        Instant eta=a.staff()?V.optionalTime(p,"eta"):(t.get("eta")==null?null:Instant.parse(t.get("eta").toString()));
+        Instant eta=newEta?V.optionalTime(p,"eta"):(t.get("eta")==null?null:Instant.parse(t.get("eta").toString()));
         boolean broadcast=a.staff()&&t.get("kind").equals("ISSUE")&&V.bool(p,"notifyAll",false);
         db.update("update ap_ticket set status=?,vendor_id=?,eta=?,updated_at=now() where tenant_id=? and id=?",next,vendor,V.sql(eta),a.tenantId(),id);
         event(a,id,next,note);
@@ -79,6 +82,7 @@ import java.time.*;
         return Map.of("id",id);
     }
     @Transactional public Object comment(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         db.lockTenant(a.tenantId());
         get(a,id);
         var old=c.previous(a,"TICKET_COMMENT",p);
@@ -92,7 +96,7 @@ import java.time.*;
         var t=get(a,id);
         if(!t.get("kind").equals("ISSUE"))throw ApiError.forbidden();
         if(Set.of("RESOLVED","CLOSED").contains(t.get("status")))throw ApiError.conflict("This incident has ended.");
-        db.update("insert into ap_ticket_follow values(?,?,?) on conflict do nothing",a.tenantId(),id,a.id());
+        db.update("insert into ap_ticket_follow(tenant_id,ticket_id,user_id) values(?,?,?) on conflict do nothing",a.tenantId(),id,a.id());
         return Map.of("following",true);
     }
     public List<Map<String,Object>> services(Account a) {
@@ -100,6 +104,7 @@ import java.time.*;
     }
     public Map<String,Object> service(Account a,UUID id) {
         var s=db.one("select s.*,v.name as vendor_name from ap_service s left join ap_contact v on v.id=s.vendor_id where s.tenant_id=? and s.id=?",a.tenantId(),id);
+        if(!a.staff()&&!Boolean.TRUE.equals(s.get("active")))throw ApiError.missing();
         var visits=db.rows("select id,scheduled_on,completed_on,note,cost,expense_id from ap_service_visit where tenant_id=? and service_id=? order by completed_on desc",a.tenantId(),id);
         if(!a.staff())visits.forEach(v-> {
             v.remove("cost");
@@ -110,6 +115,7 @@ import java.time.*;
         return s;
     }
     @Transactional public Object saveService(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireStaff();
         db.lockTenant(a.tenantId());
         var old=c.previous(a,"SERVICE_SAVE",p);
@@ -130,6 +136,7 @@ import java.time.*;
         return Map.of("id",id);
     }
     @Transactional public Object completeService(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireStaff();
         db.lockTenant(a.tenantId());
         var s=service(a,id);

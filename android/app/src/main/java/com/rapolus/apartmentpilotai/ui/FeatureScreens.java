@@ -4,6 +4,7 @@ import android.net.Uri;
 import android.text.InputType;
 import android.widget.*;
 import androidx.appcompat.app.AppCompatDelegate;
+import com.rapolus.apartmentpilotai.data.DateText;
 import com.rapolus.apartmentpilotai.R;
 import com.rapolus.apartmentpilotai.BuildConfig;
 import org.json.*;
@@ -360,8 +361,13 @@ import java.util.*;
         for(int i=0; i<rows.length(); i++)if(target.equals(rows.getJSONObject(i).optString("id")))return rows.getJSONObject(i);
         return new JSONObject();
     }
+    /** Server enum to sentence case for display: "IN_PROGRESS" -> "In progress". */
     private String friendly(String t) {
-        return t.toLowerCase(Locale.ROOT).replace('_',' ');
+        if(t.equalsIgnoreCase("UPI")||t.equalsIgnoreCase("CCTV")||t.equalsIgnoreCase("AMC"))return t.toUpperCase(Locale.ROOT);
+        // Block names are short codes such as "A"; keep them as stored.
+        if(t.length()<=2)return t.toUpperCase(Locale.ROOT);
+        String s=t.toLowerCase(Locale.ROOT).replace('_',' ');
+        return s.isEmpty()?s:Character.toUpperCase(s.charAt(0))+s.substring(1);
     }
     private void details(JSONObject j,String...keys) {
         LinearLayout c=card();
@@ -380,6 +386,18 @@ import java.util.*;
         }
         f.select(key,label,labels.toArray(new String[0]),values.toArray(new String[0]));
         if(selected!=null)f.restore(obj(key,selected));
+    }
+    /** Same categories as one-off expenses so reports group recurring drafts correctly; keeps a legacy value. */
+    private void expenseCategory(Ui.Fields f,String selected) {
+        List<String> values=new ArrayList<>(Arrays.asList("Security","Housekeeping","Electricity","Water","Lift","Repairs","Generator","Other"));
+        String current=selected==null||selected.trim().isEmpty()?"Security":selected.trim();
+        boolean known=false;
+        for(String v:values)if(v.equalsIgnoreCase(current)) {
+            current=v;
+            known=true;
+        }
+        if(!known)values.add(current);
+        pick(f,"category","Category",values.toArray(new String[0]),current);
     }
     private void pick(Ui.Fields f,String key,String label,String[] values,String selected) {
         String[] labels=Arrays.stream(values).map(this::friendly).toArray(String[]::new);
@@ -541,7 +559,7 @@ import java.util.*;
             JSONArray billRows=(JSONArray)billValue;
             Map<String,JSONObject> billsByFlat=new HashMap<>();
             for(int i=0;i<billRows.length();i++){JSONObject bill=billRows.getJSONObject(i);billsByFlat.put(bill.optString("flatId"),bill);}
-            u.note(b,arr.length()+" flats");
+            u.note(b,Ui.count(arr.length(),"flat","flats"));
             Ui.Fields fields=h.newFields();
             JSONObject draft=h.pageDraft("flat-list");
             EditText search=fields.field("search","Search flat or resident",draft.optString("search"),TEXT);
@@ -613,7 +631,7 @@ import java.util.*;
             if(rows.length()==0)u.empty(b,"No blocks configured","Add a block before creating its flats.");
             for(int i=0;i<rows.length();i++) {
                 JSONObject block=rows.getJSONObject(i);
-                row(card(),"Block "+block.optString("name"),block.optInt("flatCount")+" flats",R.drawable.ic_building,"block-form",block.optString("id"));
+                row(card(),"Block "+block.optString("name"),Ui.count(block.optInt("flatCount"),"flat","flats"),R.drawable.ic_building,"block-form",block.optString("id"));
             }
         });
     }
@@ -813,9 +831,11 @@ import java.util.*;
         get("/members/"+id,value-> {
             JSONObject member=(JSONObject)value;
             String requested=val(member,"createdAt");
-            member.put("requestedDate",requested.length()>=10?requested.substring(0,10):requested);
-            u.hero(b,val(member,"flatLabel"),member.optString("name"),friendly(member.optString("status")));
-            details(member,"flatLabel","Requested flat","mobile","Mobile","residentType","Resident type","requestedDate","Requested","status","Status");
+            member.put("requestedDate",com.rapolus.apartmentpilotai.data.DateText.day(requested));
+            member.put("residentTypeLabel","TENANT".equals(member.optString("residentType"))?"Tenant":"OWNER".equals(member.optString("residentType"))?"Owner":member.optString("residentType"));
+            String status=friendly(member.optString("status"));
+            u.hero(b,val(member,"flatLabel"),member.optString("name"),status.isEmpty()?status:Character.toUpperCase(status.charAt(0))+status.substring(1));
+            details(member,"flatLabel","Requested flat","mobile","Mobile","residentTypeLabel","Resident type","requestedDate","Requested");
             if("PENDING".equals(member.optString("status"))) {
                 u.note(b,"Approve only after verifying the person and their connection to this flat.");
                 LinearLayout actions=u.row();
@@ -894,7 +914,7 @@ import java.util.*;
             JSONObject invite=(JSONObject)value;
             boolean exists=invite.optBoolean("exists");
             boolean configured=invite.optBoolean("displayConfigured");
-            if(!configured)u.state(b,R.drawable.ic_shield,"Invite encryption NOT_CONFIGURED","Configure the server display key before issuing or activating resident codes.",R.color.ap_amber,R.color.ap_ambg);
+            if(!configured)u.state(b,R.drawable.ic_shield,"Invite codes are not set up","Configure the server display key before issuing or activating resident codes.",R.color.ap_amber,R.color.ap_ambg);
             if(exists) {
                 Ui.Fields fields=h.newFields();
                 fields.field("expiry","Valid until",LocalDate.parse(inviteDate(invite)).format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-uuuu",Locale.ROOT)),TEXT);
@@ -1149,7 +1169,7 @@ import java.util.*;
             if(events!=null)for(int i=0; i<events.length(); i++) {
                 JSONObject e=events.getJSONObject(i);
                 LinearLayout ev=card();
-                u.kv(ev,e.optString("actor"),val(e,"status"));
+                u.kv(ev,e.optString("actor"),friendly(val(e,"status")));
                 ev.addView(u.text(e.optString("message"),13,false,R.color.ap_sub));
                 u.note(ev,e.optString("createdAt"));
             }
@@ -1165,7 +1185,7 @@ import java.util.*;
             JSONObject ticket=(JSONObject)ticketValue;
             get("/ops/tickets/"+id+"/affected",rowsValue-> {
                 JSONArray rows=(JSONArray)rowsValue;
-                u.hero(b,rows.length()+" flats",ticket.optString("title"),ticket.optString("scope"));
+                u.hero(b,Ui.count(rows.length(),"flat","flats"),ticket.optString("title"),ticket.optString("scope"));
                 if(rows.length()==0)u.empty(b,"No affected flats yet","Residents can follow an active shared-area issue.");
                 for(int i=0;i<rows.length();i++) {
                     JSONObject affectedRow=rows.getJSONObject(i);
@@ -1365,7 +1385,7 @@ import java.util.*;
             if(filter.equals("Past")&&!past)continue;
             if(filter.equals("Mine")&&!account.equals(event.optString("createdBy"))&&!flat.equals(event.optString("flatId")))continue;
             if(!term.isEmpty()&&!event.optString("title").toLowerCase(Locale.ROOT).contains(term)&&!event.optString("eventType").toLowerCase(Locale.ROOT).contains(term)&&!event.optString("flatLabel").toLowerCase(Locale.ROOT).contains(term)&&!event.optString("notes").toLowerCase(Locale.ROOT).contains(term))continue;
-            String timing=local(event.optString("startsAt"))+" IST";
+            String timing=DateText.humanize(event.optString("startsAt"));
             row(u.card(list),event.optString("title"),friendly(status)+" · "+timing,R.drawable.ic_calendar,"booking",event.optString("id"));
             shown++;
         }
@@ -1375,11 +1395,11 @@ import java.util.*;
         title("Event details");
         get("/ops/bookings/"+id,r-> {
             JSONObject e=(JSONObject)r;
-            u.hero(b,friendly(e.optString("status")),e.optString("title"),local(e.optString("startsAt"))+" IST");
+            u.hero(b,friendly(e.optString("status")),e.optString("title"),DateText.humanize(e.optString("startsAt")));
             details(e,"eventType","Event","flatLabel","Flat","guests","Guests","notes","Notes","decisionNote","Decision");
             LinearLayout timing=card();
-            u.kv(timing,"Start · IST",local(e.optString("startsAt")));
-            u.kv(timing,"End · IST",local(e.optString("endsAt")));
+            u.kv(timing,"Start",DateText.humanize(e.optString("startsAt")));
+            u.kv(timing,"End",DateText.humanize(e.optString("endsAt")));
             JSONArray items=e.optJSONArray("items");
             if(items!=null)for(int i=0; i<items.length(); i++) {
                 JSONObject v=items.getJSONObject(i);
@@ -1690,9 +1710,9 @@ import java.util.*;
                 if(n.optString("status").equals("DRAFT")) {
                     u.button(b,"Edit draft",R.drawable.ic_settings,false,()->go("notice-form",id));
                     if(!n.optBoolean("scheduleConfirmed"))u.button(b,"Preview notice",R.drawable.ic_notice,true,()->go("notice-preview",id));
-                    else u.note(b,"Scheduled · "+local(n.optString("scheduledAt"))+" IST · in-app delivery");
+                    else u.note(b,"Scheduled · "+DateText.humanize(n.optString("scheduledAt"))+" · in-app delivery");
                 } else u.button(b,n.optBoolean("pinned")?"Unpin":"Pin notice",R.drawable.ic_notice,false,()->h.requestApi("POST","/notices/"+id+"/pin",obj("pinned",!n.optBoolean("pinned")),x->h.refreshPage()));
-                if(n.optBoolean("phoneNotify"))u.note(b,"Phone notification requested · "+n.optString("externalDeliveryStatus","NOT_CONFIGURED"));
+                if(n.optBoolean("phoneNotify"))u.note(b,"Phone notification requested · phone delivery "+Ui.delivery(n.optString("externalDeliveryStatus")));
                 JSONArray recipients=n.optJSONArray("recipients");
                 if(recipients!=null) {
                     u.heading(b,"Audience · "+recipients.length());
@@ -1702,8 +1722,11 @@ import java.util.*;
                     }
                 }
             } else {
-                u.button(b,"Mark read",R.drawable.ic_check,false,()->h.requestApi("POST","/notices/"+id+"/read",obj(),x->Toast.makeText(h.activity(),"Marked read",Toast.LENGTH_SHORT).show()));
-                if(n.optBoolean("acknowledge"))u.button(b,"Acknowledge",R.drawable.ic_check,true,()->u.confirm("Acknowledge notice?","Confirm you have read this announcement.","Acknowledge",()->h.requestApi("POST","/notices/"+id+"/read",obj("acknowledge",true),x->Toast.makeText(h.activity(),"Acknowledged",Toast.LENGTH_SHORT).show())));
+                boolean read=!n.isNull("myReadAt")&&n.has("myReadAt"),acknowledged=!n.isNull("myAcknowledgedAt")&&n.has("myAcknowledgedAt");
+                if(acknowledged)u.note(b,"✓ You acknowledged this notice on "+n.optString("myAcknowledgedAt")+".");
+                else if(read&&!n.optBoolean("acknowledge"))u.note(b,"✓ Read");
+                if(!read)u.button(b,"Mark read",R.drawable.ic_check,false,()->h.requestApi("POST","/notices/"+id+"/read",obj(),x->{Toast.makeText(h.activity(),"Marked read",Toast.LENGTH_SHORT).show();h.refreshPage();}));
+                if(n.optBoolean("acknowledge")&&!acknowledged)u.button(b,"Acknowledge",R.drawable.ic_check,true,()->u.confirm("Acknowledge notice?","Confirm you have read this announcement.","Acknowledge",()->h.requestApi("POST","/notices/"+id+"/read",obj("acknowledge",true),x->{Toast.makeText(h.activity(),"Acknowledged",Toast.LENGTH_SHORT).show();h.refreshPage();})));
             }
         }
         );
@@ -1742,7 +1765,7 @@ import java.util.*;
             f.check("acknowledge","Request acknowledgement",n.optBoolean("acknowledge"));
             f.check("pinned","Pin notice",n.optBoolean("pinned"));
             f.check("phoneNotify","Notify on phone · external delivery not configured",n.optBoolean("phoneNotify"));
-            u.note(b,"Preview first. Publishing creates only authenticated in-app inbox records. Phone delivery remains NOT_CONFIGURED.");
+            u.note(b,"Preview first. Publishing sends the notice to residents' in-app inbox. Phone (SMS/push) delivery is not set up yet.");
             submit("Preview notice",()-> {
                 JSONObject body=f.values();
                 try {
@@ -1778,13 +1801,13 @@ import java.util.*;
             LinearLayout delivery=card();
             u.kv(delivery,"Audience",friendly(n.optString("audience")));
             u.kv(delivery,"Recipients",n.optInt("recipientCount")+" active accounts");
-            u.kv(delivery,"Phone notification",n.optBoolean("phoneNotify")?"Requested · "+n.optString("externalDeliveryStatus","NOT_CONFIGURED"):"Off");
+            u.kv(delivery,"Phone notification",n.optBoolean("phoneNotify")?"Requested · phone delivery "+Ui.delivery(n.optString("externalDeliveryStatus")):"Off");
             u.kv(delivery,"Acknowledgement",n.optBoolean("acknowledge")?"Required":"Not requested");
-            u.kv(delivery,"Publish",n.isNull("scheduledAt")?"Now":local(n.optString("scheduledAt"))+" IST");
+            u.kv(delivery,"Publish",n.isNull("scheduledAt")?"Now":DateText.humanize(n.optString("scheduledAt")));
             u.note(b,"Delivery mode: authenticated in-app inbox only. A phone request is not proof of external delivery.");
             u.button(b,"Edit",R.drawable.ic_settings,false,()->go("notice-form",id));
             if(n.isNull("scheduledAt"))submit("Publish",()->u.confirm("Publish notice?","Send this immutable message to the reviewed in-app audience.","Publish",()->h.requestApi("POST","/notices/"+id+"/publish",obj(),x->h.openPageWithBackTarget("notice",id,"notices"))));
-            else submit("Schedule",()->u.confirm("Schedule notice?","The local backend will publish it at "+local(n.optString("scheduledAt"))+" IST.","Schedule",()->write("/notices/"+id+"/schedule",obj(),x->h.openPageWithBackTarget("notice",id,"notices"))));
+            else submit("Schedule",()->u.confirm("Schedule notice?","The local backend will publish it at "+DateText.humanize(n.optString("scheduledAt"))+".","Schedule",()->write("/notices/"+id+"/schedule",obj(),x->h.openPageWithBackTarget("notice",id,"notices"))));
             u.button(b,"Keep draft",R.drawable.ic_report,false,()->go("notices"));
         });
     }
@@ -2141,7 +2164,7 @@ import java.util.*;
             JSONObject x=(JSONObject)r;
             Ui.Fields f=h.newFields();
             f.field("title","Description",x.optString("title"),TEXT);
-            f.field("category","Category",x.optString("category"),TEXT);
+            expenseCategory(f,x.optString("category"));
             f.field("amount","Amount",x.optString("amount"),MONEY);
             f.field("paidOn","Date · YYYY-MM-DD",x.optString("paidOn"),TEXT);
             pick(f,"mode","Payment mode",new String[] {
@@ -2222,7 +2245,7 @@ import java.util.*;
         get("/ops/contacts?kind=VENDOR",r-> {
             Ui.Fields f=h.newFields();
             f.field("title","Description",val(x,"title"),TEXT);
-            f.field("category","Category",x.optString("category","Security"),TEXT);
+            expenseCategory(f,x.optString("category","Security"));
             f.field("amount","Expected amount",val(x,"amount"),MONEY);
             pick(f,"frequency","Frequency",FREQUENCIES,x.optString("frequency","MONTHLY"));
             f.field("nextOn","Next due · YYYY-MM-DD",x.optString("nextOn",today()),TEXT);
@@ -2375,6 +2398,8 @@ import java.util.*;
         row(c,"Service schedules","Preventive maintenance",R.drawable.ic_tools,"services");
         u.button(b,"Run due tasks now",R.drawable.ic_clock,true,()->u.confirm("Run scheduled tasks?","Due tasks are evaluated for today's date. Existing bills and jobs are not duplicated.","Run tasks",()->h.requestApi("POST","/ops/automation/run",obj(),r-> {
             JSONObject x=(JSONObject)r;
+            Toast.makeText(h.activity(),"Tasks ran: "+x.optInt("billsCreated")+" bills, "+x.optInt("expenseDraftsCreated")+" expense drafts, "+x.optInt("noticesPublished")+" notices",Toast.LENGTH_LONG).show();
+            u.heading(b,"Last run result");
             details(x,"billsCreated","Bills generated","expenseDraftsCreated","Expense drafts","lateFeesApplied","Late charges","reminderRecipientsConsidered","Eligible reminder recipients","noticesPublished","Notices published","bookingsCompleted","Ended reservations");
         }
         )));
@@ -2385,11 +2410,14 @@ import java.util.*;
         get("/ops/subscription",r-> {
             JSONObject s=(JSONObject)r;
             String subscriptionStatus=s.optString("status");
-            u.hero(b,"Category "+s.optString("category")+" · "+s.optInt("flats")+" flats",Ui.money(s.opt("price"))+" / month",friendly(subscriptionStatus));
+            u.hero(b,"Category "+s.optString("category")+" · "+Ui.count(s.optInt("flats"),"flat","flats"),Ui.money(s.opt("price"))+" / month",friendly(subscriptionStatus));
             LinearLayout c=card();
             u.kv(c,"Resident access","One account per flat");
-            u.kv(c,"First month ends",s.optString("firstEnd"));
-            if(subscriptionStatus.equals("TRIAL"))u.kv(c,"Free trial ends",Instant.parse(s.optString("trialEndsAt")).atZone(ZoneId.of("Asia/Kolkata")).format(DateTimeFormatter.ofPattern("dd MMM yyyy, h:mm a",Locale.ROOT))+" IST");
+            // The whole first month is the free trial; the first paid month follows it.
+            if(subscriptionStatus.equals("TRIAL")) {
+                u.kv(c,"Free trial (first month) ends",com.rapolus.apartmentpilotai.data.DateText.format(Instant.parse(s.optString("trialEndsAt"))));
+                u.kv(c,"First paid month starts",com.rapolus.apartmentpilotai.data.DateText.day(s.optString("firstEnd")));
+            }
             else if(subscriptionStatus.equals("PAYMENT_DUE"))u.note(c,"Subscription required. Normal apartment access is paused until a verified subscription payment or earned referral credit is recorded.");
             u.kv(c,"Coverage","Admin, Treasurer & Residents");
             u.kv(c,"Automatic debit","Not enabled");
@@ -2399,9 +2427,11 @@ import java.util.*;
             u.heading(b,"Refer two new apartments");
             String code=s.optString("referralCode");
             u.kv(card(),"Your referral code",code);
-            u.button(b,"Share referral",R.drawable.ic_users,true,()->h.activity().startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,"ApartmentPilotAI referral: "+code+". Two new independently verified apartment activations qualify the three apartments for their first month only. Terms apply."),"Share referral")));
-            u.button(b,"I was referred",R.drawable.ic_plus,false,()->go("referral-claim"));
-            if(s.isNull("installedAt"))u.button(b,"Register this installation",R.drawable.ic_check,false,()->h.requestApi("POST","/ops/subscription/install",obj(),x->h.refreshPage()));
+            u.button(b,"Share referral",R.drawable.ic_users,true,()->h.activity().startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,"ApartmentPilotAI referral code: "+code+". Every apartment gets its first month free. If two new apartments join with this code and are verified within their first month, all three apartments also get their first paid month free. Terms apply."),"Share referral")));
+            if(s.optBoolean("referralApplied"))u.note(b,"✓ A referral code has been applied to this apartment.");
+            else u.button(b,"I was referred",R.drawable.ic_plus,false,()->go("referral-claim"));
+            if(s.isNull("installedAt"))u.button(b,"Register this installation",R.drawable.ic_check,false,()->h.requestApi("POST","/ops/subscription/install",obj(),x->{Toast.makeText(h.activity(),"Installation reported. The service operator verifies it separately.",Toast.LENGTH_LONG).show();h.refreshPage();}));
+            else u.note(b,"✓ Installation reported on "+s.optString("installedAt")+". Awaiting independent verification.");
             JSONArray referrals=s.optJSONArray("referrals");
             if(referrals!=null) {
                 int count=0;
@@ -2417,11 +2447,12 @@ import java.util.*;
             if(invoices!=null)for(int i=0; i<invoices.length(); i++) {
                 JSONObject x=invoices.getJSONObject(i);
                 LinearLayout invoice=card();
-                u.kv(invoice,x.optString("startsOn")+" – "+x.optString("endsOn"),friendly(x.optString("status")));
+                boolean trialMonth=x.optString("startsOn").equals(s.optString("activatedAt"));
+                u.kv(invoice,com.rapolus.apartmentpilotai.data.DateText.day(x.optString("startsOn"))+" – "+com.rapolus.apartmentpilotai.data.DateText.day(x.optString("endsOn")),trialMonth&&"WAIVED".equals(x.optString("status"))?"Free trial":friendly(x.optString("status")));
                 u.kv(invoice,"Price",Ui.money(x.opt("amount")));
-                u.kv(invoice,"Referral credit",Ui.money(x.opt("credit")));
+                u.kv(invoice,trialMonth?"Free trial credit":"Referral credit",Ui.money(x.opt("credit")));
                 u.kv(invoice,"Verified paid",Ui.money(x.opt("paid")));
-                u.button(invoice,"Save invoice record",R.drawable.ic_receipt,false,()->h.exportPdf("Subscription record · not a tax invoice",x));
+                u.button(invoice,"Share invoice PDF",R.drawable.ic_receipt,false,()->h.exportPdf("Subscription record · not a tax invoice",x));
             }
             u.note(b,"No checkout or automatic debit is connected. Only the service operator can independently verify activations and subscription payments. This is separate from residents' maintenance.");
             if(s.optBoolean("accessAllowed"))u.button(b,"Continue to ApartmentCare",R.drawable.ic_home,true,()->h.openPage("home",""));
@@ -2540,16 +2571,17 @@ import java.util.*;
             u.state(b,R.drawable.ic_users,"Refer two. All three benefit.","Installation and independently verified activation required.",R.color.ap_green,R.color.ap_mint);
             LinearLayout c=card();
             u.kv(c,"You refer","2 distinct new apartments");
-            u.kv(c,"Reward","First software subscription month free");
+            u.kv(c,"Free trial","First month, for every apartment");
+            u.kv(c,"Reward","First paid month (month 2) free");
             u.kv(c,"Who benefits","Your apartment + both new apartments");
-            u.kv(c,"From month 2",Ui.money(s.opt("price"))+" / month");
+            u.kv(c,"From month 3",Ui.money(s.opt("price"))+" / month (month 2 without the reward)");
             if(!s.isNull("offerAcceptedAt"))u.note(b,"Offer rules accepted on "+s.optString("offerAcceptedAt")+". Activation verification is still required.");
             else {
                 Ui.Fields f=h.newFields();
                 f.check("terms","I accept the referral offer rules.",false);
                 submit("Activate offer",()->write("/ops/subscription/offer",obj("terms",f.checked("terms")),x->h.refreshPage()));
             }
-            u.note(b,"No automatic debit. Without two qualifying activations, the first-month subscription remains due.");
+            u.note(b,"No automatic debit. Without two qualifying activations, the subscription is due from month 2.");
             u.button(b,"Read referral rules",R.drawable.ic_shield,false,()->go("referral-rules"));
         });
     }
@@ -2559,10 +2591,11 @@ import java.util.*;
         LinearLayout c=card();
         u.iconRow(c,"Two new apartments","Distinct identities; no self-referrals",R.drawable.ic_users,null);
         u.iconRow(c,"Verified activation","Service provider verifies identity, setup and an approved resident",R.drawable.ic_check,null);
-        u.iconRow(c,"First month only","Qualify within the initial monthly period; one reward per apartment",R.drawable.ic_calendar,null);
-        u.iconRow(c,"All three benefit","Referrer and the two qualifying apartments receive their first-month credit",R.drawable.ic_building,null);
+        u.iconRow(c,"Free first month","Every new apartment uses the app free for its first month",R.drawable.ic_calendar,null);
+        u.iconRow(c,"Qualify in month one","Referrals must be verified within the initial monthly period; one reward per apartment",R.drawable.ic_calendar,null);
+        u.iconRow(c,"All three benefit","Referrer and the two qualifying apartments get their first paid month (month 2) free",R.drawable.ic_building,null);
         u.iconRow(c,"No stacking","Further referrals do not create another free month",R.drawable.ic_clock,null);
-        u.iconRow(c,"Paid from month two","Regular category price is due; no automatic debit",R.drawable.ic_receipt,null);
+        u.iconRow(c,"Paid after that","Regular category price is due; no automatic debit",R.drawable.ic_receipt,null);
     }
     private void status() {
         title("Development status · 02");
@@ -2578,7 +2611,7 @@ import java.util.*;
             if(arr.length()==0)u.empty(b,"No polls yet","");
             for(int i=0; i<arr.length(); i++) {
                 JSONObject p=arr.getJSONObject(i);
-                row(card(),p.optString("title"),p.optBoolean("closed")?"Closed":"Ends "+local(p.optString("closesAt"))+" IST",R.drawable.ic_check,"poll",p.optString("id"));
+                row(card(),p.optString("title"),p.optBoolean("closed")?"Closed":"Ends "+DateText.humanize(p.optString("closesAt")),R.drawable.ic_check,"poll",p.optString("id"));
             }
         }
         );
@@ -2611,7 +2644,7 @@ import java.util.*;
                 JSONObject option=options.getJSONObject(i);
                 boolean mine=option.optString("id").equals(p.optString("myVote"));
                 LinearLayout line=card();
-                u.kv(line,option.optString("label")+(mine?" ✓":""),option.optInt("votes")+" votes");
+                u.kv(line,option.optString("label")+(mine?" ✓":""),Ui.count(option.optInt("votes"),"vote","votes"));
                 if(p.optBoolean("open")&&!h.client().account().isNull("flatId"))u.button(line,mine?"Your choice":"Vote",R.drawable.ic_check,mine,()->h.requestApi("POST","/ops/polls/"+id+"/vote",obj("optionId",option.optString("id")),x->h.refreshPage()));
             }
             if(h.isAdmin()&&p.optBoolean("open"))u.button(b,"Close voting",R.drawable.ic_clock,false,()->u.confirm("Close this poll?","Votes are preserved. No more changes will be accepted.","Close voting",()->h.requestApi("POST","/ops/polls/"+id+"/close",obj(),x->h.refreshPage())));
@@ -2703,7 +2736,7 @@ import java.util.*;
                     String from=local(booking.optString("startsAt")).substring(0,10),to=local(booking.optString("endsAt")).substring(0,10);
                     if(date.compareTo(from)<0||date.compareTo(to)>0)continue;
                     found++;
-                    row(u.card(selected),booking.optString("title"),local(booking.optString("startsAt"))+" IST",R.drawable.ic_calendar,"booking",booking.optString("id"));
+                    row(u.card(selected),booking.optString("title"),DateText.humanize(booking.optString("startsAt")),R.drawable.ic_calendar,"booking",booking.optString("id"));
                 }
                 if(found==0)u.note(selected,"No visible approved bookings on this date.");
             }

@@ -57,6 +57,20 @@ final class AuthLoginTest {
         assertTrue(Instant.parse(session.get("expiresAt").toString()).isAfter(Instant.now()));
         verify(db).update(startsWith("insert into ap_session"),eq(Tokens.digest(token)),eq(user),any(java.sql.Timestamp.class));
     }
+    @Test void UnknownMobileStillRunsAPinComparison() {
+        when(db.find(anyString(),eq(MOBILE))).thenReturn(Optional.empty());
+        denied("ADMIN",HttpStatus.UNAUTHORIZED);
+        verify(encoder).matches(eq("123456"),startsWith("$2a$12$"));
+    }
+    @Test void PinChangeRequiredFlagsLegacyAndWeakPinsOnly() {
+        account("ACTIVE","ADMIN");
+        when(encoder.matches("4826","encoded")).thenReturn(true);
+        when(encoder.matches("482915","encoded")).thenReturn(true);
+        when(db.one(anyString(),eq(user))).thenReturn(Map.of("id",user));
+        assertEquals(true,service.login(new Requests.Login(MOBILE,"4826","ADMIN")).get("pinChangeRequired"));
+        assertEquals(true,service.login(new Requests.Login(MOBILE,"123456","ADMIN")).get("pinChangeRequired"));
+        assertEquals(false,service.login(new Requests.Login(MOBILE,"482915","ADMIN")).get("pinChangeRequired"));
+    }
     @Test void LogoutRevokesOnlyThePresentedHashedToken() {
         service.logout("Bearer test-session-token");
         verify(db).update(startsWith("delete from ap_session"),eq(Tokens.digest("test-session-token")));
