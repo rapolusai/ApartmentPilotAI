@@ -33,9 +33,21 @@ import org.springframework.transaction.annotation.Transactional;
         return auth.register(r);
     }
     @PostMapping("/auth/login") Object login(@Valid @RequestBody Requests.Login r,HttpServletRequest req) {
-        RateGate.enforce(gate.count("login-ip:"+req.getRemoteAddr()),100);
-        RateGate.enforce(gate.count("login-mobile:"+r.mobile()),10);
-        return auth.login(r);
+        // Volumetric guard counts every request; lockout counters count failed credentials only, so normal
+        // sign-ins on several devices never lock an account. Client IP comes from forwarded headers behind a proxy.
+        String ip=req.getRemoteAddr();
+        RateGate.enforce(gate.count("login-all-ip:"+ip),600);
+        RateGate.enforceRecorded(gate.peek("login-ip:"+ip),100);
+        RateGate.enforceRecorded(gate.peek("login-mobile:"+r.mobile()),10);
+        try {
+            return auth.login(r);
+        } catch(ApiError e) {
+            if(e.status()==org.springframework.http.HttpStatus.UNAUTHORIZED) {
+                gate.count("login-ip:"+ip);
+                gate.count("login-mobile:"+r.mobile());
+            }
+            throw e;
+        }
     }
     @GetMapping("/auth/invites/{code}") Object previewInvite(@PathVariable String code,HttpServletRequest req) {
         RateGate.enforce(gate.count("invite-lookup:"+req.getRemoteAddr()),30);
@@ -187,10 +199,10 @@ import org.springframework.transaction.annotation.Transactional;
     }
     @GetMapping("/audit") Object audit(@AuthenticationPrincipal Account a) {
         a.requireStaff();
-        return db.rows("select a.id,a.action,a.record_id,a.before_value,a.after_value,a.created_at,u.name as actor from ap_audit a left join ap_user u on u.id=a.actor_id and u.tenant_id=a.tenant_id where a.tenant_id=? order by a.created_at desc limit 100",a.tenantId());
+        return db.rows("select a.id,a.action,a.record_id,a.before_value,a.after_value,a.created_at,coalesce(u.name,case when a.actor_id is null then 'System automation' end) as actor from ap_audit a left join ap_user u on u.id=a.actor_id and u.tenant_id=a.tenant_id where a.tenant_id=? order by a.created_at desc limit 100",a.tenantId());
     }
     @GetMapping("/audit/{id}") Object auditDetail(@AuthenticationPrincipal Account a,@PathVariable UUID id) {
         a.requireStaff();
-        return db.one("select a.id,a.action,a.record_id,a.before_value,a.after_value,a.created_at,u.name as actor from ap_audit a left join ap_user u on u.id=a.actor_id and u.tenant_id=a.tenant_id where a.tenant_id=? and a.id=?",a.tenantId(),id);
+        return db.one("select a.id,a.action,a.record_id,a.before_value,a.after_value,a.created_at,coalesce(u.name,case when a.actor_id is null then 'System automation' end) as actor from ap_audit a left join ap_user u on u.id=a.actor_id and u.tenant_id=a.tenant_id where a.tenant_id=? and a.id=?",a.tenantId(),id);
     }
 }

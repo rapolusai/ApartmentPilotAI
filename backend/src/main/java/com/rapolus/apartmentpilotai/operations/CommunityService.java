@@ -110,6 +110,13 @@ import java.time.*;
         commands.audit(a,"MEMBER_RECORD_SAVED",id,null,"Directory record only; no account access");
         return Map.of("id",id);
     }
+    private static final Set<String> EMERGENCY_NUMBERS=Set.of("100","101","102","108","112","1091","1098","1930");
+    /** Mobile/landline/toll-free numbers have 8-15 digits; short codes are limited to public emergency lines. */
+    static boolean validPhone(String phone) {
+        if(!phone.matches("[+0-9 ()-]{3,20}"))return false;
+        String digits=phone.replaceAll("[^0-9]","");
+        return digits.length()>=8&&digits.length()<=15||EMERGENCY_NUMBERS.contains(digits);
+    }
     @Transactional public Object changeRole(Account a,UUID id,Map<String,Object> p) {
         a.requireAdmin();
         db.lockTenant(a.tenantId());
@@ -184,7 +191,7 @@ import java.time.*;
         var old=commands.previous(a,"CONTACT",p);
         if(old.isPresent())return Map.of("id",old.get());
         String kind=V.choice(p,"kind","VENDOR","CONTACT"),name=V.text(p,"name",100),category=V.text(p,"category",40),phone=V.opt(p,"phone",20),notes=V.opt(p,"notes",500);
-        if(!phone.isBlank()&&!phone.matches("[+0-9 ()-]{3,20}"))throw new IllegalArgumentException("Invalid contact number.");
+        if(!phone.isBlank()&&!validPhone(phone))throw new IllegalArgumentException("Enter a valid phone number (8 to 15 digits, or an emergency number such as 100, 101, 108 or 112).");
         LocalDate amc=V.optionalDate(p,"amcEnd");
         if(id==null) {
             id=UUID.randomUUID();

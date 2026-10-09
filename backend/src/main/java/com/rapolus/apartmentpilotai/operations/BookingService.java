@@ -227,7 +227,7 @@ import java.time.*;
         }
         db.update("update ap_booking set status=?,decision_note=?,revision=revision+1 where tenant_id=? and id=?",status,note,a.tenantId(),id);
         event(a,id,status,note.isBlank()?status:note);
-        db.notify(a.tenantId(),(UUID)b.get("createdBy"),"BOOKING:"+id+":"+(revision+1),"Booking updated",status+" · "+b.get("title"),"booking:"+id);
+        db.notify(a.tenantId(),(UUID)b.get("createdBy"),"BOOKING:"+id+":"+(revision+1),"Booking "+status.toLowerCase(Locale.ROOT).replace('_',' '),(note.isBlank()?"":"Reason: "+note+" · ")+status+" · "+b.get("title"),"booking:"+id);
         c.remember(a,"BOOKING_DECISION",p,id);
         c.audit(a,"BOOKING_STATUS",id,b.get("status").toString(),status);
         return Map.of("id",id,"status",status);

@@ -34,8 +34,7 @@ public final class PaymentScreens {
     private void go(String route,String record) {h.openPage(route,record);}
     private String text(JSONObject value,String key,String fallback) {return value.isNull(key)?fallback:value.optString(key,fallback);}
     private String date(String value) {
-        try{return LocalDate.parse(value.substring(0,10)).format(DateTimeFormatter.ofPattern("d MMM uuuu",Locale.ENGLISH));}
-        catch(Exception ignored){return value;}
+        return com.rapolus.apartmentpilotai.data.DateText.day(value);
     }
     private String period(String value) {
         try{return YearMonth.parse(value.substring(0,7)).format(DateTimeFormatter.ofPattern("MMMM uuuu",Locale.ENGLISH));}

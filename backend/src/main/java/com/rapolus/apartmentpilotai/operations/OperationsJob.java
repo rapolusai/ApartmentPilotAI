@@ -17,7 +17,7 @@ import java.util.UUID;
     @Scheduled(initialDelay=15000,fixedDelay=900000) public void tick() {
         for(var row:db.rows("select distinct on(tenant_id) id,tenant_id from ap_user where role='ADMIN' and status='ACTIVE' order by tenant_id,created_at")) {
             try {
-                service.run(new Account((UUID)row.get("id"),(UUID)row.get("tenantId"),null,"System","ADMIN"));
+                service.run(Account.system((UUID)row.get("id"),(UUID)row.get("tenantId")));
             } catch(RuntimeException e) {
                 LOG.error("Apartment automation failed for {} ({})",row.get("tenantId"),e.getClass().getSimpleName());
             }

@@ -91,7 +91,8 @@ import java.security.MessageDigest;
         a.requireAdmin();
         promotionLock();
         String code=V.text(p,"code",24).toUpperCase(Locale.ROOT);
-        var referrer=db.one("select tenant_id from ap_subscription where referral_code=?",code);
+        // An unknown code is a correctable input error for the form, not a missing page.
+        var referrer=db.find("select tenant_id from ap_subscription where referral_code=?",code).orElseThrow(()->new IllegalArgumentException("Referral code not found. Check the code and try again."));
         UUID source=(UUID)referrer.get("tenantId");
         if(source.equals(a.tenantId()))throw ApiError.conflict("You cannot refer your own apartment.");
         lockPair(source,a.tenantId());

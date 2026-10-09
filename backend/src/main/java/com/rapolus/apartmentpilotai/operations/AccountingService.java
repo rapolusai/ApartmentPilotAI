@@ -37,13 +37,21 @@ import java.math.*;
         db.lockTenant(a.tenantId());
         String operation="SETTINGS_"+section.toUpperCase(Locale.ROOT);
         if(changes.containsKey("requestKey")&&c.previous(a,operation,changes).isPresent())return Map.of("ok",true);
-        Map<String,Object> merged=new HashMap<>(c.settings(a));
+        Map<String,Object> current=c.settings(a);
+        Map<String,Object> merged=new HashMap<>(current);
         merged.putAll(fields);
-        Object result=saveSettings(a,merged);
+        // Name the changed fields in the audit trail; values stay out because they include bank details.
+        List<String> changed=new ArrayList<>();
+        for(String k:new TreeSet<>(fields.keySet()))if(!String.valueOf(current.get(k)).equals(String.valueOf(fields.get(k))))changed.add(com.rapolus.apartmentpilotai.api.ErrorHandler.label(k).toLowerCase(Locale.ROOT));
+        String label=switch(section){case "payment"->"Payment account";case "billing"->"Billing options";case "verification"->"Payment verification";case "reminders"->"Reminders";default->"Booking rules";};
+        Object result=saveSettings(a,merged,label+" updated"+(changed.isEmpty()?" (no changes)":": "+String.join(", ",changed)));
         if(changes.containsKey("requestKey"))c.remember(a,operation,changes,a.tenantId());
         return result;
     }
     @Transactional public Object saveSettings(Account a,Map<String,Object> p) {
+        return saveSettings(a,p,"Financial, notification and booking controls updated");
+    }
+    @Transactional Object saveSettings(Account a,Map<String,Object> p,String auditText) {
         a.requireStaff();
         db.lockTenant(a.tenantId());
         c.settings(a);
@@ -58,8 +66,13 @@ import java.math.*;
         }
         String ifsc=V.opt(p,"ifsc",11).toUpperCase(Locale.ROOT);
         if(!ifsc.isBlank()&&!ifsc.matches("[A-Z]{4}0[A-Z0-9]{6}"))throw new IllegalArgumentException("Check the IFSC.");
-        db.update("update ap_settings set payee=?,upi=?,bank=?,account=?,ifsc=?,bill_vacant=?,late_enabled=?,late_fee=?,grace_days=?,due_notify=?,reminders=?,reminder_days=?,expenses_visible=?,proof_required=?,quiet_start=?,quiet_end=?,booking_rules=? where tenant_id=?",V.opt(p,"payee",100),V.opt(p,"upi",100),V.opt(p,"bank",100),V.opt(p,"account",30),ifsc,V.bool(p,"billVacant",true),V.bool(p,"lateEnabled",false),V.zeroMoney(p,"lateFee"),V.num(p,"graceDays",0,30),V.bool(p,"dueNotify",true),V.bool(p,"reminders",true),days,V.bool(p,"expensesVisible",true),V.bool(p,"proofRequired",false),qs,qe,V.text(p,"bookingRules",2000),a.tenantId());
-        c.audit(a,"SETTINGS_UPDATED",a.tenantId(),null,"Financial, notification and booking controls updated");
+        // Residents copy these details to pay, so reject obviously malformed values.
+        String upi=V.opt(p,"upi",100);
+        if(!upi.isBlank()&&!upi.matches("[A-Za-z0-9._-]{2,256}@[A-Za-z][A-Za-z0-9.]{1,63}"))throw new IllegalArgumentException("Check the UPI ID, for example name@bank.");
+        String account=V.opt(p,"account",30).replace(" ","");
+        if(!account.isBlank()&&!account.matches("[0-9]{9,18}"))throw new IllegalArgumentException("Check the bank account number (9 to 18 digits).");
+        db.update("update ap_settings set payee=?,upi=?,bank=?,account=?,ifsc=?,bill_vacant=?,late_enabled=?,late_fee=?,grace_days=?,due_notify=?,reminders=?,reminder_days=?,expenses_visible=?,proof_required=?,quiet_start=?,quiet_end=?,booking_rules=? where tenant_id=?",V.opt(p,"payee",100),upi,V.opt(p,"bank",100),account,ifsc,V.bool(p,"billVacant",true),V.bool(p,"lateEnabled",false),V.zeroMoney(p,"lateFee"),V.num(p,"graceDays",0,30),V.bool(p,"dueNotify",true),V.bool(p,"reminders",true),days,V.bool(p,"expensesVisible",true),V.bool(p,"proofRequired",false),qs,qe,V.text(p,"bookingRules",2000),a.tenantId());
+        c.audit(a,"SETTINGS_UPDATED",a.tenantId(),null,auditText);
         return Map.of("ok",true);
     }
     @Transactional public Object opening(Account a,Map<String,Object> p) {

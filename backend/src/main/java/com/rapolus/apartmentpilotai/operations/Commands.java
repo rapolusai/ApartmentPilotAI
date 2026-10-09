@@ -51,6 +51,6 @@ import java.util.*;
         return db.one("select * from ap_settings where tenant_id=?",a.tenantId());
     }
     public void audit(Account a,String action,UUID id,String before,String after) {
-        db.audit(a.tenantId(),a.id(),action,id,before,after);
+        db.audit(a.tenantId(),a.auditActor(),action,id,before,after);
     }
 }

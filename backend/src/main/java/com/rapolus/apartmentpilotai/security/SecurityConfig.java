@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
         return new BCryptPasswordEncoder(12);
     }
     @Bean SecurityFilterChain security(HttpSecurity http,Db db,SubscriptionService subscriptions) throws Exception {
-        http.csrf(c->c.disable()).sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) .authorizeHttpRequests(a->a.requestMatchers("/actuator/health","/api/v1/status","/api/v1/auth/**","/api/v1/provider/**").permitAll().anyRequest().authenticated()) .exceptionHandling(e->e.authenticationEntryPoint((req,res,ex)->json401(res))) .addFilterBefore(new ActivityLoggingFilter(),UsernamePasswordAuthenticationFilter.class).addFilterBefore(new BearerFilter(db,subscriptions),UsernamePasswordAuthenticationFilter.class);
+        http.csrf(c->c.disable()).sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) .authorizeHttpRequests(a->a.requestMatchers("/actuator/health","/api/v1/status","/api/v1/auth/**","/api/v1/provider/**","/error").permitAll().anyRequest().authenticated()) .exceptionHandling(e->e.authenticationEntryPoint((req,res,ex)->json401(res))) .addFilterBefore(new ActivityLoggingFilter(),UsernamePasswordAuthenticationFilter.class).addFilterBefore(new BearerFilter(db,subscriptions),UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
     static void json401(HttpServletResponse r) throws IOException {

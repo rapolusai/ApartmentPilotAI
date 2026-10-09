@@ -54,7 +54,7 @@ import org.springframework.transaction.annotation.Transactional;
                 if(Boolean.TRUE.equals(settings.get("dueNotify")))db.rows("select id from ap_user where tenant_id=? and flat_id=? and status='ACTIVE'",a.tenantId(),fid).forEach(u->db.notify(a.tenantId(),(UUID)u.get("id"),"BILL:"+id,"Maintenance ready",month+" maintenance is ready.","bill:"+id));
             }
         }
-        if(generated>0)db.audit(a.tenantId(),a.id(),"BILLS_GENERATED",month,null,Integer.toString(generated));
+        if(generated>0)db.audit(a.tenantId(),a.auditActor(),"BILLS_GENERATED",month,null,Integer.toString(generated));
         return Map.of("created",generated,"month",month.toString());
     }
     public Map<String,Object> billingPreview(Account a,YearMonth month) {

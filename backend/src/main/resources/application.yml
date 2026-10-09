@@ -1,6 +1,8 @@
 server:
   address: ${SERVER_ADDRESS:127.0.0.1}
   port: ${SERVER_PORT:8080}
+  # Behind AWS ALB/nginx use the client IP from X-Forwarded-For (Tomcat trusts only internal proxy addresses).
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:native}
   error:
     include-stacktrace: never
     include-message: never
