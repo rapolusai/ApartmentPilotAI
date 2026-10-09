@@ -24,6 +24,10 @@ import java.util.*;
     public int color(int r) {
         return ContextCompat.getColor(c,r);
     }
+    /** Reference text size, one step larger on tablets. */
+    public float sp(float size) {
+        return com.rapolus.apartmentpilotai.data.TextScale.size(size,c.getResources().getConfiguration().screenWidthDp);
+    }
     public LinearLayout column() {
         LinearLayout l=new LinearLayout(c);
         l.setOrientation(LinearLayout.VERTICAL);
@@ -37,10 +41,19 @@ import java.util.*;
         l.setLayoutParams(new LinearLayout.LayoutParams(-1,-2));
         return l;
     }
+    /** "1 flat", "2 flats". */
+    public static String count(long n,String one,String many) {
+        return n+" "+(n==1?one:many);
+    }
+    /** User-facing wording for an unconfigured external integration. */
+    public static String delivery(String status) {
+        return "NOT_CONFIGURED".equals(status)||status==null||status.isEmpty()?"not set up":status.toLowerCase(java.util.Locale.ROOT).replace('_',' ');
+    }
     public TextView text(String value,int size,boolean bold,int color) {
         TextView t=new TextView(c);
-        t.setText(value);
-        t.setTextSize(size);
+        // Any raw UTC instant from the server is shown as an IST date and time.
+        t.setText(com.rapolus.apartmentpilotai.data.DateText.humanize(value));
+        t.setTextSize(sp(size));
         t.setTextColor(color(color));
         if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
         t.setLayoutParams(new LinearLayout.LayoutParams(-1,-2));
@@ -94,7 +107,7 @@ import java.util.*;
         MaterialButton b=new MaterialButton(c);
         b.setText(title);
         b.setAllCaps(false);
-        b.setTextSize(13);
+        b.setTextSize(sp(13));
         b.setCornerRadius(dp(15));
         b.setMinHeight(dp(48));
         b.setInsetTop(0);
@@ -145,20 +158,20 @@ import java.util.*;
             r.addView(chevron,new LinearLayout.LayoutParams(dp(iconSize>28?20:18),dp(iconSize>28?20:18)));
             r.setOnClickListener(v->action.run());
             r.setFocusable(true);
-            r.setContentDescription(title+". "+detail);
+            r.setContentDescription(com.rapolus.apartmentpilotai.data.DateText.humanize(title+". "+detail));
         }
         parent.addView(r);
     }
     public void statusIconRow(LinearLayout parent,String title,String status,String detail,int icon,Runnable action) {
-        String normalized=status==null?"":status.trim().toLowerCase(Locale.ROOT);
-        int foreground=normalized.equals("pending")?R.color.ap_amber:
-            normalized.equals("in review")?R.color.ap_blue:
-            normalized.equals("next")||normalized.equals("upcoming")?R.color.ap_violet:
-            normalized.equals("paid")||normalized.equals("approved")?R.color.ap_green:R.color.ap_muted;
-        int background=normalized.equals("pending")?R.color.ap_ambg:
-            normalized.equals("in review")?R.color.ap_bluebg:
-            normalized.equals("next")||normalized.equals("upcoming")?R.color.ap_vbg:
-            normalized.equals("paid")||normalized.equals("approved")?R.color.ap_mint:R.color.ap_soft;
+        int foreground,background;
+        switch(com.rapolus.apartmentpilotai.data.StatusTone.of(status)) {
+            case WAITING: foreground=R.color.ap_amber; background=R.color.ap_ambg; break;
+            case REVIEW: foreground=R.color.ap_blue; background=R.color.ap_bluebg; break;
+            case UPCOMING: foreground=R.color.ap_violet; background=R.color.ap_vbg; break;
+            case DONE: foreground=R.color.ap_green; background=R.color.ap_mint; break;
+            case PROBLEM: foreground=R.color.ap_red; background=R.color.ap_redbg; break;
+            default: foreground=R.color.ap_muted; background=R.color.ap_soft;
+        }
         LinearLayout r=row();
         r.setMinimumHeight(dp(74));
         r.setPadding(dp(8),dp(9),dp(8),dp(9));
@@ -211,10 +224,15 @@ import java.util.*;
         l.addView(r);
     }
     public void empty(LinearLayout l,String title,String detail) {
+        empty(l,R.drawable.ic_building,title,detail);
+    }
+    /** Empty list with an icon that matches the screen. */
+    public void empty(LinearLayout l,int icon,String title,String detail) {
         LinearLayout b=card(l);
         b.setGravity(Gravity.CENTER);
         ImageView i=new ImageView(c);
-        i.setImageResource(R.drawable.ic_building);
+        i.setImageResource(icon);
+        i.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         b.addView(i,new LinearLayout.LayoutParams(dp(52),dp(52)));
         gap(b,15);
         TextView h=text(title,18,true,R.color.ap_ink);
@@ -252,6 +270,24 @@ import java.util.*;
         parent.addView(box);
         gap(parent,8);
     }
+    /**
+     * Short confirmation shown above the bottom navigation. Longer messages stay until OK or about 8 seconds,
+     * so they can be read in full.
+     */
+    public void message(String text,boolean longer) {
+        View root=c instanceof android.app.Activity?((android.app.Activity)c).findViewById(R.id.root):null;
+        if(root==null) {
+            Toast.makeText(c,text,longer?Toast.LENGTH_LONG:Toast.LENGTH_SHORT).show();
+            return;
+        }
+        com.google.android.material.snackbar.Snackbar bar=com.google.android.material.snackbar.Snackbar.make(root,text,longer?8000:com.google.android.material.snackbar.Snackbar.LENGTH_SHORT);
+        View nav=root.findViewById(R.id.navigation);
+        if(nav!=null&&nav.getVisibility()==View.VISIBLE)bar.setAnchorView(nav);
+        TextView label=bar.getView().findViewById(com.google.android.material.R.id.snackbar_text);
+        if(label!=null)label.setMaxLines(4);
+        if(longer)bar.setAction("OK",v-> {});
+        bar.show();
+    }
     public void note(LinearLayout l,String message) {
         TextView t=text(message,11,false,R.color.ap_sub);
         t.setPadding(dp(12),dp(12),dp(12),dp(12));
@@ -284,9 +320,14 @@ import java.util.*;
         private final Ui ui;
         private final LinearLayout parent;
         private final Map<String,EditText> inputs=new LinkedHashMap<>();
-        private final Map<String,Spinner> selects=new LinkedHashMap<>();
         private final Map<String,String[]> selectValues=new LinkedHashMap<>();
+        private final Map<String,String[]> selectLabels=new LinkedHashMap<>();
         private final Map<String,CheckBox> checks=new LinkedHashMap<>();
+        // Date fields show "25 Oct 2026, 5:00 PM"; this holds the value sent to the server.
+        private final Map<String,String> dateValues=new LinkedHashMap<>();
+        private final Map<String,Boolean> dateTimes=new LinkedHashMap<>();
+        private final Map<String,Integer> selectIndex=new LinkedHashMap<>();
+        private final Map<String,AutoCompleteTextView> selectBoxes=new LinkedHashMap<>();
         public Fields(Ui ui,LinearLayout parent) {
             this.ui=ui;
             this.parent=parent;
@@ -298,8 +339,11 @@ import java.util.*;
             while(ancestor instanceof View&&!(ancestor instanceof TextInputLayout))ancestor=ancestor.getParent();
             if(ancestor instanceof TextInputLayout)((TextInputLayout)ancestor).setPlaceholderText(value);
         }
-        public EditText field(String key,String label,String value,int inputType) {
+        public EditText field(String key,String typedLabel,String value,int inputType) {
             boolean inviteExpiry=key.equals("expiry");
+            boolean dateField=typedLabel.contains("YYYY-MM-DD")||java.util.Arrays.asList("startOn","endOn","nextOn","paidOn","receivedOn","dueDate","completedOn","amcEnd","expiry").contains(key);
+            boolean pickTime=com.rapolus.apartmentpilotai.data.DateField.hasTime(typedLabel);
+            String label=dateField?com.rapolus.apartmentpilotai.data.DateField.label(typedLabel):typedLabel;
             TextInputLayout wrap=new TextInputLayout(ui.c);
             wrap.setHint(inviteExpiry?null:label);
             wrap.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE);
@@ -316,7 +360,7 @@ import java.util.*;
                 wrap.setEndIconMode(TextInputLayout.END_ICON_PASSWORD_TOGGLE);
                 edit.setTransformationMethod(android.text.method.PasswordTransformationMethod.getInstance());
             }
-            edit.setTextSize(inviteExpiry?11.5f:13f);
+            edit.setTextSize(ui.sp(inviteExpiry?11.5f:13f));
             edit.setTextColor(ui.color(R.color.ap_ink));
             edit.setMinHeight(ui.dp(inviteExpiry?42:50));
             wrap.addView(edit,new LinearLayout.LayoutParams(-1,-2));
@@ -328,51 +372,102 @@ import java.util.*;
             }
             parent.addView(wrap,p);
             inputs.put(key,edit);
-            boolean dateField=label.contains("YYYY-MM-DD")||java.util.Arrays.asList("startOn","endOn","nextOn","paidOn","receivedOn","dueDate","completedOn","amcEnd","expiry").contains(key);
+            if(dateField&&!inviteExpiry) {
+                // Picked, not typed: tapping the field opens the calendar (and clock for times).
+                dateValues.put(key,value==null?"":value.trim());
+                dateTimes.put(key,pickTime);
+                edit.setText(com.rapolus.apartmentpilotai.data.DateField.display(value,pickTime));
+                edit.setFocusable(false);
+                edit.setCursorVisible(false);
+                edit.setLongClickable(false);
+                edit.setOnClickListener(v->pickDate(key,edit,label));
+            }
             if(dateField) {
                 wrap.setEndIconMode(TextInputLayout.END_ICON_CUSTOM);
                 wrap.setEndIconDrawable(R.drawable.ic_calendar);
                 wrap.setEndIconContentDescription("Choose date");
-                wrap.setEndIconOnClickListener(v-> {
+                if(inviteExpiry)wrap.setEndIconOnClickListener(v-> {
                     java.time.LocalDate current=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Kolkata"));
-                    String previous=edit.getText().toString();
                     try {
-                        current=inviteExpiry?java.time.LocalDate.parse(previous,java.time.format.DateTimeFormatter.ofPattern("dd-MM-uuuu",java.util.Locale.ROOT)):java.time.LocalDate.parse(previous.length()>10?previous.substring(0,10):previous);
+                        current=java.time.LocalDate.parse(edit.getText().toString(),java.time.format.DateTimeFormatter.ofPattern("dd-MM-uuuu",java.util.Locale.ROOT));
                     } catch(Exception ignored) {
                     }
-                    android.app.DatePickerDialog dialog=new android.app.DatePickerDialog(ui.c,(picker,year,month,day)-> {
-                        String chosen=inviteExpiry?java.time.LocalDate.of(year,month+1,day).format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-uuuu",java.util.Locale.ROOT)):java.time.LocalDate.of(year,month+1,day).toString();
-                        if(label.contains("THH:mm")) {
-                            new android.app.TimePickerDialog(ui.c,(clock,hour,minute)->edit.setText(chosen+String.format(java.util.Locale.ROOT,"T%02d:%02d",hour,minute)),17,0,true).show();
-                        } else edit.setText(chosen);
-                    }
-                    ,current.getYear(),current.getMonthValue()-1,current.getDayOfMonth());
-                    dialog.show();
-                }
-                );
+                    new android.app.DatePickerDialog(ui.c,(picker,year,month,day)->edit.setText(java.time.LocalDate.of(year,month+1,day).format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-uuuu",java.util.Locale.ROOT))),current.getYear(),current.getMonthValue()-1,current.getDayOfMonth()).show();
+                });
+                else wrap.setEndIconOnClickListener(v->pickDate(key,edit,label));
             }
             return edit;
+        }
+        private void pickDate(String key,EditText edit,String label) {
+            boolean time=Boolean.TRUE.equals(dateTimes.get(key));
+            String previous=dateValues.containsKey(key)?dateValues.get(key):"";
+            java.time.LocalDateTime current=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Kolkata")).atTime(17,0);
+            try {
+                current=previous.length()>=16?java.time.LocalDateTime.parse(previous.substring(0,16)):java.time.LocalDate.parse(previous.substring(0,10)).atTime(17,0);
+            } catch(Exception ignored) {
+            }
+            final java.time.LocalDateTime start=current;
+            android.app.DatePickerDialog dialog=new android.app.DatePickerDialog(ui.c,(picker,year,month,day)-> {
+                if(time) {
+                    new android.app.TimePickerDialog(ui.c,(clock,hour,minute)->setDate(key,edit,com.rapolus.apartmentpilotai.data.DateField.value(year,month+1,day,hour,minute,true)),start.getHour(),start.getMinute(),false).show();
+                } else setDate(key,edit,com.rapolus.apartmentpilotai.data.DateField.value(year,month+1,day,0,0,false));
+            },start.getYear(),start.getMonthValue()-1,start.getDayOfMonth());
+            if(label.toLowerCase(java.util.Locale.ROOT).contains("optional"))dialog.setButton(android.content.DialogInterface.BUTTON_NEUTRAL,"Clear",(d,w)->setDate(key,edit,""));
+            dialog.show();
+        }
+        private void setDate(String key,EditText edit,String value) {
+            dateValues.put(key,value);
+            edit.setText(com.rapolus.apartmentpilotai.data.DateField.display(value,Boolean.TRUE.equals(dateTimes.get(key))));
         }
         public void limit(String key,int max) {
             EditText edit=inputs.get(key);
             if(edit!=null)edit.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(max)});
         }
         public void select(String key,String label,String[] labels,String[] values) {
-            parent.addView(ui.text(label,11,true,R.color.ap_sub));
-            Spinner s=new Spinner(ui.c);
-            s.setMinimumHeight(ui.dp(48));
-            ArrayAdapter<String> adapter=new ArrayAdapter<>(ui.c,android.R.layout.simple_spinner_item,labels);
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-            s.setAdapter(adapter);
-            parent.addView(s);
-            ui.gap(parent,12);
-            selects.put(key,s);
+            // Same rounded outlined box as text fields, with a dropdown list.
+            TextInputLayout wrap=new TextInputLayout(ui.c,null,com.google.android.material.R.attr.textInputOutlinedExposedDropdownMenuStyle);
+            wrap.setHint(label);
+            int fieldRadius=ui.dp(13);
+            wrap.setBoxCornerRadii(fieldRadius,fieldRadius,fieldRadius,fieldRadius);
+            wrap.setBoxBackgroundColor(ui.color(R.color.ap_surface));
+            com.google.android.material.textfield.MaterialAutoCompleteTextView box=new com.google.android.material.textfield.MaterialAutoCompleteTextView(wrap.getContext());
+            box.setInputType(android.text.InputType.TYPE_NULL);
+            box.setTextSize(ui.sp(13));
+            box.setTextColor(ui.color(R.color.ap_ink));
+            box.setMinHeight(ui.dp(50));
+            box.setContentDescription(label);
+            box.setAdapter(new ArrayAdapter<String>(ui.c,android.R.layout.simple_list_item_1,labels) {
+                // Always list every option, whatever is currently selected.
+                @Override public Filter getFilter() {
+                    return new Filter() {
+                        @Override protected FilterResults performFiltering(CharSequence constraint) {
+                            FilterResults r=new FilterResults();
+                            r.values=labels;
+                            r.count=labels.length;
+                            return r;
+                        }
+                        @Override protected void publishResults(CharSequence constraint,FilterResults results) {
+                            notifyDataSetChanged();
+                        }
+                    };
+                }
+            });
+            wrap.addView(box,new LinearLayout.LayoutParams(-1,-2));
+            wrap.setEndIconMode(TextInputLayout.END_ICON_DROPDOWN_MENU);
+            box.setText(labels.length==0?"":labels[0],false);
+            selectIndex.put(key,0);
+            box.setOnItemClickListener((list,view,position,id)->selectIndex.put(key,position));
+            LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);
+            p.bottomMargin=ui.dp(16);
+            parent.addView(wrap,p);
+            selectBoxes.put(key,box);
             selectValues.put(key,values);
+            selectLabels.put(key,labels);
         }
         public void check(String key,String label,boolean checked) {
             CheckBox b=new CheckBox(ui.c);
             b.setText(label);
-            b.setTextSize(12);
+            b.setTextSize(ui.sp(12));
             b.setChecked(checked);
             b.setTextColor(ui.color(R.color.ap_sub));
             parent.addView(b);
@@ -380,10 +475,11 @@ import java.util.*;
             checks.put(key,b);
         }
         public String get(String key) {
+            if(dateValues.containsKey(key))return dateValues.get(key);
             if(inputs.containsKey(key))return inputs.get(key).getText().toString().trim();
-            if(selects.containsKey(key)) {
+            if(selectBoxes.containsKey(key)) {
                 String[] values=selectValues.get(key);
-                return values.length==0?"":values[selects.get(key).getSelectedItemPosition()];
+                return values.length==0?"":values[selectIndex.get(key)];
             }
             return "";
         }
@@ -394,7 +490,7 @@ import java.util.*;
             org.json.JSONObject j=new org.json.JSONObject();
             try {
                 for(String key:inputs.keySet())j.put(key,get(key));
-                for(String key:selects.keySet())j.put(key,get(key));
+                for(String key:selectBoxes.keySet())j.put(key,get(key));
                 for(String key:checks.keySet())j.put(key,checked(key));
             } catch(org.json.JSONException e) {
                 throw new IllegalStateException(e);
@@ -403,9 +499,15 @@ import java.util.*;
         }
         public void restore(org.json.JSONObject j) {
             if(j==null)return;
-            for(String k:inputs.keySet())if(j.has(k))inputs.get(k).setText(j.optString(k));
+            for(String k:inputs.keySet())if(j.has(k)) {
+                if(dateValues.containsKey(k))setDate(k,inputs.get(k),j.optString(k));
+                else inputs.get(k).setText(j.optString(k));
+            }
             for(String k:checks.keySet())if(j.has(k))checks.get(k).setChecked(j.optBoolean(k));
-            for(String k:selects.keySet())for(int i=0; i<selectValues.get(k).length; i++)if(selectValues.get(k)[i].equals(j.optString(k)))selects.get(k).setSelection(i);
+            for(String k:selectBoxes.keySet())for(int i=0; i<selectValues.get(k).length; i++)if(selectValues.get(k)[i].equals(j.optString(k))) {
+                selectIndex.put(k,i);
+                selectBoxes.get(k).setText(selectLabels.get(k)[i],false);
+            }
         }
     }
 }

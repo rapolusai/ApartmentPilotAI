@@ -1,6 +1,8 @@
 server:
   address: ${SERVER_ADDRESS:127.0.0.1}
   port: ${SERVER_PORT:8080}
+  # Behind AWS ALB/nginx use the client IP from X-Forwarded-For (Tomcat trusts only internal proxy addresses).
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:native}
   error:
     include-stacktrace: never
     include-message: never
@@ -36,3 +38,13 @@ app:
   session-hours: 12
   billing-job-enabled: false
   invite-display-key: ${APP_INVITE_DISPLAY_KEY:}
+  # PIN login protection (LoginGuard). Only failed attempts count; a correct PIN clears them.
+  # enabled=false falls back to the old per-mobile limit of 10 attempts per 15 minutes.
+  login-guard:
+    enabled: true
+    device-free-failures: 5      # tier A: same mobile + client IP
+    device-cap-minutes: 60
+    account-free-failures: 20    # tier B: same mobile from any IP
+    account-cap-minutes: 15
+    ip-failures-per-15-minutes: 30
+    decay-hours: 24

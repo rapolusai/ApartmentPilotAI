@@ -85,7 +85,7 @@ public final class FinanceReportScreens {
             LinearLayout summary=u.card(b);
             u.kv(summary,"Billed",Ui.money(billed));u.kv(summary,"Approved",Ui.money(paid));u.kv(summary,"Outstanding",Ui.money(billed.subtract(paid)));
             u.button(b,"Export collections CSV",R.drawable.ic_report,false,()->h.exportCsv("Collections · "+h.selectedMonth(),csv));
-            if(bills.length()==0)u.empty(b,"No bills this month","Generate bills to see collections by flat.");
+            if(bills.length()==0)u.empty(b,R.drawable.ic_receipt,"No bills this month","Generate bills to see collections by flat.");
             for(int i=0;i<bills.length();i++) {
                 JSONObject bill=bills.getJSONObject(i);
                 u.iconRow(u.card(b),bill.optString("flatLabel")+" · "+label(bill),Ui.money(bill.opt("paid"))+" paid / "+Ui.money(bill.opt("amount"))+" · "+bill.optString("title",bill.optString("kind")),R.drawable.ic_receipt,()->go("bill",bill.optString("id")));

@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
         }
         UUID id=UUID.randomUUID();
         db.update("insert into ap_support_request(id,tenant_id,requester_id,request_key,topic,message) values(?,?,?,?,?,?)",id,a.tenantId(),a.id(),key,topic,message);
-        db.audit(a.tenantId(),a.id(),"SUPPORT_REQUEST_RECORDED",id,null,"Private local record; external delivery not configured");
+        db.audit(a.tenantId(),a.actorId(),"SUPPORT_REQUEST_RECORDED",id,null,"Private local record; external delivery not configured");
         return db.one("select id,topic,message,status,created_at from ap_support_request where tenant_id=? and requester_id=? and id=?",a.tenantId(),a.id(),id);
     }
 }

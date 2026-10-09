@@ -14,7 +14,22 @@ import java.time.*;
         this.db=db;
         this.c=c;
     }
+    /** Staff and the owning flat's users see a private space's owner, consent and release window; everyone else sees only that it is private. */
     public List<Map<String,Object>> resources(Account a) {
+        var rows=allResources(a);
+        for(var r:rows)hidePrivateDetails(a,r);
+        return rows;
+    }
+    private void hidePrivateDetails(Account a,Map<String,Object> r) {
+        Object owner=r.get("privateFlatId");
+        r.put("privateSpace",owner!=null);
+        if(owner==null||a.staff()||(a.flatId()!=null&&a.flatId().equals(owner)))return;
+        r.remove("privateFlatId");
+        r.remove("ownerConsent");
+        r.remove("availableFrom");
+        r.remove("availableUntil");
+    }
+    private List<Map<String,Object>> allResources(Account a) {
         var rows=db.rows("select id,name,kind,capacity,bookable,private_flat_id,owner_consent,available_from,available_until from ap_resource where tenant_id=? order by kind,name",a.tenantId());
         for(var r:rows) {
             r.put("conflicts",db.rows("select other_id from ap_resource_conflict where tenant_id=? and resource_id=?",a.tenantId(),r.get("id")));
@@ -23,6 +38,7 @@ import java.time.*;
         return rows;
     }
     @Transactional public Object saveResource(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireAdmin();
         db.lockTenant(a.tenantId());
         var old=c.previous(a,"RESOURCE_SAVE",p);
@@ -48,8 +64,8 @@ import java.time.*;
                 UUID other=V.uid(v);
                 if(other.equals(id))throw new IllegalArgumentException("A space cannot conflict with itself.");
                 db.one("select id from ap_resource where tenant_id=? and id=?",a.tenantId(),other);
-                db.update("insert into ap_resource_conflict values(?,?,?) on conflict do nothing",a.tenantId(),id,other);
-                db.update("insert into ap_resource_conflict values(?,?,?) on conflict do nothing",a.tenantId(),other,id);
+                db.update("insert into ap_resource_conflict(tenant_id,resource_id,other_id) values(?,?,?) on conflict do nothing",a.tenantId(),id,other);
+                db.update("insert into ap_resource_conflict(tenant_id,resource_id,other_id) values(?,?,?) on conflict do nothing",a.tenantId(),other,id);
             }
         }
         c.remember(a,"RESOURCE_SAVE",p,id);
@@ -70,6 +86,7 @@ import java.time.*;
         return Map.of("ok",true);
     }
     @Transactional public Object block(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireAdmin();
         db.lockTenant(a.tenantId());
         var old=c.previous(a,"RESOURCE_BLOCK",p);
@@ -114,9 +131,10 @@ import java.time.*;
     }
     @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ) public List<Map<String,Object>> availability(Account a,Instant start,Instant end) {
         OperationsRules.window(start,end,Instant.now());
-        var rs=resources(a);
+        var rs=allResources(a);
         for(var r:rs) {
             r.put("available",free(a,r,start,end,null));
+            hidePrivateDetails(a,r);
             r.remove("privateFlatId");
         }
         return rs;
@@ -136,7 +154,7 @@ import java.time.*;
         for(UUID id:ids)for(var r:db.rows("select other_id from ap_resource_conflict where tenant_id=? and resource_id=?",a.tenantId(),id))if(ids.contains((UUID)r.get("otherId")))throw ApiError.conflict("The event area occupies one of the selected parking spaces. Choose non-conflicting spaces.");
     }
     private void items(Account a,UUID id,List<Map<String,Object>> list,boolean offered) {
-        for(var i:list)db.update("insert into ap_booking_item values(?,?,?,?,?)",a.tenantId(),id,V.id(i,"resourceId"),V.num(i,"quantity",1,100),offered);
+        for(var i:list)db.update("insert into ap_booking_item(tenant_id,booking_id,resource_id,quantity,offered) values(?,?,?,?,?)",a.tenantId(),id,V.id(i,"resourceId"),V.num(i,"quantity",1,100),offered);
     }
     private void event(Account a,UUID id,String status,String note) {
         db.update("insert into ap_booking_event(id,tenant_id,booking_id,actor_id,status,note) values(?,?,?,?,?,?)",UUID.randomUUID(),a.tenantId(),id,a.id(),status,note);
@@ -179,6 +197,7 @@ import java.time.*;
         return Map.of("id",id,"status","PENDING");
     }
     @Transactional public Object decide(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         db.lockTenant(a.tenantId());
         var b=get(a,id);
         var old=c.previous(a,"BOOKING_DECISION",p);
@@ -227,7 +246,7 @@ import java.time.*;
         }
         db.update("update ap_booking set status=?,decision_note=?,revision=revision+1 where tenant_id=? and id=?",status,note,a.tenantId(),id);
         event(a,id,status,note.isBlank()?status:note);
-        db.notify(a.tenantId(),(UUID)b.get("createdBy"),"BOOKING:"+id+":"+(revision+1),"Booking updated",status+" · "+b.get("title"),"booking:"+id);
+        db.notify(a.tenantId(),(UUID)b.get("createdBy"),"BOOKING:"+id+":"+(revision+1),"Booking "+status.toLowerCase(Locale.ROOT).replace('_',' '),(note.isBlank()?"":"Reason: "+note+" · ")+status+" · "+b.get("title"),"booking:"+id);
         c.remember(a,"BOOKING_DECISION",p,id);
         c.audit(a,"BOOKING_STATUS",id,b.get("status").toString(),status);
         return Map.of("id",id,"status",status);

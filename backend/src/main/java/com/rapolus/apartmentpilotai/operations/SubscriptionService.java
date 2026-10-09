@@ -25,11 +25,23 @@ import java.security.MessageDigest;
     private int price(UUID tenant) {
         return OperationsRules.planPrice((int)db.count("select count(*) from ap_flat where tenant_id=?",tenant));
     }
+    // No 0/O, 1/I/L: codes are read aloud and typed by hand. 31^8 combinations.
+    private static final String CODE_ALPHABET="23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+    private static final java.security.SecureRandom RANDOM=new java.security.SecureRandom();
+    /** New referral codes look like AP-7KQ4-M2XD. Codes issued earlier keep working unchanged. */
+    static String referralCode() {
+        StringBuilder out=new StringBuilder("AP-");
+        for(int i=0; i<8; i++) {
+            if(i==4)out.append('-');
+            out.append(CODE_ALPHABET.charAt(RANDOM.nextInt(CODE_ALPHABET.length())));
+        }
+        return out.toString();
+    }
     private Map<String,Object> ensure(UUID tenant) {
         db.lockTenant(tenant);
         var tenantRow=db.one("select created_at from ap_tenant where id=?",tenant);
         LocalDate start=Instant.parse(tenantRow.get("createdAt").toString()).atZone(ZoneId.of("Asia/Kolkata")).toLocalDate();
-        db.update("insert into ap_subscription(tenant_id,activated_at,first_end,referral_code) values(?,?,?,?) on conflict(tenant_id) do nothing",tenant,V.sql(start),V.sql(start.plusMonths(1)),"AP-"+Tokens.create().substring(0,14).toUpperCase(Locale.ROOT));
+        db.update("insert into ap_subscription(tenant_id,activated_at,first_end,referral_code) values(?,?,?,?) on conflict(tenant_id) do nothing",tenant,V.sql(start),V.sql(start.plusMonths(1)),referralCode());
         var s=db.one("select * from ap_subscription where tenant_id=?",tenant);
         LocalDate cursor=start;
         // Billing cycles are anchored to the original anniversary, including short months.
@@ -38,12 +50,21 @@ import java.security.MessageDigest;
             db.update("insert into ap_subscription_invoice(id,tenant_id,starts_on,ends_on,amount) values(?,?,?,?,?) on conflict(tenant_id,starts_on) do nothing",UUID.randomUUID(),tenant,V.sql(cursor),V.sql(next),BigDecimal.valueOf(price(tenant)));
             cursor=next;
         }
+        // The first month is the free trial. Waive its invoice once; a payment already recorded is left as is.
+        db.update("update ap_subscription_invoice set credit=amount,status='WAIVED' where tenant_id=? and starts_on=? and paid=0 and credit=0",tenant,V.sql(start));
         return s;
+    }
+    /** Trial lasts the whole first month (to the first-month end at 00:00 IST), and never less than the stored trial end. */
+    static Instant trialEnd(Instant storedTrialEnd,LocalDate firstEnd) {
+        Instant monthEnd=firstEnd.atStartOfDay(ZoneId.of("Asia/Kolkata")).toInstant();
+        return storedTrialEnd.isAfter(monthEnd)?storedTrialEnd:monthEnd;
     }
     @Transactional(readOnly=true) public Entitlement entitlement(UUID tenant) {
         LocalDate today=V.today();
-        var row=db.one("select t.trial_ends_at, exists(select 1 from ap_subscription_invoice i where i.tenant_id=t.id and i.starts_on<=? and i.ends_on>? and i.credit+i.paid=i.amount) as current_invoice_covered, exists(select 1 from ap_referral r where r.referred_id=t.id) as referral_applied from ap_tenant t where t.id=?",V.sql(today),V.sql(today),tenant);
-        Instant trialEndsAt=Instant.parse(row.get("trialEndsAt").toString());
+        // The waived trial-month invoice does not count as a paid subscription; the trial state covers that month.
+        var row=db.one("select t.trial_ends_at,t.created_at, exists(select 1 from ap_subscription_invoice i left join ap_subscription s on s.tenant_id=i.tenant_id where i.tenant_id=t.id and i.starts_on<=? and i.ends_on>? and i.credit+i.paid=i.amount and (s.activated_at is null or i.starts_on<>s.activated_at)) as current_invoice_covered, exists(select 1 from ap_referral r where r.referred_id=t.id) as referral_applied from ap_tenant t where t.id=?",V.sql(today),V.sql(today),tenant);
+        LocalDate firstDay=Instant.parse(row.get("createdAt").toString()).atZone(ZoneId.of("Asia/Kolkata")).toLocalDate();
+        Instant trialEndsAt=trialEnd(Instant.parse(row.get("trialEndsAt").toString()),firstDay.plusMonths(1));
         boolean covered=Boolean.TRUE.equals(row.get("currentInvoiceCovered"));
         var state=SubscriptionAccessPolicy.state(Instant.now(),trialEndsAt,covered);
         return new Entitlement(SubscriptionAccessPolicy.allowed(state),state.name(),trialEndsAt.toString(),Boolean.TRUE.equals(row.get("referralApplied")));
@@ -83,7 +104,7 @@ import java.security.MessageDigest;
         if(s.get("offerAcceptedAt")!=null)return Map.of("accepted",true,"qualified",award(a.tenantId()),"termsVersion",s.get("offerTermsVersion"));
         if(!OperationsRules.withinFirstMonth(LocalDate.parse(s.get("activatedAt").toString()),LocalDate.parse(s.get("firstEnd").toString()),V.today()))throw ApiError.conflict("The first-month offer window has ended.");
         db.update("update ap_subscription set offer_accepted_at=now(),offer_terms_version='2026-09-v1' where tenant_id=?",a.tenantId());
-        db.audit(a.tenantId(),a.id(),"REFERRAL_OFFER_ACCEPTED",a.tenantId(),null,"Terms 2026-09-v1; provider verification still required");
+        db.audit(a.tenantId(),a.actorId(),"REFERRAL_OFFER_ACCEPTED",a.tenantId(),null,"Terms 2026-09-v1; provider verification still required");
         boolean qualified=award(a.tenantId());
         return Map.of("accepted",true,"qualified",qualified,"termsVersion","2026-09-v1");
     }
@@ -91,7 +112,8 @@ import java.security.MessageDigest;
         a.requireAdmin();
         promotionLock();
         String code=V.text(p,"code",24).toUpperCase(Locale.ROOT);
-        var referrer=db.one("select tenant_id from ap_subscription where referral_code=?",code);
+        // An unknown code is a correctable input error for the form, not a missing page.
+        var referrer=db.find("select tenant_id from ap_subscription where referral_code=?",code).orElseThrow(()->new IllegalArgumentException("Referral code not found. Check the code and try again."));
         UUID source=(UUID)referrer.get("tenantId");
         if(source.equals(a.tenantId()))throw ApiError.conflict("You cannot refer your own apartment.");
         lockPair(source,a.tenantId());
@@ -114,7 +136,7 @@ import java.security.MessageDigest;
         }
         UUID id=UUID.randomUUID();
         db.update("insert into ap_referral(id,referrer_id,referred_id) values(?,?,?)",id,source,a.tenantId());
-        db.audit(a.tenantId(),a.id(),"REFERRAL_LINKED",id,null,"First month only");
+        db.audit(a.tenantId(),a.actorId(),"REFERRAL_LINKED",id,null,"First month only");
         award(source);
         return Map.of("id",id);
     }
@@ -137,15 +159,19 @@ import java.security.MessageDigest;
         UUID root=parent.isEmpty()?tenant:(UUID)parent.get().get("referrerId");
         // Single promotion lock serialises cross-tenant rewards and prevents referral/activation races.
         var s=ensure(tenant);
+        // Idempotent: a repeat keeps the original verifier and time, writes no second audit row and awards nothing again.
+        if(s.get("verifiedAt")!=null)return Map.of("verified",true,"alreadyVerified",true,"verifiedAt",s.get("verifiedAt"),"verifiedBy",String.valueOf(s.get("verifiedBy")));
         if(s.get("installedAt")==null)throw ApiError.conflict("The apartment Admin must first register this app installation.");
-        if(db.count("select count(*) from ap_user where tenant_id=? and role='RESIDENT' and status='ACTIVE'",tenant)<1)throw ApiError.conflict("At least one approved resident is required for activation review.");
+        // Any approved flat member counts: promoting the only resident to Treasurer must not block verification.
+        if(db.count("select count(*) from ap_user where tenant_id=? and role in ('RESIDENT','TREASURER') and flat_id is not null and status='ACTIVE'",tenant)<1)throw ApiError.conflict("At least one approved resident is required for activation review.");
         String verifier=V.text(p,"verifiedBy",80);
         if(!V.bool(p,"identityAndApartmentVerified",false))throw new IllegalArgumentException("Independent apartment and authorised-admin verification is required.");
-        db.update("update ap_subscription set verified_at=coalesce(verified_at,now()),verified_by=? where tenant_id=?",verifier,tenant);
+        db.update("update ap_subscription set verified_at=now(),verified_by=? where tenant_id=? and verified_at is null",verifier,tenant);
         db.audit(tenant,null,"PROVIDER_ACTIVATION_VERIFIED",tenant,null,verifier);
         award(root);
         award(tenant);
-        return Map.of("verified",true);
+        var done=db.one("select verified_at,verified_by from ap_subscription where tenant_id=?",tenant);
+        return Map.of("verified",true,"alreadyVerified",false,"verifiedAt",done.get("verifiedAt"),"verifiedBy",String.valueOf(done.get("verifiedBy")));
     }
     private boolean eligible(UUID tenant) {
         var s=ensure(tenant);
@@ -172,15 +198,18 @@ import java.security.MessageDigest;
     }
     private void waive(UUID tenant) {
         var s=ensure(tenant);
-        var i=db.one("select id,amount,paid,credit from ap_subscription_invoice where tenant_id=? and starts_on=?",tenant,V.sql(LocalDate.parse(s.get("activatedAt").toString())));
+        // Month one is already the free trial, so the reward waives the first paid month.
+        LocalDate start=LocalDate.parse(s.get("activatedAt").toString());
+        db.update("insert into ap_subscription_invoice(id,tenant_id,starts_on,ends_on,amount) values(?,?,?,?,?) on conflict(tenant_id,starts_on) do nothing",UUID.randomUUID(),tenant,V.sql(start.plusMonths(1)),V.sql(start.plusMonths(2)),BigDecimal.valueOf(price(tenant)));
+        var i=db.one("select id,amount,paid,credit from ap_subscription_invoice where tenant_id=? and starts_on=?",tenant,V.sql(start.plusMonths(1)));
         if(((BigDecimal)i.get("credit")).compareTo((BigDecimal)i.get("amount"))==0)return;
         if(((BigDecimal)i.get("paid")).signum()>0) {
-            db.update("insert into ap_subscription_refund_review(invoice_id,tenant_id,reason) values(?,?,?) on conflict do nothing",i.get("id"),tenant,"First-month reward earned after payment; verify refund manually; no future-month credit");
+            db.update("insert into ap_subscription_refund_review(invoice_id,tenant_id,reason) values(?,?,?) on conflict do nothing",i.get("id"),tenant,"First-paid-month reward earned after payment; verify refund manually; no further credit");
             db.audit(tenant,null,"REFERRAL_REFUND_REVIEW",i.get("id"),null,"Already paid: provider refund review needed, no automatic extra free month");
             return;
         }
         db.update("update ap_subscription_invoice set credit=amount,status='WAIVED' where id=? and paid=0",i.get("id"));
-        db.audit(tenant,null,"FIRST_MONTH_WAIVED",i.get("id"),null,"Referral reward; future invoices unchanged");
+        db.audit(tenant,null,"FIRST_PAID_MONTH_WAIVED",i.get("id"),null,"Referral reward; later invoices unchanged");
     }
     @Transactional public Object settle(String key,UUID invoice,Map<String,Object> p) {
         provider(key);

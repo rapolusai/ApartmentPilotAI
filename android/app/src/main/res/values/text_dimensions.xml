@@ -1,0 +1,5 @@
+<resources>
+ <!-- Reference sizes on phones; values-sw600dp makes them a step larger on tablets. -->
+ <dimen name="brand_footer_text">9sp</dimen>
+ <dimen name="nav_label_text">10sp</dimen>
+</resources>

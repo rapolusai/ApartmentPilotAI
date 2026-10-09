@@ -23,8 +23,10 @@ import org.slf4j.LoggerFactory;
     @Bean PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
     }
+    // The ERROR dispatch only renders the status the original (already authorised) request produced. Without this permit the
+    // stateless context is gone by then and the entry point turned every unmapped 4xx/5xx into a misleading 401.
     @Bean SecurityFilterChain security(HttpSecurity http,Db db,SubscriptionService subscriptions) throws Exception {
-        http.csrf(c->c.disable()).sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) .authorizeHttpRequests(a->a.requestMatchers("/actuator/health","/api/v1/status","/api/v1/auth/**","/api/v1/provider/**").permitAll().anyRequest().authenticated()) .exceptionHandling(e->e.authenticationEntryPoint((req,res,ex)->json401(res))) .addFilterBefore(new ActivityLoggingFilter(),UsernamePasswordAuthenticationFilter.class).addFilterBefore(new BearerFilter(db,subscriptions),UsernamePasswordAuthenticationFilter.class);
+        http.csrf(c->c.disable()).sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) .authorizeHttpRequests(a->a.requestMatchers("/actuator/health","/api/v1/status","/api/v1/auth/**","/api/v1/provider/**").permitAll().dispatcherTypeMatchers(DispatcherType.ERROR).permitAll().anyRequest().authenticated()) .exceptionHandling(e->e.authenticationEntryPoint((req,res,ex)->json401(res))) .addFilterBefore(new ActivityLoggingFilter(),UsernamePasswordAuthenticationFilter.class).addFilterBefore(new BearerFilter(db,subscriptions),UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
     static void json401(HttpServletResponse r) throws IOException {
@@ -70,8 +72,10 @@ import org.slf4j.LoggerFactory;
             if(header!=null && header.startsWith("Bearer ")) {
                 String token=header.substring(7);
                 var row=db.find("select u.id,u.tenant_id,u.flat_id,u.name,u.role from ap_session s join ap_user u on u.id=s.user_id where s.token_hash=? and s.expires_at>now() and u.status='ACTIVE'",Tokens.digest(token));
+                // An expired or unknown token stays unauthenticated: protected routes still receive the same JSON 401 from
+                // the entry point, while public routes such as login and status keep working for a client holding a stale token.
                 if(row.isEmpty()) {
-                    json401(res);
+                    chain.doFilter(req,res);
                     return;
                 }
                 var u=row.get();

@@ -19,10 +19,12 @@ class SettingsSectionTest {
 
     @Test void oneFormPreservesUnrelatedCurrentSettings() {
         when(commands.settings(admin)).thenReturn(Map.of("upi","old@bank","reminderDays","5,9","lateEnabled",false));
-        doReturn(Map.of("ok",true)).when(service).saveSettings(eq(admin),anyMap());
+        doReturn(Map.of("ok",true)).when(service).saveSettings(eq(admin),anyMap(),anyString());
         service.saveSettingsSection(admin,"payment",Map.of("upi","new@bank"));
         @SuppressWarnings("unchecked") ArgumentCaptor<Map<String,Object>> payload=ArgumentCaptor.forClass(Map.class);
-        verify(service).saveSettings(eq(admin),payload.capture());
+        ArgumentCaptor<String> audit=ArgumentCaptor.forClass(String.class);
+        verify(service).saveSettings(eq(admin),payload.capture(),audit.capture());
+        assertEquals("Payment account updated: upi",audit.getValue());
         assertEquals("new@bank",payload.getValue().get("upi"));
         assertEquals("5,9",payload.getValue().get("reminderDays"));
         assertEquals(false,payload.getValue().get("lateEnabled"));

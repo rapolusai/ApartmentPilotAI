@@ -38,9 +38,13 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     private ApiClient api;
     private Ui ui;
     private LinearLayout content;
+    // Tablet list + detail: sibling list shown beside Wave 1 detail pages.
+    private LinearLayout side;
+    private View sideScroll;
     private BottomNavigationView nav;
     private TextView title,subtitle;
     private View progress;
+    private androidx.swiperefreshlayout.widget.SwipeRefreshLayout refresher;
     private View inlineError;
     private Ui.Fields fields;
     private JSONObject restoreFields;
@@ -50,6 +54,8 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     private JSONObject signupDraft=new JSONObject(),invitePreview=new JSONObject();
     private JSONObject pageDrafts=new JSONObject();
     private final Deque<String[]> history=new ArrayDeque<>();
+    // True only while a successful non-GET request runs its success callback.
+    private boolean afterSave;
     private int generation=0;
     private boolean busy=false;
     private final Set<String> selected=new LinkedHashSet<>();
@@ -64,12 +70,24 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         api=((PilotApplication)getApplication()).api();
         ui=new Ui(this);
         content=findViewById(R.id.content);
+        side=findViewById(R.id.side);
+        sideScroll=findViewById(R.id.sideScroll);
         nav=findViewById(R.id.navigation);
         nav.setBackgroundColor(ui.color(R.color.ap_surface));
         ViewCompat.setOnApplyWindowInsetsListener(nav,(v,insets)->insets);
         title=findViewById(R.id.title);
         subtitle=findViewById(R.id.subtitle);
         progress=findViewById(R.id.progress);
+        refresher=findViewById(R.id.refresh);
+        refresher.setColorSchemeColors(ui.color(R.color.ap_pine));
+        refresher.setProgressBackgroundColorSchemeColor(ui.color(R.color.ap_surface));
+        refresher.setOnRefreshListener(()-> {
+            refresher.setRefreshing(false);
+            // Pull down reloads the page; anything typed into a search box is kept.
+            if(busy||!api.signedIn())return;
+            restoreFields=fields==null?null:fields.values();
+            render();
+        });
         featureScreens=new FeatureScreens(this);
         localFiles=new LocalFiles(this);
         View root=findViewById(R.id.root);
@@ -180,10 +198,27 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         go(p,"");
     }
     private void go(String p,String record) {
-        history.push(new String[] {
+        if(afterSave&&isFormPage(page)) {
+            // A saved form is finished: return to an earlier instance of the destination instead of
+            // stacking it again, and never leave the submitted form reachable with Back.
+            int depth=0,found=-1;
+            for(String[] entry:history) {
+                if(entry[0].equals(p)&&(record.isEmpty()||record.equals(entry[1]))) {
+                    found=depth;
+                    break;
+                }
+                depth++;
+            }
+            for(int i=0; i<=found; i++)history.pop();
+        } else history.push(new String[] {
             page,id
         }
         );
+        // A new apartment signup started from sign-in must not show an earlier, abandoned attempt.
+        if(p.equals("admin-signup")&&!page.equals("setup-apartment")) {
+            signupDraft=new JSONObject();
+            ((PilotApplication)getApplication()).transientSignup=signupDraft;
+        }
         page=p;
         id=record;
         resetCommandKey();
@@ -192,6 +227,78 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         if(!p.equals("bulk-approval")&&!p.equals("bulk-review"))selected.clear();
         render();
         ((ScrollView)findViewById(R.id.scroll)).scrollTo(0,0);
+    }
+    /** On tablets, list sibling records beside a detail page so Admins can move between them without Back. */
+    private void renderSidePane() {
+        boolean wide=api.signedIn()&&com.rapolus.apartmentpilotai.data.TabletPolicy.split(getResources().getConfiguration().screenWidthDp);
+        String path=wide?com.rapolus.apartmentpilotai.data.TabletPolicy.sideListPath(page,staff(),admin()):null;
+        side.removeAllViews();
+        if(path==null) {
+            sideScroll.setVisibility(View.GONE);
+            return;
+        }
+        sideScroll.setVisibility(View.VISIBLE);
+        side.addView(ui.text(com.rapolus.apartmentpilotai.data.TabletPolicy.sideListTitle(page),13,true,R.color.ap_ink));
+        ui.gap(side,8);
+        LinearLayout card=ui.card(side);
+        List<String> paths=new ArrayList<>();
+        paths.add(path);
+        if(page.equals("ticket")&&staff())paths.add("/ops/tickets?kind=COMPLAINT");
+        loadSideRows(paths,0,card,page,id,generation);
+    }
+    // Uses ApiClient directly: request() allows one call at a time and the detail page is loading in parallel.
+    private void loadSideRows(List<String> paths,int index,LinearLayout card,String listPage,String current,int version) {
+        if(index>=paths.size())return;
+        api.call("GET",paths.get(index),null,(result,error)-> {
+            if(isFinishing()||isDestroyed()||version!=generation)return;
+            if(error!=null||!(result instanceof JSONArray)) {
+                ui.note(card,"List unavailable.");
+                return;
+            }
+            JSONArray rows=(JSONArray)result;
+            for(int i=0; i<rows.length(); i++) {
+                JSONObject r=rows.optJSONObject(i);
+                if(r==null)continue;
+                String rid=r.optString("id");
+                boolean selected=rid.equals(current);
+                String[] text=sideRow(listPage,r);
+                ui.iconRow(card,(selected?"▶ ":"")+text[0],text[1],sideIcon(listPage),selected?null:()->openSibling(listPage,rid));
+            }
+            if(index==paths.size()-1&&card.getChildCount()==0)ui.note(card,"Nothing here yet.");
+            loadSideRows(paths,index+1,card,listPage,current,version);
+        });
+    }
+    private String[] sideRow(String listPage,JSONObject r) {
+        switch(listPage) {
+            case "flat": return new String[] {r.optString("label"),"Block "+r.optString("block")+" · "+(r.optBoolean("occupied")?"Occupied":"Vacant")+(r.optBoolean("active",true)?"":" · Inactive")};
+            case "join-review": case "member": return new String[] {r.optString("name"),(r.isNull("flatLabel")?"Apartment team":r.optString("flatLabel"))+" · "+pretty(r.optString("status"))};
+            case "payment": return new String[] {r.optString("flatLabel")+" · "+Ui.money(r.opt("amount")),pretty(r.optString("status"))+" · "+pretty(r.optString("mode"))};
+            case "ticket": return new String[] {r.optString("title"),pretty(r.optString("status"))+" · "+r.optString("category")};
+            default: return new String[] {r.optString("title"),pretty(r.optString("status"))};
+        }
+    }
+    private int sideIcon(String listPage) {
+        switch(listPage) {
+            case "flat": return R.drawable.ic_home;
+            case "join-review": case "member": return R.drawable.ic_users;
+            case "payment": return R.drawable.ic_wallet;
+            case "ticket": return R.drawable.ic_tools;
+            default: return R.drawable.ic_notice;
+        }
+    }
+    /** Switch the detail pane to a sibling record; Back still returns to the list the user came from. */
+    private void openSibling(String listPage,String record) {
+        if(busy)return;
+        page=listPage;
+        id=record;
+        resetCommandKey();
+        restoreFields=null;
+        render();
+        ((ScrollView)findViewById(R.id.scroll)).scrollTo(0,0);
+    }
+    /** Pages whose job ends when their command is saved; they must not stay reachable with Back. */
+    private static boolean isFormPage(String p) {
+        return p.endsWith("-form")||p.endsWith("-edit")||p.endsWith("-reverse")||p.endsWith("-settings")||p.endsWith("-preview")||Arrays.asList("mark-paid","payment-reject","bulk-review","change-pin","ticket-update","service-complete","join-reject","referral-claim","handover","opening-balance","opening-dues","transparency","booking-alternative","billing-options","payee","verification","reminders","booking-policy").contains(p);
     }
     private void back() {
         if(busy)return;
@@ -227,6 +334,9 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             id="";
         }
         if(api.signedIn()&&!staff()&&page.equals("payment"))page="payment-status";
+        renderSidePane();
+        // Forms are never reloaded by a pull, so typed entries cannot be lost.
+        refresher.setEnabled(api.signedIn()&&!isFormPage(page));
         nav.setVisibility(api.signedIn()&&!page.equals("subscription-required")?View.VISIBLE:View.GONE);
         nav.getMenu().findItem(R.id.nav_money).setTitle(staff()?R.string.money:R.string.dues);
         if(api.signedIn()) {
@@ -235,6 +345,8 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             nav.getMenu().findItem(tab).setChecked(true);
         }
         boolean homeShell=api.signedIn()&&page.equals("home");
+        // Root pages (signed-in Home, the sign-in chooser) have nowhere to go back to.
+        findViewById(R.id.back).setVisibility(homeShell&&history.isEmpty()||!api.signedIn()&&page.equals("welcome")?View.INVISIBLE:View.VISIBLE);
         findViewById(R.id.notifications).setVisibility(homeShell?View.VISIBLE:View.GONE);
         subtitle.setText(api.signedIn()?api.account().optString("apartmentName","ApartmentCare"):"ApartmentCare");
         subtitle.setVisibility(homeShell?View.VISIBLE:View.GONE);
@@ -391,11 +503,16 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                     showFailureState(destination,originPage,originId,originRole,originFields,originAccount);
                     return;
                 }
-                showError(error.message);
+                showError(error.message,error.status>=500||error.status==0);
                 return;
             }
             try {
-                onSuccess.accept(result);
+                afterSave=!"GET".equals(method);
+                try {
+                    onSuccess.accept(result);
+                } finally {
+                    afterSave=false;
+                }
                 if(fields!=null&&restoreFields!=null) {
                     fields.restore(restoreFields);
                     restoreFields=null;
@@ -407,19 +524,23 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         );
     }
     private void setButtons(View v,boolean enabled) {
-        if(v instanceof Button||v instanceof Spinner)v.setEnabled(enabled);
+        if(v instanceof Button||v instanceof Spinner||v instanceof AutoCompleteTextView)v.setEnabled(enabled);
         if(v instanceof ViewGroup) {
             ViewGroup g=(ViewGroup)v;
             for(int i=0; i<g.getChildCount(); i++)setButtons(g.getChildAt(i),enabled);
         }
     }
     private void showError(String text) {
+        showError(text,false);
+    }
+    // Validation and request errors are fixed by editing the form; only server failures offer a retry.
+    private void showError(String text,boolean retryable) {
         if(inlineError!=null&&inlineError.getParent()==content)content.removeView(inlineError);
         int childIndex=content.getChildCount();
         LinearLayout card=ui.card(content);
         inlineError=content.getChildAt(childIndex);
         card.addView(ui.text(text,12,false,R.color.ap_red));
-        ui.button(card,"Retry / refresh",R.drawable.ic_clock,false,()-> {
+        if(retryable)ui.button(card,"Retry / refresh",R.drawable.ic_clock,false,()-> {
             restoreFields=fields==null?null:fields.values();
             render();
         }
@@ -507,7 +628,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     }
     private void subscriptionRequired() {
         header("Subscription required");
-        ui.state(content,R.drawable.ic_shield,"Apartment access paused","The apartment’s 3-day free trial has ended. An active subscription or earned referral credit is required to continue. One apartment subscription covers its Admin, Treasurer, and Residents.",R.color.ap_amber,R.color.ap_ambg);
+        ui.state(content,R.drawable.ic_shield,"Apartment access paused","The apartment’s free first month has ended. An active subscription or earned referral credit is required to continue. One apartment subscription covers its Admin, Treasurer, and Residents.",R.color.ap_amber,R.color.ap_ambg);
         if(admin())ui.button(content,"View subscription",R.drawable.ic_receipt,true,()->go("subscription"));
         else ui.note(content,"Please ask your apartment Admin to review Subscription & referrals.");
         ui.button(content,"Sign out",R.drawable.ic_logout,false,()->ui.confirm("Sign out?","You can sign in again after the apartment Admin restores access.","Sign out",()->request("POST","/logout",json(),r->exitSession())));
@@ -546,7 +667,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         buildings.setScaleType(ImageView.ScaleType.FIT_XY);
         buildings.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         art.addView(buildings,new FrameLayout.LayoutParams(-1,-1));
-        TextView badge=ui.text("✓  A little less admin.",11,true,R.color.ap_onlime);
+        TextView badge=ui.text("✓  A little less admin.",11,true,R.color.ap_ink);
         badge.setGravity(Gravity.CENTER);
         badge.setPadding(ui.dp(10),ui.dp(6),ui.dp(10),ui.dp(6));
         android.graphics.drawable.GradientDrawable badgeBg=new android.graphics.drawable.GradientDrawable();
@@ -670,7 +791,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         formStart();
         fields.field("name","Your name",signupDraft.optString("name"),TEXT);
         fields.field("mobile","Mobile number",signupDraft.optString("mobile"),InputType.TYPE_CLASS_PHONE);
-        fields.field("pin","Create PIN",signupDraft.optString("pin"),NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        fields.field("pin","Create 6-digit PIN","",NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);
         fields.check("authorised","I am authorised to manage this apartment.",false);
         fields.limit("name",80);fields.limit("mobile",10);fields.limit("pin",6);
         ui.button(content,"Continue",R.drawable.ic_arrow_right,true,()-> {
@@ -686,7 +807,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     private void setup() {
         header("Apartment details");
         if(signupDraft.optString("pin").isEmpty()) {
-            ui.empty(content,"Enter your details again","Your PIN was cleared when the app restarted.");
+            ui.empty(content,R.drawable.ic_key,"Enter your details again","Your PIN was cleared when the app restarted.");
             ui.button(content,"Admin details",R.drawable.ic_user,true,()->go("admin-signup"));
             return;
         }
@@ -699,15 +820,18 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             "Hyderabad","Bengaluru","Chennai","Pune","Mumbai","Delhi NCR","Other"
         }
         );
+        fields.field("otherCity","City name · if you chose Other","",TEXT);
         fields.field("address","Address","",TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         fields.field("pinCode","PIN code","",NUMBER);
         fields.field("flats","Number of flats · 5–50","10",NUMBER);
-        fields.limit("apartmentName",80);fields.limit("address",300);fields.limit("pinCode",6);fields.limit("flats",2);
+        fields.limit("apartmentName",80);fields.limit("otherCity",80);fields.limit("address",300);fields.limit("pinCode",6);fields.limit("flats",2);
         ui.note(content,"Flats start at A-101. You can rename them after setup.");
         ui.button(content,"Create apartment",R.drawable.ic_building,true,()->safe(()-> {
             String validation=RegistrationPolicy.apartment(fields.get("apartmentName"),fields.get("address"),fields.get("pinCode"),fields.get("flats"));
             if(!validation.isEmpty()) {showError(validation);return;}
-            JSONObject body=json("name",signupDraft.optString("name"),"mobile",signupDraft.optString("mobile"),"pin",signupDraft.optString("pin"),"apartmentName",fields.get("apartmentName"),"city",fields.get("city"),"flats",Integer.parseInt(fields.get("flats")),"address",fields.get("address"),"pinCode",fields.get("pinCode"));
+            String city=fields.get("city").equals("Other")?fields.get("otherCity").trim():fields.get("city");
+            if(city.isEmpty()) {showError("Enter the city name.");return;}
+            JSONObject body=json("name",signupDraft.optString("name"),"mobile",signupDraft.optString("mobile"),"pin",signupDraft.optString("pin"),"apartmentName",fields.get("apartmentName"),"city",city,"flats",Integer.parseInt(fields.get("flats")),"address",fields.get("address"),"pinCode",fields.get("pinCode"));
             request("GET","/status",null,statusResult-> {
                 JSONObject status=(JSONObject)statusResult;
                 if(!status.optBoolean("localRegistration")) {
@@ -768,9 +892,15 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         fields.field("name","Your name","",TEXT);
         fields.field("mobile","Mobile number","",InputType.TYPE_CLASS_PHONE);
         fields.select("residentType","I am an",new String[] {"Owner","Tenant"},new String[] {"OWNER","TENANT"});
-        fields.field("pin","Create PIN","",NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        fields.field("pin","Create 6-digit PIN","",NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);
         fields.check("consent","I agree to share my details with the apartment admin.",false);
         fields.limit("name",80);fields.limit("mobile",10);fields.limit("pin",6);
+        // Returning from the flat step (for example after a rejected mobile) keeps what was typed, except the PIN.
+        try {
+            JSONObject kept=new JSONObject(signupDraft.toString());
+            kept.remove("pin");
+            if(kept.length()>0)fields.restore(kept);
+        } catch(JSONException ignored) {}
         ui.button(content,"Choose flat",R.drawable.ic_arrow_right,true,()-> {
             String validation=RegistrationPolicy.person(fields.get("name"),fields.get("mobile"),fields.get("pin"),fields.checked("consent"),false);
             if(!validation.isEmpty()) {showError(validation);return;}
@@ -783,13 +913,13 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     private void chooseFlat() {
         header("Choose your flat");
         if(signupDraft.optString("pin").isEmpty()) {
-            ui.empty(content,"Enter your details again","Your PIN was cleared when the app restarted.");
+            ui.empty(content,R.drawable.ic_key,"Enter your details again","Your PIN was cleared when the app restarted.");
             ui.button(content,"Account details",R.drawable.ic_user,true,()->go("signup"));
             return;
         }
         JSONArray flats=invitePreview.optJSONArray("flats");
         if(flats==null||flats.length()==0) {
-            ui.empty(content,"No unassigned flats","Ask the admin to complete a resident handover.");
+            ui.empty(content,R.drawable.ic_building,"No unassigned flats","Ask the admin to complete a resident handover.");
             ui.button(content,"Try another invite",R.drawable.ic_arrow_left,false,()->go("join"));
             return;
         }
@@ -827,7 +957,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         header("Join request");
         JSONObject pending=api.pendingJoin();
         if(pending==null) {
-            ui.empty(content,"Check your access","The status receipt is unavailable or expired. Sign in after approval, or contact your admin.");
+            ui.empty(content,R.drawable.ic_shield,"Check your access","The status receipt is unavailable or expired. Sign in after approval, or contact your admin.");
         } else {
             String status=pending.optString("status","PENDING");
             boolean approved=status.equals("ACTIVE"),rejected=status.equals("REJECTED");
@@ -881,8 +1011,31 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                     JSONObject bill=own;
                     BigDecimal due=Ui.decimal(bill.opt("amount")).subtract(Ui.decimal(bill.opt("paid")));
                     String state=due.signum()<=0?"Paid":bill.optBoolean("inReview")?"In review":"Pending";
-                    ui.hero(content,monthLabel()+" maintenance",Ui.money(due),bill.optString("flatLabel")+" · Due "+bill.optString("dueDate")+" · "+state);
+                    ui.hero(content,monthLabel()+" maintenance",Ui.money(due),bill.optString("flatLabel")+" · Due "+com.rapolus.apartmentpilotai.data.DateText.day(bill.optString("dueDate"))+" · "+state);
+                    LinearLayout rejection=ui.column();
+                    content.addView(rejection);
                     ui.button(content,due.signum()<=0?"Payment history":bill.optBoolean("inReview")?"Track payment":"I've paid",R.drawable.ic_wallet,true,()->go(due.signum()<=0?"history":bill.optBoolean("inReview")?"bill":"mark-paid",bill.optString("id")));
+                    if(due.signum()>0&&!bill.optBoolean("inReview")) {
+                        // Tell the resident why an earlier declaration for this bill was not accepted.
+                        request("GET","/payments",null,payments->{
+                            JSONArray list=(JSONArray)payments;
+                            JSONObject latest=null;
+                            for(int i=0;i<list.length();i++) {
+                                JSONObject p=list.getJSONObject(i);
+                                if(!bill.optString("id").equals(p.optString("billId")))continue;
+                                if(latest==null||p.optString("reviewedAt").compareTo(latest.optString("reviewedAt"))>0)latest=p;
+                            }
+                            if(latest!=null&&"REJECTED".equals(latest.optString("status"))) {
+                                LinearLayout card=ui.card(rejection);
+                                card.addView(ui.text("Your last payment was not accepted",13,true,R.color.ap_red));
+                                card.addView(ui.text(latest.optString("reason","Contact your apartment admin."),12,false,R.color.ap_sub));
+                                card.addView(ui.text("Correct the details and submit the payment again.",11,false,R.color.ap_muted));
+                            }
+                            homeActions(false);
+                            homeCommunity();
+                        });
+                        return;
+                    }
                 }
                 homeActions(false);
                 homeCommunity();
@@ -924,7 +1077,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 homeMetric(metrics,"Outstanding",Ui.money(j.opt("outstanding")),"outstanding");
                 homeMetric(metrics,"Available balance",Ui.money(j.opt("closing")),"reports");
                 content.addView(metrics);
-                if(j.optLong("pendingPayments")>0)ui.button(content,j.optLong("pendingPayments")+" payments need your review",R.drawable.ic_check,false,()->go("approvals"));
+                if(j.optLong("pendingPayments")>0)ui.button(content,(j.optLong("pendingPayments")==1?"1 payment needs":j.optLong("pendingPayments")+" payments need")+" your review",R.drawable.ic_check,false,()->go("approvals"));
                 homeActions(true);
                 homeCommunity();
                 ui.heading(content,"Recent activity");
@@ -973,15 +1126,26 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                     if(current==null)current=issue;
                 }
             }
-            if(admin())ui.iconRow(ui.card(issues),"Active complaints",activeCount+" open · View all",R.drawable.ic_tools,()->go("complaints"));
-            else if(current==null)ui.empty(issues,"All caught up","No open common issues.");
+            if(admin()) {
+                ui.iconRow(ui.card(issues),"Active complaints",activeCount+" open · View all",R.drawable.ic_tools,()->go("complaints"));
+                // Pending flat claims block residents from using the app, so surface them on Home.
+                LinearLayout joins=ui.column();
+                issues.addView(joins);
+                request("GET","/members",null,members->{
+                    JSONArray list=(JSONArray)members;
+                    int pending=0;
+                    for(int i=0;i<list.length();i++)if("PENDING".equals(list.getJSONObject(i).optString("status")))pending++;
+                    if(pending>0)ui.iconRow(ui.card(joins),"Join requests",Ui.count(pending,"resident is","residents are")+" waiting for approval",R.drawable.ic_users,()->go("join-requests"));
+                });
+            }
+            else if(current==null)ui.empty(issues,R.drawable.ic_check,"All caught up","No open common issues.");
             else {JSONObject issue=current;ui.iconRow(ui.card(issues),issue.optString("title"),pretty(issue.optString("status")),R.drawable.ic_tools,()->go("issue",issue.optString("id")));}
             if(!staff()) {
                 ui.heading(content,"Community update");
                 LinearLayout notices=ui.column();content.addView(notices);
                 request("GET","/notices",null,n->{
                     JSONArray items=(JSONArray)n;
-                    if(items.length()==0)ui.empty(notices,"No notices yet","");
+                    if(items.length()==0)ui.empty(notices,R.drawable.ic_notice,"No notices yet","");
                     else {JSONObject notice=items.getJSONObject(0);ui.iconRow(ui.card(notices),notice.optString("title"),notice.optString("createdAt"),R.drawable.ic_notice,()->go("notice",notice.optString("id")));}
                 });
             }
@@ -1008,7 +1172,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         }
         request("GET","/bills?month="+month,null,r-> {
             JSONArray arr=(JSONArray)r;
-            if(arr.length()==0)ui.empty(content,"No dues for this month",staff()?"Configure maintenance, then generate bills.":"The admin has not generated a bill for your flat.");
+            if(arr.length()==0)ui.empty(content,R.drawable.ic_receipt,"No dues for this month",staff()?"Configure maintenance, then generate bills.":"The admin has not generated a bill for your flat.");
             for(int i=0; i<arr.length(); i++) {
                 JSONObject b=arr.getJSONObject(i);
                 BigDecimal due=Ui.decimal(b.opt("amount")).subtract(Ui.decimal(b.opt("paid")));
@@ -1089,7 +1253,12 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             ui.note(content,"Apartment maintenance · not your application subscription.");
             formStart();
             fields.field("amount","Monthly maintenance per flat",latest.optString("amount",""),MONEY);
-            fields.field("effective","Effective from · YYYY-MM",rules.length()==0?YearMonth.now(ZoneId.of("Asia/Kolkata")).toString():YearMonth.now(ZoneId.of("Asia/Kolkata")).plusMonths(1).toString(),TEXT);
+            String thisMonth=YearMonth.now(ZoneId.of("Asia/Kolkata")).toString();
+            // Until this month's bills exist, a correction applies to this month; afterwards it starts next month.
+            fields.field("effective","Effective from · YYYY-MM",thisMonth,TEXT);
+            if(rules.length()>0)request("GET","/billing/preview?month="+thisMonth,null,preview->{
+                if(((JSONObject)preview).optInt("existing")>0&&fields!=null)fields.restore(json("effective",YearMonth.parse(thisMonth).plusMonths(1).toString()));
+            });
             fields.field("billingDay","Billing day · 1–28",latest.optString("billingDay","1"),NUMBER);
             fields.field("dueDay","Due day · 1–28",latest.optString("dueDay","10"),NUMBER);
             ui.note(content,"Existing bills and receipts remain unchanged.");
@@ -1108,7 +1277,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         header("Rate history");
         request("GET","/billing/rules",null,r-> {
             JSONArray arr=(JSONArray)r;
-            if(arr.length()==0)ui.empty(content,"Maintenance not configured","Add your first monthly amount.");
+            if(arr.length()==0)ui.empty(content,R.drawable.ic_receipt,"Maintenance not configured","Add your first monthly amount.");
             for(int i=0; i<arr.length(); i++) {
                 JSONObject rule=arr.getJSONObject(i);
                 LinearLayout c=ui.card(content);
@@ -1130,9 +1299,9 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 if(approvals&&!"PENDING".equals(p.optString("status")))continue;
                 displayed++;
                 LinearLayout c=ui.card(content);
-                ui.iconRow(c,p.optString("flatLabel")+" · "+Ui.money(p.opt("amount")),(p.optBoolean("reversed")?"Reversed":pretty(p.optString("status")))+" · "+pretty(p.optString("mode")),R.drawable.ic_wallet,()->go(staff()?"payment":"payment-status",p.optString("id")));
+                ui.statusIconRow(c,p.optString("flatLabel")+" · "+Ui.money(p.opt("amount")),p.optBoolean("reversed")?"Reversed":pretty(p.optString("status")),pretty(p.optString("mode")),R.drawable.ic_wallet,()->go(staff()?"payment":"payment-status",p.optString("id")));
             }
-            if(displayed==0)ui.empty(content,"No payments here","Submitted payments appear here for verification.");
+            if(displayed==0)ui.empty(content,R.drawable.ic_receipt,"No payments here","Submitted payments appear here for verification.");
             if(approvals&&staff())ui.button(content,"Select multiple",R.drawable.ic_check,true,()-> {
                 selected.clear();
                 go("bulk-approval");
@@ -1182,7 +1351,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             all.setOnCheckedChangeListener((button,checked)-> {
                 for(CheckBox box:boxes)box.setChecked(checked);
             });
-            if(pending.isEmpty())ui.empty(content,"No pending payments","New declarations will appear here.");
+            if(pending.isEmpty())ui.empty(content,R.drawable.ic_receipt,"No pending payments","New declarations will appear here.");
             ui.button(content,"Review selected",R.drawable.ic_check,true,()-> {
                 if(selected.isEmpty()) {
                     showError("Select at least one payment.");
@@ -1214,12 +1383,12 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             for(JSONObject p:pending)stillPending.add(p.optString("id"));
             selected.retainAll(stillPending);
             if(pending.isEmpty()) {
-                ui.empty(content,"Selection is no longer available","Refresh pending payments and select again.");
+                ui.empty(content,R.drawable.ic_receipt,"Selection is no longer available","Refresh pending payments and select again.");
                 ui.button(content,"Back to approvals",R.drawable.ic_arrow_right,true,()->go("approvals"));
                 return;
             }
             LinearLayout summary=ui.card(content);
-            ui.hero(summary,pending.size()+" selected payments",Ui.money(total),"Confirm every bank or cash record");
+            ui.hero(summary,Ui.count(pending.size(),"selected payment","selected payments"),Ui.money(total),"Confirm every bank or cash record");
             for(JSONObject p:pending) {
                 LinearLayout c=ui.card(content);
                 ui.iconRow(c,p.optString("flatLabel"),pretty(p.optString("mode"))+" · "+(p.isNull("reference")?"Cash":p.optString("reference")),R.drawable.ic_wallet,null);
@@ -1228,7 +1397,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             formStart();
             fields.check("verified","I have verified every selected payment.",false);
             ui.note(content,"Only approve payments matched to the association bank record or received in cash.");
-            ui.button(content,"Approve "+pending.size()+" payments",R.drawable.ic_check,true,()->safe(()-> {
+            ui.button(content,"Approve "+Ui.count(pending.size(),"payment","payments"),R.drawable.ic_check,true,()->safe(()-> {
                 if(!fields.checked("verified"))throw new IllegalArgumentException("Confirm you verified every selected payment.");
                 request("POST","/payments/approve",json("paymentIds",new JSONArray(selected),"verified",true),x-> {
                     selected.clear();
@@ -1247,7 +1416,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         request("GET","/payments",null,r-> {
             JSONObject p=find((JSONArray)r,id);
             if(p==null||!"PENDING".equals(p.optString("status"))) {
-                ui.empty(content,"Payment unavailable","It may already have been reviewed.");
+                ui.empty(content,R.drawable.ic_receipt,"Payment unavailable","It may already have been reviewed.");
                 return;
             }
             LinearLayout c=ui.card(content);
@@ -1287,14 +1456,17 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                     if(b.optBoolean("inReview"))underReview++;
                 }
             }
-            ui.hero(content,"Outstanding maintenance",Ui.money(total),(unpaid.size()-underReview)+" unpaid · "+underReview+" under review");
+            Set<String> unpaidFlats=new HashSet<>();
+            for(JSONObject b:unpaid)unpaidFlats.add(b.optString("flatId"));
+            // Bills include one-time contributions and opening dues, so count flats and name the bill type.
+            ui.hero(content,"Outstanding dues",Ui.money(total),Ui.count(unpaidFlats.size(),"flat","flats")+" · "+Ui.count(unpaid.size(),"open bill","open bills")+" · "+underReview+" in review");
             for(JSONObject b:unpaid) {
                 BigDecimal due=Ui.decimal(b.opt("amount")).subtract(Ui.decimal(b.opt("paid")));
                 LinearLayout c=ui.card(content);
-                ui.iconRow(c,b.optString("flatLabel"),b.optBoolean("inReview")?"In review":"Payment due",R.drawable.ic_clock,()->go("bill",b.optString("id")));
+                ui.iconRow(c,b.optString("flatLabel")+" · "+("MAINTENANCE".equals(b.optString("kind","MAINTENANCE"))?"Maintenance":b.optString("title","Other charge")),b.optBoolean("inReview")?"In review":"Payment due",R.drawable.ic_clock,()->go("bill",b.optString("id")));
                 ui.kv(c,"Outstanding",Ui.money(due));
             }
-            if(unpaid.isEmpty())ui.empty(content,"Everyone is up to date","There are no outstanding dues for this month.");
+            if(unpaid.isEmpty())ui.empty(content,R.drawable.ic_check,"Everyone is up to date","There are no outstanding dues for this month.");
             ui.button(content,"Send reminders",R.drawable.ic_bell,true,()-> {
                 reminderRequestKey=UUID.randomUUID().toString();
                 go("reminder-preview");
@@ -1326,11 +1498,11 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 LinearLayout c=ui.card(content);
                 ui.iconRow(c,flat.optString("flatLabel"),Ui.money(flat.opt("outstanding")),R.drawable.ic_home,null);
             }
-            if(preview.optLong("recipientCount")==0)ui.empty(content,"No reminder recipients","Paid and in-review payments are excluded.");
-            ui.note(content,"Reminders are saved to the in-app inbox. External push delivery: "+preview.optString("externalDeliveryStatus","NOT_CONFIGURED")+".");
+            if(preview.optLong("recipientCount")==0)ui.empty(content,R.drawable.ic_receipt,"No reminder recipients","Paid and in-review payments are excluded.");
+            ui.note(content,"Reminders are saved to residents' in-app inbox. Phone (SMS/push) delivery is "+Ui.delivery(preview.optString("externalDeliveryStatus"))+".");
             ui.button(content,"Send reminder",R.drawable.ic_bell,true,()->request("POST","/billing/reminders/send?month="+month,json("requestKey",reminderRequestKey),x-> {
                 JSONObject result=(JSONObject)x;
-                Toast.makeText(this,result.optInt("created")+" in-app reminder(s) saved. External push "+result.optString("externalDeliveryStatus","NOT_CONFIGURED")+".",Toast.LENGTH_LONG).show();
+                ui.message(Ui.count(result.optInt("created"),"in-app reminder","in-app reminders")+" sent. Phone delivery is "+Ui.delivery(result.optString("externalDeliveryStatus"))+".",true);
                 go("outstanding");
             }));
         });
@@ -1346,7 +1518,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         request("GET","/billing/preview?month="+month,null,r-> {
             JSONObject preview=(JSONObject)r;
             if(!preview.optBoolean("configured")) {
-                ui.empty(content,"Maintenance amount needed","Set the amount and due day first.");
+                ui.empty(content,R.drawable.ic_receipt,"Maintenance amount needed","Set the amount and due day first.");
                 ui.button(content,"Set maintenance",R.drawable.ic_settings,true,()->go("billing-settings"));
                 return;
             }
@@ -1391,9 +1563,9 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             c.addView(ui.text(p.optBoolean("reversed")?"REVERSED · original receipt":"PAID",13,true,p.optBoolean("reversed")?R.color.ap_red:R.color.ap_green));
             c.addView(ui.text(Ui.money(p.opt("amount")),35,true,R.color.ap_ink));
             ui.kv(c,"Flat",p.optString("flatLabel"));
-            ui.kv(c,"Month",p.optString("billingMonth"));
+            ui.kv(c,"Month",p.optString("billingMonth").length()>=7?YearMonth.parse(p.optString("billingMonth").substring(0,7)).format(DateTimeFormatter.ofPattern("MMMM uuuu",Locale.ENGLISH)):p.optString("billingMonth"));
             ui.kv(c,"Mode",pretty(p.optString("mode")));
-            ui.kv(c,"Paid on",p.optString("paidOn"));
+            ui.kv(c,"Paid on",com.rapolus.apartmentpilotai.data.DateText.day(p.optString("paidOn")));
             ui.kv(c,"Approved by",p.optString("approvedBy"));
             ui.note(c,p.optString("receiptNumber"));
             getLayoutInflater().inflate(R.layout.view_brand_footer,c,true);
@@ -1477,7 +1649,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             ui.kv(card,!expense.isNull("reversedOn")?"Reversed":paid?"Paid":"Draft",Ui.money(expense.opt("amount")));
             visible++;
         }
-        if(visible==0)ui.empty(list,term.isEmpty()&&filter.equals("All")?"No expenses here":"No matching expenses",term.isEmpty()&&filter.equals("All")?"Paid expenses appear in monthly reports.":"Try another search or filter.");
+        if(visible==0)ui.empty(list,R.drawable.ic_expense,term.isEmpty()&&filter.equals("All")?"No expenses here":"No matching expenses",term.isEmpty()&&filter.equals("All")?"Paid expenses appear in monthly reports.":"Try another search or filter.");
     }
     private void expenseForm() {
         header("Add expense");
@@ -1567,7 +1739,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     private void invite() {
         header("Invite residents");
         if(!admin()) {
-            ui.empty(content,"Admin access required","Only your apartment Admin can share resident invites.");
+            ui.empty(content,R.drawable.ic_shield,"Admin access required","Only your apartment Admin can share resident invites.");
             return;
         }
         LinearLayout introduction=ui.column();
@@ -1621,14 +1793,14 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             display.addView(codeStatus);
             content.addView(display);
             ui.gap(content,6);
-            if(!invite.optBoolean("displayConfigured"))ui.note(content,"Invite encryption NOT_CONFIGURED on the server. Configure the display key before issuing a code.");
+            if(!invite.optBoolean("displayConfigured"))ui.note(content,"Invite codes are not set up on the server yet. Configure the invite display key before issuing a code.");
             else if(!invite.isNull("displayError")&&!invite.optString("displayError").isEmpty())ui.note(content,invite.optString("displayError"));
             else if(invite.optBoolean("exists")&&!invite.optBoolean("codeAvailable"))ui.note(content,"Legacy code cannot be redisplayed. Generate a new code to replace it.");
             if(!code.isEmpty()&&invite.optBoolean("valid")) {
                 LinearLayout actions=ui.row();
                 Button copy=ui.button(actions,"Copy code",R.drawable.ic_copy,false,()-> {
                     ((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("Apartment invite",code));
-                    Toast.makeText(this,"Invite copied",Toast.LENGTH_SHORT).show();
+                    ui.message("Invite copied",false);
                 });
                 Button share=ui.button(actions,"Share",R.drawable.ic_users,true,()->startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,"Join "+api.account().optString("apartmentName")+" in ApartmentCare. Invite: "+code+". Valid until "+day+". Flat access needs Admin approval."),"Share invite")));
                 copy.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
@@ -1653,7 +1825,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         if(staff())ui.button(content,"Send notice",R.drawable.ic_notice,true,()->go("notice-form"));
         request("GET","/notices",null,r-> {
             JSONArray arr=(JSONArray)r;
-            if(arr.length()==0)ui.empty(content,"No notices yet","Published apartment updates appear here.");
+            if(arr.length()==0)ui.empty(content,R.drawable.ic_notice,"No notices yet","Published apartment updates appear here.");
             for(int i=0; i<arr.length(); i++) {
                 JSONObject n=arr.getJSONObject(i);
                 LinearLayout c=ui.card(content);
@@ -1696,11 +1868,12 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         ui.button(content,"Mark all read",R.drawable.ic_check,false,()->request("POST","/ops/notifications/read-all",json(),r->render()));
         request("GET","/notifications",null,r-> {
             JSONArray arr=(JSONArray)r;
-            if(arr.length()==0)ui.empty(content,"You're all caught up","New activity appears in your inbox.");
+            if(arr.length()==0)ui.empty(content,R.drawable.ic_check,"You're all caught up","New activity appears in your inbox.");
             for(int i=0; i<arr.length(); i++) {
                 JSONObject n=arr.getJSONObject(i);
                 LinearLayout c=ui.card(content);
-                ui.iconRow(c,n.optString("title"),n.isNull("readAt")?"Unread": "Read",R.drawable.ic_bell,()->request("POST","/notifications/"+n.optString("id")+"/read",json(),x-> {
+                String detail=n.optString("body");
+                ui.iconRow(c,(n.isNull("readAt")?"● ":"")+n.optString("title"),(detail.isEmpty()?"":detail+" · ")+com.rapolus.apartmentpilotai.data.DateText.humanize(n.optString("createdAt"))+(n.isNull("readAt")?" · Unread":""),R.drawable.ic_bell,()->request("POST","/notifications/"+n.optString("id")+"/read",json(),x-> {
                     go("notification",n.optString("id"));
                 }
                 ));
@@ -1730,7 +1903,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 JSONObject a=arr.getJSONObject(i);
                 LinearLayout c=ui.card(content);
                 c.addView(ui.text(pretty(a.optString("action")),13,true,R.color.ap_ink));
-                ui.note(c,a.optString("createdAt"));
+                ui.note(c,com.rapolus.apartmentpilotai.data.DateText.humanize(a.optString("createdAt"))+(a.isNull("actor")?"":" · by "+a.optString("actor")));
                 if(!a.isNull("afterValue"))ui.note(c,a.optString("afterValue"));
                 ui.button(c,"View activity",R.drawable.ic_arrow_right,false,()->go("audit-detail",a.optString("id")));
             }
@@ -1796,6 +1969,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     }
     private static String pretty(String s) {
         if(s==null||s.isEmpty())return "";
+        if(s.equalsIgnoreCase("UPI"))return "UPI";
         String t=s.toLowerCase(Locale.ROOT).replace('_',' ');
         return Character.toUpperCase(t.charAt(0))+t.substring(1);
     }
@@ -1923,7 +2097,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 fileWorker.execute(()->{
                     try {
                         localFiles.save(file,destination);
-                        runOnUiThread(()->{if(!isDestroyed()&&screen==generation)Toast.makeText(this,"Attachment saved",Toast.LENGTH_SHORT).show();});
+                        runOnUiThread(()->{if(!isDestroyed()&&screen==generation)ui.message("Attachment saved",false);});
                     } catch(Exception e){runOnUiThread(()->{if(!isDestroyed()&&screen==generation)showError("Could not save attachment: "+e.getMessage());});}
                 });
             });
