@@ -30,7 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
         Rules.dueDate(effective,r.billingDay(),r.dueDay());
         BigDecimal amount=Rules.money(r.amount());
         db.update("insert into ap_billing_rule(id,tenant_id,effective_month,amount,billing_day,due_day) values(?,?,?,?,?,?) on conflict(tenant_id,effective_month) do update set amount=excluded.amount,billing_day=excluded.billing_day,due_day=excluded.due_day",UUID.randomUUID(),a.tenantId(),Date.valueOf(effective.atDay(1)),amount,r.billingDay(),r.dueDay());
-        db.audit(a.tenantId(),a.id(),"MAINTENANCE_RULE_SAVED",effective,null,amount.toPlainString());
+        db.audit(a.tenantId(),a.actorId(),"MAINTENANCE_RULE_SAVED",effective,null,amount.toPlainString());
         return Map.of("effective",effective.toString(),"amount",amount);
     }
     public List<Map<String,Object>> rules(Account a) {
@@ -54,7 +54,7 @@ import org.springframework.transaction.annotation.Transactional;
                 if(Boolean.TRUE.equals(settings.get("dueNotify")))db.rows("select id from ap_user where tenant_id=? and flat_id=? and status='ACTIVE'",a.tenantId(),fid).forEach(u->db.notify(a.tenantId(),(UUID)u.get("id"),"BILL:"+id,"Maintenance ready",month+" maintenance is ready.","bill:"+id));
             }
         }
-        if(generated>0)db.audit(a.tenantId(),a.id(),"BILLS_GENERATED",month,null,Integer.toString(generated));
+        if(generated>0)db.audit(a.tenantId(),a.actorId(),"BILLS_GENERATED",month,null,Integer.toString(generated));
         return Map.of("created",generated,"month",month.toString());
     }
     public Map<String,Object> billingPreview(Account a,YearMonth month) {
@@ -108,7 +108,7 @@ import org.springframework.transaction.annotation.Transactional;
             eligible++;
             created+=db.update("insert into ap_inbox(id,tenant_id,recipient_id,event_key,title,body,target) values(?,?,?,?,?,?,?) on conflict(recipient_id,event_key) do nothing",UUID.randomUUID(),a.tenantId(),user.get("id"),"MANUAL-REMINDER:"+requestKey,"Maintenance reminder · "+month,"Please pay "+row.get("outstanding")+" and submit payment details in the app.","dues");
         }
-        if(created>0)db.audit(a.tenantId(),a.id(),"MAINTENANCE_REMINDERS_SENT",requestKey,null,month+" · "+created+" in-app recipients");
+        if(created>0)db.audit(a.tenantId(),a.actorId(),"MAINTENANCE_REMINDERS_SENT",requestKey,null,month+" · "+created+" in-app recipients");
         return Map.of("created",created,"alreadySent",eligible-created,"eligible",eligible,"month",month.toString(),"externalDeliveryStatus","NOT_CONFIGURED");
     }
     private List<Map<String,Object>> reminderRows(Account a,YearMonth month) {
@@ -153,7 +153,7 @@ import org.springframework.transaction.annotation.Transactional;
         if(db.count("select count(*) from ap_payment where tenant_id=? and bill_id=? and status='PENDING'",a.tenantId(),r.billId())>0)throw ApiError.conflict("This bill already has a payment under review.");
         UUID id=UUID.randomUUID();
         db.update("insert into ap_payment(id,tenant_id,bill_id,amount,mode,reference,paid_on,note,submitted_by,request_key) values(?,?,?,?,?,?,?,?,?,?)",id,a.tenantId(),r.billId(),Rules.money(r.amount()),r.mode(),ref,Date.valueOf(r.paidOn()),r.note()==null?"":r.note().trim(),a.id(),r.requestKey());
-        db.audit(a.tenantId(),a.id(),"PAYMENT_SUBMITTED",id,null,"Pending "+r.amount());
+        db.audit(a.tenantId(),a.actorId(),"PAYMENT_SUBMITTED",id,null,"Pending "+r.amount());
         db.notifyStaff(a.tenantId(),"PAYMENT:"+id,"Payment to review",b.get("flatLabel")+" · "+r.amount(),"payment:"+id);
         return Map.of("id",id,"status","PENDING");
     }
@@ -205,7 +205,7 @@ import org.springframework.transaction.annotation.Transactional;
             UUID id=(UUID)p.get("id");
             String receipt="AP-"+id.toString().toUpperCase(Locale.ROOT);
             db.update("update ap_payment set status='APPROVED',reviewed_by=?,reviewed_at=now(),receipt_number=? where tenant_id=? and id=?",a.id(),receipt,a.tenantId(),id);
-            db.audit(a.tenantId(),a.id(),"PAYMENT_APPROVED",id,"Pending","Approved "+p.get("amount"));
+            db.audit(a.tenantId(),a.actorId(),"PAYMENT_APPROVED",id,"Pending","Approved "+p.get("amount"));
             db.notify(a.tenantId(),(UUID)p.get("submittedBy"),"RECEIPT:"+id,"Payment approved","Your maintenance receipt is ready.","receipt:"+id);
             db.rows("select u.id from ap_user u join ap_bill b on b.tenant_id=u.tenant_id and b.flat_id=u.flat_id where b.id=? and u.tenant_id=? and u.status='ACTIVE'",p.get("billId"),a.tenantId()).forEach(u->db.notify(a.tenantId(),(UUID)u.get("id"),"RECEIPT:"+id,"Payment approved","Your maintenance receipt is ready.","receipt:"+id));
         }
@@ -216,7 +216,7 @@ import org.springframework.transaction.annotation.Transactional;
         db.lockTenant(a.tenantId());
         var p=db.one("select submitted_by from ap_payment where tenant_id=? and id=? and status='PENDING'",a.tenantId(),id);
         db.update("update ap_payment set status='REJECTED',reviewed_by=?,reviewed_at=now(),reason=? where tenant_id=? and id=?",a.id(),reason,a.tenantId(),id);
-        db.audit(a.tenantId(),a.id(),"PAYMENT_REJECTED",id,"Pending",reason);
+        db.audit(a.tenantId(),a.actorId(),"PAYMENT_REJECTED",id,"Pending",reason);
         db.notify(a.tenantId(),(UUID)p.get("submittedBy"),"REJECTED:"+id,"Payment needs correction",reason,"payment:"+id);
     }
     public Map<String,Object> receipt(Account a,UUID id) {
@@ -237,7 +237,7 @@ import org.springframework.transaction.annotation.Transactional;
         }
         UUID id=UUID.randomUUID();
         db.update("insert into ap_expense(id,tenant_id,title,category,amount,paid_on,paid,public,created_by,request_key) values(?,?,?,?,?,?,?,?,?,?)",id,a.tenantId(),r.title().trim(),r.category(),Rules.money(r.amount()),Date.valueOf(r.paidOn()),r.paid(),r.visibleToResidents(),a.id(),r.requestKey());
-        db.audit(a.tenantId(),a.id(),"EXPENSE_CREATED",id,null,r.paid()?"Paid "+r.amount():"Draft "+r.amount());
+        db.audit(a.tenantId(),a.actorId(),"EXPENSE_CREATED",id,null,r.paid()?"Paid "+r.amount():"Draft "+r.amount());
         return Map.of("id",id);
     }
     public List<Map<String,Object>> expenses(Account a,YearMonth month) {

@@ -69,6 +69,7 @@ import java.time.*;
         return db.rows("select v.id,v.registration,v.kind,v.parking_label,v.active,v.flat_id,f.label as flat_label from ap_vehicle v join ap_flat f on f.id=v.flat_id where v.tenant_id=? and (v.active=true or ?=true) order by v.registration",a.tenantId(),a.role().equals("ADMIN"));
     }
     @Transactional public Object saveVehicle(Account a,UUID id,Map<String,Object> body) {
+        body=Commands.scoped(body,id);
         db.lockTenant(a.tenantId());
         var old=c.previous(a,"VEHICLE_SAVE",body);
         if(old.isPresent())return Map.of("id",old.get());
@@ -92,6 +93,7 @@ import java.time.*;
         return Map.of("id",id);
     }
     @Transactional public Object contactOwner(Account a,UUID id,Map<String,Object> body) {
+        body=Commands.scoped(body,id);
         db.lockTenant(a.tenantId());
         var old=c.previous(a,"VEHICLE_CONTACT",body);
         if(old.isPresent())return Map.of("id",old.get());

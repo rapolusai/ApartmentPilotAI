@@ -14,6 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
     private final InviteCipher inviteCipher;
     private final boolean localRegistration;
     private final int hours;
+    // Unknown mobiles are compared against this hash so they take as long as a wrong PIN and do not reveal registration.
+    // Same cost as SecurityConfig's encoder; generated per process, it matches no PIN anyone can know.
+    private static final class Dummy {
+        static final String HASH=new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(12).encode(Tokens.create());
+    }
     public AuthService(Db db,PasswordEncoder encoder,InviteCipher inviteCipher,@Value("${app.local-registration-enabled:false}")boolean localRegistration,@Value("${app.session-hours:12}")int hours) {
         this.db=db;
         this.encoder=encoder;
@@ -26,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
     }
     @Transactional public Map<String,Object> register(Requests.Register r) {
         requireLocal();
+        PinPolicy.requireNew(r.pin());
         if(db.find("select id from ap_user where mobile=?",r.mobile()).isPresent())throw ApiError.conflict("An account already exists for these details. Sign in or contact your apartment admin.");
         UUID tenant=UUID.randomUUID(),user=UUID.randomUUID();
         db.update("insert into ap_tenant(id,name,city,address,pincode) values(?,?,?,?,?)",tenant,r.apartmentName().trim(),r.city().trim(),r.address()==null?"":r.address().trim(),r.pinCode()==null?"":r.pinCode());
@@ -37,10 +43,14 @@ import org.springframework.transaction.annotation.Transactional;
     }
     @Transactional public Map<String,Object> login(Requests.Login r) {
         var opt=db.find("select id,pin_hash,status,role from ap_user where mobile=?",r.mobile());
-        if(opt.isEmpty() || !encoder.matches(r.pin(),opt.get().get("pinHash").toString()) || !r.role().equals(opt.get().get("role"))) throw new ApiError(HttpStatus.UNAUTHORIZED,"Incorrect mobile, PIN or login type.");
+        boolean pinMatches=encoder.matches(r.pin(),opt.map(u->u.get("pinHash").toString()).orElse(Dummy.HASH));
+        if(opt.isEmpty() || !pinMatches || !r.role().equals(opt.get().get("role"))) throw new ApiError(HttpStatus.UNAUTHORIZED,"Incorrect mobile, PIN or login type.");
         var u=opt.get();
         if(!u.get("status").equals("ACTIVE"))throw new ApiError(HttpStatus.FORBIDDEN,"Account awaiting approval or not active. Contact the apartment admin.");
-        return issueSession(UUID.fromString(u.get("id").toString()));
+        var session=issueSession(UUID.fromString(u.get("id").toString()));
+        // Additive: legacy 4-5 digit or weak PINs still sign in, and the app is told a change is due (Profile > Change PIN).
+        session.put("pinChangeRequired",PinPolicy.changeRequired(r.pin()));
+        return session;
     }
     private Map<String,Object> issueSession(UUID user) {
         String raw=Tokens.create();
@@ -151,23 +161,29 @@ import org.springframework.transaction.annotation.Transactional;
     }
     @Transactional public Map<String,Object> join(Requests.Join r) {
         requireLocal();
+        PinPolicy.requireNew(r.pin());
         var invite=db.one("select tenant_id from ap_invite where code_hash=? and active=true and expires_at>now()",Tokens.digest(r.invite().trim().toUpperCase(Locale.ROOT)));
         UUID tenant=UUID.fromString(invite.get("tenantId").toString());
         db.lockTenant(tenant);
         // Recheck after obtaining tenant lock in case an admin rotated the code concurrently.
         db.one("select id from ap_invite where tenant_id=? and code_hash=? and active=true and expires_at>now()",tenant,Tokens.digest(r.invite().trim().toUpperCase(Locale.ROOT)));
         UUID flat=UUID.fromString(db.one("select id from ap_flat where tenant_id=? and label=? and active=true",tenant,r.flatLabel().trim().toUpperCase(Locale.ROOT)).get("id").toString());
-        var previous=db.find("select id,tenant_id,flat_id,status,pin_hash,role from ap_user where mobile=? for update",r.mobile());
+        var previous=db.find("select u.id,u.tenant_id,u.flat_id,u.status,u.pin_hash,u.role,f.label as flat_label from ap_user u left join ap_flat f on f.tenant_id=u.tenant_id and f.id=u.flat_id where u.mobile=? for update of u",r.mobile());
         if(previous.isPresent()) {
             var old=previous.get();
-            boolean ownRequest=tenant.toString().equals(old.get("tenantId").toString())&&flat.toString().equals(String.valueOf(old.get("flatId")))&&"RESIDENT".equals(old.get("role"))&&encoder.matches(r.pin(),old.get("pinHash").toString());
-            if(!ownRequest||!List.of("PENDING","REJECTED").contains(old.get("status")))throw ApiError.conflict("An account already exists for these details. Sign in or contact your apartment admin.");
+            boolean sameFlat=flat.toString().equals(String.valueOf(old.get("flatId")));
+            String status=old.get("status").toString();
+            // A rejected applicant may correct the flat (the usual reason for rejection); a pending request keeps its flat.
+            boolean ownRequest=tenant.toString().equals(old.get("tenantId").toString())&&"RESIDENT".equals(old.get("role"))&&(sameFlat?List.of("PENDING","REJECTED").contains(status):"REJECTED".equals(status))&&encoder.matches(r.pin(),old.get("pinHash").toString());
+            if(!ownRequest)throw ApiError.conflict("An account already exists for these details. Sign in or contact your apartment admin.");
             UUID existing=UUID.fromString(old.get("id").toString());
-            if("PENDING".equals(old.get("status")))return joinReceipt(existing);
+            if("PENDING".equals(status))return joinReceipt(existing);
+            if(!sameFlat&&db.count("select count(*) from ap_user where tenant_id=? and flat_id=? and status in ('ACTIVE','PENDING')",tenant,flat)>0)throw ApiError.conflict("This flat already has a resident or a pending request. Check the flat number or contact your apartment admin.");
             // The flat index remains the final arbiter if another resident has since claimed it.
-            db.update("update ap_user set status='PENDING',rejection_reason=null,name=?,resident_type=? where id=? and tenant_id=?",r.name().trim(),r.residentType(),existing,tenant);
+            db.update("update ap_user set status='PENDING',rejection_reason=null,name=?,resident_type=?,flat_id=? where id=? and tenant_id=?",r.name().trim(),r.residentType(),flat,existing,tenant);
             db.update("delete from ap_join_receipt where user_id=?",existing);
-            db.audit(tenant,existing,"RESIDENT_RESUBMITTED",flat,"Rejected","Pending");
+            String label=r.flatLabel().trim().toUpperCase(Locale.ROOT);
+            db.audit(tenant,existing,"RESIDENT_RESUBMITTED",flat,sameFlat?"Rejected":"Rejected · "+old.get("flatLabel"),sameFlat?"Pending":"Pending · "+label);
             notifyJoin(tenant,existing,r);
             return joinReceipt(existing);
         }

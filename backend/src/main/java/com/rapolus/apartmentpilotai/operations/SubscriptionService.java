@@ -83,7 +83,7 @@ import java.security.MessageDigest;
         if(s.get("offerAcceptedAt")!=null)return Map.of("accepted",true,"qualified",award(a.tenantId()),"termsVersion",s.get("offerTermsVersion"));
         if(!OperationsRules.withinFirstMonth(LocalDate.parse(s.get("activatedAt").toString()),LocalDate.parse(s.get("firstEnd").toString()),V.today()))throw ApiError.conflict("The first-month offer window has ended.");
         db.update("update ap_subscription set offer_accepted_at=now(),offer_terms_version='2026-09-v1' where tenant_id=?",a.tenantId());
-        db.audit(a.tenantId(),a.id(),"REFERRAL_OFFER_ACCEPTED",a.tenantId(),null,"Terms 2026-09-v1; provider verification still required");
+        db.audit(a.tenantId(),a.actorId(),"REFERRAL_OFFER_ACCEPTED",a.tenantId(),null,"Terms 2026-09-v1; provider verification still required");
         boolean qualified=award(a.tenantId());
         return Map.of("accepted",true,"qualified",qualified,"termsVersion","2026-09-v1");
     }
@@ -114,7 +114,7 @@ import java.security.MessageDigest;
         }
         UUID id=UUID.randomUUID();
         db.update("insert into ap_referral(id,referrer_id,referred_id) values(?,?,?)",id,source,a.tenantId());
-        db.audit(a.tenantId(),a.id(),"REFERRAL_LINKED",id,null,"First month only");
+        db.audit(a.tenantId(),a.actorId(),"REFERRAL_LINKED",id,null,"First month only");
         award(source);
         return Map.of("id",id);
     }
@@ -138,7 +138,8 @@ import java.security.MessageDigest;
         // Single promotion lock serialises cross-tenant rewards and prevents referral/activation races.
         var s=ensure(tenant);
         if(s.get("installedAt")==null)throw ApiError.conflict("The apartment Admin must first register this app installation.");
-        if(db.count("select count(*) from ap_user where tenant_id=? and role='RESIDENT' and status='ACTIVE'",tenant)<1)throw ApiError.conflict("At least one approved resident is required for activation review.");
+        // Any approved flat member counts: promoting the only resident to Treasurer must not block verification.
+        if(db.count("select count(*) from ap_user where tenant_id=? and role in ('RESIDENT','TREASURER') and flat_id is not null and status='ACTIVE'",tenant)<1)throw ApiError.conflict("At least one approved resident is required for activation review.");
         String verifier=V.text(p,"verifiedBy",80);
         if(!V.bool(p,"identityAndApartmentVerified",false))throw new IllegalArgumentException("Independent apartment and authorised-admin verification is required.");
         db.update("update ap_subscription set verified_at=coalesce(verified_at,now()),verified_by=? where tenant_id=?",verifier,tenant);

@@ -130,8 +130,13 @@ import java.time.*;
     }
     @Transactional public Object pin(Account a,UUID id,boolean pinned) {
         a.requireStaff();
-        get(a,id);
-        db.update("update ap_notice set pinned=? where tenant_id=? and id=?",pinned,a.tenantId(),id);
+        db.lockTenant(a.tenantId());
+        boolean was=Boolean.TRUE.equals(get(a,id).get("pinned"));
+        // Pinning changes what residents see first, so a real change is audited; repeating the same state is a no-op.
+        if(was!=pinned) {
+            db.update("update ap_notice set pinned=? where tenant_id=? and id=?",pinned,a.tenantId(),id);
+            c.audit(a,pinned?"NOTICE_PINNED":"NOTICE_UNPINNED",id,was?"Pinned":"Not pinned",pinned?"Pinned":"Not pinned");
+        }
         return Map.of("ok",true);
     }
 }

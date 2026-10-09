@@ -6,7 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-/** Removes expired sessions and rate-limit windows that can no longer affect a decision, so both tables stay bounded. */
+/** Removes expired sessions, idle login-guard rows and rate-limit windows that can no longer affect a decision, so both tables stay bounded. */
 @Component @ConditionalOnProperty(name="app.cleanup-enabled",havingValue="true",matchIfMissing=true) public class SessionCleanupJob {
     private static final Logger LOG=LoggerFactory.getLogger(SessionCleanupJob.class);
     // Rate windows are 15 minutes (RateGate); one day of history is kept for investigation.
@@ -19,7 +19,9 @@ import org.springframework.stereotype.Component;
         try {
             int sessions=db.update("delete from ap_session where expires_at<now()");
             int windows=db.update("delete from ap_rate_limit where window_start<?",Instant.now().getEpochSecond()/900-RETAINED_WINDOWS);
-            if(sessions+windows>0)LOG.info("Purged {} expired sessions and {} old rate-limit windows",sessions,windows);
+            // Login-guard rows with no failure for a day and no active lock can no longer affect a decision (LoginGuard decay).
+            int guards=db.update("delete from ap_login_guard where last_failure_at<now()-interval '24 hours' and (locked_until is null or locked_until<now())");
+            if(sessions+windows+guards>0)LOG.info("Purged {} expired sessions, {} old rate-limit windows and {} idle login-guard rows",sessions,windows,guards);
         } catch(RuntimeException e) {
             LOG.error("Session cleanup failed ({})",e.getClass().getSimpleName());
         }
