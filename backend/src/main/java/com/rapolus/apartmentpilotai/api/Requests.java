@@ -9,7 +9,7 @@ public final class Requests {
     }
     public record Login(@Pattern(regexp="[6-9][0-9]{9}") @NotNull String mobile, @Pattern(regexp="[0-9]{4,6}") @NotNull String pin,@Pattern(regexp="ADMIN|TREASURER|RESIDENT") @NotNull String role) {
     }
-    public record Register(@NotBlank @Size(max=80) String name,@Pattern(regexp="[6-9][0-9]{9}") @NotNull String mobile, @Pattern(regexp="[0-9]{6}",message="Use a six-digit PIN.") @NotNull String pin,@NotBlank @Size(max=80) String apartmentName, @NotBlank @Size(max=80) String city,@NotNull @Min(5) @Max(50) Integer flats,@Size(max=300) String address,@Pattern(regexp="|[0-9]{6}") String pinCode) {
+    public record Register(@NotBlank @Size(max=80) String name,@Pattern(regexp="[6-9][0-9]{9}") @NotNull String mobile, @Pattern(regexp="[0-9]{6}",message="must be 6 digits") @NotNull String pin,@NotBlank @Size(max=80) String apartmentName, @NotBlank @Size(max=80) String city,@NotNull @Min(5) @Max(50) Integer flats,@Size(max=300) String address,@Pattern(regexp="|[0-9]{6}") String pinCode) {
         // Existing local clients may omit the additive address fields. New Android setup requires them.
         public Register(String name,String mobile,String pin,String apartmentName,String city,Integer flats) {
             this(name,mobile,pin,apartmentName,city,flats,"","");
@@ -17,7 +17,7 @@ public final class Requests {
     }
     public record JoinStatus(@NotNull @Pattern(regexp="[A-Za-z0-9_-]{43}") String receipt) {}
     public record ClaimReview(boolean verified) {}
-    public record Join(@NotBlank @Size(max=60) String invite,@NotBlank @Size(max=20) String flatLabel, @NotBlank @Size(max=80) String name,@Pattern(regexp="[6-9][0-9]{9}") @NotNull String mobile, @Pattern(regexp="[0-9]{6}",message="Use a six-digit PIN.") @NotNull String pin,@Pattern(regexp="OWNER|TENANT") @NotNull String residentType) {
+    public record Join(@NotBlank @Size(max=60) String invite,@NotBlank @Size(max=20) String flatLabel, @NotBlank @Size(max=80) String name,@Pattern(regexp="[6-9][0-9]{9}") @NotNull String mobile, @Pattern(regexp="[0-9]{6}",message="must be 6 digits") @NotNull String pin,@Pattern(regexp="OWNER|TENANT") @NotNull String residentType) {
     }
     public record Rule(@NotNull BigDecimal amount,@Pattern(regexp="[0-9]{4}-[0-9]{2}") @NotNull String effective, @Min(1) @Max(28) int billingDay,@Min(1) @Max(28) int dueDay) {
     }

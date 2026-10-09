@@ -213,7 +213,7 @@ class AuthAuditIntegrationTest {
     @Test void newPinsMustBeSixUnpredictableDigitsOnEveryPath() throws Exception {
         var shortPin=call("POST","/auth/register",Map.of("name","Synthetic Admin","mobile",mobile(),"pin","4826","apartmentName","IT Weak","city","Test","flats",5),null);
         assertEquals(400,shortPin.status());
-        assertTrue(shortPin.body().get("message").asText().contains(PinPolicy.LENGTH_MESSAGE),shortPin.body().toString());
+        assertTrue(shortPin.body().get("message").asText().contains("6 digits"),shortPin.body().toString());
         var weak=call("POST","/auth/register",Map.of("name","Synthetic Admin","mobile",mobile(),"pin","123456","apartmentName","IT Weak","city","Test","flats",5),null);
         assertEquals(400,weak.status());
         assertEquals(PinPolicy.WEAK_MESSAGE,weak.body().get("message").asText());

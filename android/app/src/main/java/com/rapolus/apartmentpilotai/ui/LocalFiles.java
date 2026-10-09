@@ -83,8 +83,16 @@ import java.util.*;
             out.write(bytes);out.flush();
         }
     }
+    /** "Monthly summary · 2026-10" -> "Monthly-summary-2026-10_20261009-0215.csv", so shared files say what they are. */
+    static String readableName(String title,String extension) {
+        String base=title==null?"":title.replaceAll("[^A-Za-z0-9]+","-").replaceAll("^-+|-+$","");
+        if(base.isEmpty())base="ApartmentCare";
+        if(base.length()>60)base=base.substring(0,60);
+        String stamp=java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")).format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss",java.util.Locale.ROOT));
+        return base+"_"+stamp+extension;
+    }
     public void exportCsv(String title,List<List<String>> rows)throws Exception {
-        File file=new File(folder(),"report-"+UUID.randomUUID()+".csv");
+        File file=new File(folder(),readableName(title,".csv"));
         try(Writer writer=new OutputStreamWriter(new FileOutputStream(file),java.nio.charset.StandardCharsets.UTF_8)) {
             writer.write('\uFEFF');
             writer.write(com.rapolus.apartmentpilotai.data.CsvReport.encode(rows));
@@ -108,7 +116,7 @@ import java.util.*;
             }
             wrapped.add("");
         }
-        File target=new File(folder(),"ApartmentPilotAI-"+System.currentTimeMillis()+".pdf");
+        File target=new File(folder(),readableName(heading,".pdf"));
         PdfDocument pdf=new PdfDocument();
         try {
             int index=0,pageNo=0;

@@ -28,6 +28,10 @@ import java.time.*;
         if(a.staff()) {
             n.put("recipients",db.rows("select r.user_id,u.name,f.label as flat_label,r.read_at,r.acknowledged_at from ap_notice_recipient r join ap_user u on u.id=r.user_id left join ap_flat f on f.id=u.flat_id where r.tenant_id=? and r.notice_id=? order by u.name",a.tenantId(),id));
         }
+        // The signed-in reader's own state, so the app can show "Acknowledged" instead of the button again.
+        var mine=db.find("select read_at,acknowledged_at from ap_notice_recipient where tenant_id=? and notice_id=? and user_id=?",a.tenantId(),id,a.id());
+        n.put("myReadAt",mine.map(r->r.get("readAt")).orElse(null));
+        n.put("myAcknowledgedAt",mine.map(r->r.get("acknowledgedAt")).orElse(null));
         n.put("deliveryMode","IN_APP_ONLY");
         n.put("externalDeliveryStatus","NOT_CONFIGURED");
         return n;

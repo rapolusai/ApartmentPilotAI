@@ -220,7 +220,11 @@ import org.springframework.transaction.annotation.Transactional;
         if(!verified)throw new ApiError(HttpStatus.BAD_REQUEST,"Confirm that the resident and flat are verified.");
         db.lockTenant(a.tenantId());
         int n=db.update("update ap_user set status='ACTIVE' where id=? and tenant_id=? and status='PENDING'",id,a.tenantId());
-        if(n!=1)throw ApiError.conflict("This request is not pending.");
+        if(n!=1) {
+            // A record outside the caller's apartment must look absent, not "already decided".
+            if(db.find("select id from ap_user where id=? and tenant_id=?",id,a.tenantId()).isEmpty())throw ApiError.missing();
+            throw ApiError.conflict("This request is not pending.");
+        }
         db.audit(a.tenantId(),a.id(),"RESIDENT_APPROVED",id,"Pending","Active");
         db.notify(a.tenantId(),id,"JOIN_APPROVED:"+id,"Welcome home","Your apartment access is approved.","home");
     }

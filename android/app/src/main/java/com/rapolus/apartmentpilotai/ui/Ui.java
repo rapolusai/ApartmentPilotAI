@@ -37,9 +37,18 @@ import java.util.*;
         l.setLayoutParams(new LinearLayout.LayoutParams(-1,-2));
         return l;
     }
+    /** "1 flat", "2 flats". */
+    public static String count(long n,String one,String many) {
+        return n+" "+(n==1?one:many);
+    }
+    /** User-facing wording for an unconfigured external integration. */
+    public static String delivery(String status) {
+        return "NOT_CONFIGURED".equals(status)||status==null||status.isEmpty()?"not set up":status.toLowerCase(java.util.Locale.ROOT).replace('_',' ');
+    }
     public TextView text(String value,int size,boolean bold,int color) {
         TextView t=new TextView(c);
-        t.setText(value);
+        // Any raw UTC instant from the server is shown as an IST date and time.
+        t.setText(com.rapolus.apartmentpilotai.data.DateText.humanize(value));
         t.setTextSize(size);
         t.setTextColor(color(color));
         if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
@@ -145,7 +154,7 @@ import java.util.*;
             r.addView(chevron,new LinearLayout.LayoutParams(dp(iconSize>28?20:18),dp(iconSize>28?20:18)));
             r.setOnClickListener(v->action.run());
             r.setFocusable(true);
-            r.setContentDescription(title+". "+detail);
+            r.setContentDescription(com.rapolus.apartmentpilotai.data.DateText.humanize(title+". "+detail));
         }
         parent.addView(r);
     }

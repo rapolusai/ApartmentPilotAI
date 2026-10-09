@@ -23,4 +23,12 @@ public record Account(UUID id,UUID tenantId,UUID flatId,String name,String role,
     public void requireAdmin() {
         if(!role.equals("ADMIN"))throw ApiError.forbidden();
     }
+    /** Alias of {@link #automation} kept for callers that name the scheduler's account "system". */
+    public static Account system(UUID adminId,UUID tenantId) {
+        return automation(adminId,tenantId);
+    }
+    /** Alias of {@link #actorId}. */
+    public UUID auditActor() {
+        return actorId();
+    }
 }

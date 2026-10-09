@@ -34,7 +34,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
         return ResponseEntity.badRequest().body(Map.of("message",e instanceof IllegalArgumentException && e.getMessage()!=null ? e.getMessage():"Invalid request values."));
     }
     @ExceptionHandler(MethodArgumentNotValidException.class) public ResponseEntity<?> validation(MethodArgumentNotValidException e) {
-        String m=e.getBindingResult().getFieldErrors().stream().map(f->f.getField()+": "+f.getDefaultMessage()).findFirst().orElse("Check your input.");
+        String m=e.getBindingResult().getFieldErrors().stream().map(f->label(f.getField())+" "+f.getDefaultMessage()+".").findFirst().orElse("Check your input.");
         return ResponseEntity.badRequest().body(Map.of("message",m));
     }
     @ExceptionHandler(MissingServletRequestParameterException.class) public ResponseEntity<?> missingParameter(MissingServletRequestParameterException e) {
@@ -57,6 +57,11 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
     }
     @ExceptionHandler(NoResourceFoundException.class) public ResponseEntity<?> noRoute(NoResourceFoundException e) {
         return message(HttpStatus.NOT_FOUND,"Not found.");
+    }
+    /** "dueDay" -> "Due day", for user-facing validation messages. */
+    public static String label(String field) {
+        String spaced=field.replaceAll("([a-z])([A-Z])","$1 $2").toLowerCase(java.util.Locale.ROOT);
+        return spaced.isEmpty()?spaced:Character.toUpperCase(spaced.charAt(0))+spaced.substring(1);
     }
     @ExceptionHandler(DataIntegrityViolationException.class) public ResponseEntity<?> conflict(DataIntegrityViolationException e) {
         return ResponseEntity.status(409).body(Map.of("message","This record conflicts with an existing record. Refresh and check for duplicates."));
