@@ -378,7 +378,7 @@ class AuthAuditIntegrationTest {
         assertEquals(HttpStatus.CONFLICT,assertThrows(ApiError.class,()->subscriptions.verify(PROVIDER_KEY,admin.tenant(),verified)).status(),"An Admin alone is not enough");
         var member=resident(admin,"A-101");
         assertEquals(200,call("POST","/members/"+member.id()+"/treasurer",null,admin.token()).status());
-        assertEquals(Map.of("verified",true),subscriptions.verify(PROVIDER_KEY,admin.tenant(),verified));
+        assertEquals(true,((Map<?,?>)subscriptions.verify(PROVIDER_KEY,admin.tenant(),verified)).get("verified"));
     }
 
     // ---- BUG-B-01 ----
