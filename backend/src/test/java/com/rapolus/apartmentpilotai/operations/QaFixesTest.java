@@ -17,6 +17,11 @@ class QaFixesTest {
         assertEquals("Title",ErrorHandler.label("title"));
         assertEquals("PIN",ErrorHandler.label("pin"));
     }
+    @Test void missingValuesReadAsRequired() {
+        assertEquals("is required",ErrorHandler.wording("must not be null"));
+        assertEquals("is required",ErrorHandler.wording("must not be blank"));
+        assertEquals("must be 6 digits",ErrorHandler.wording("must be 6 digits"));
+    }
     @Test void referralCodesAreReadableAndUnambiguous() {
         java.util.Set<String> seen=new java.util.HashSet<>();
         for(int i=0; i<500; i++) {
