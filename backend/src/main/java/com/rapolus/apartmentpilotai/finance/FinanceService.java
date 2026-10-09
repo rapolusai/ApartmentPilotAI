@@ -39,6 +39,8 @@ import org.springframework.transaction.annotation.Transactional;
     }
     @Transactional public Map<String,Object> generate(Account a,YearMonth month) {
         a.requireStaff();
+        // Bills lock rules and overrides up to their month, so a future month would freeze rate changes until then.
+        if(month.isAfter(currentMonth()))throw new IllegalArgumentException("Bills can be generated only for the current month ("+currentMonth()+") or earlier.");
         db.lockTenant(a.tenantId());
         var rule=db.find("select amount,billing_day,due_day from ap_billing_rule where tenant_id=? and effective_month<=? order by effective_month desc limit 1",a.tenantId(),Date.valueOf(month.atDay(1))).orElseThrow(()->ApiError.conflict("Configure maintenance for this month first."));
         db.update("insert into ap_settings(tenant_id) values(?) on conflict do nothing",a.tenantId());
@@ -194,6 +196,8 @@ import org.springframework.transaction.annotation.Transactional;
             if(p.get("status").equals("REJECTED"))throw ApiError.conflict("A selected payment was rejected. Refresh the list.");
             if(p.get("status").equals("APPROVED"))continue;
             // Idempotent retry, never posts another receipt.
+            // Two-person rule: whoever submitted a payment (from the server session) cannot approve it. The whole batch fails.
+            if(a.id().equals(p.get("submittedBy")))throw ApiError.conflict("You submitted a selected payment. Another Admin or Treasurer must approve it. No payments were approved.");
             if(!p.get("mode").equals("CASH")&&db.count("select count(*) from ap_settings where tenant_id=? and proof_required=true",a.tenantId())>0&&db.count("select count(*) from ap_file where tenant_id=? and parent_kind='PAYMENT' and parent_id=?",a.tenantId(),id)==0)throw ApiError.conflict("A selected payment requires proof before approval.");
             checkOpening(a.tenantId(),LocalDate.parse(p.get("paidOn").toString()));
             UUID bill=(UUID)p.get("billId");
