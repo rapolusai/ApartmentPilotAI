@@ -46,7 +46,7 @@ import java.math.*;
     @Transactional public Object saveSettings(Account a,Map<String,Object> p) {
         a.requireStaff();
         db.lockTenant(a.tenantId());
-        c.settings(a);
+        var stored=c.settings(a);
         String days=V.opt(p,"reminderDays",80);
         OperationsRules.reminderDays(days);
         String qs=V.text(p,"quietStart",5),qe=V.text(p,"quietEnd",5);
@@ -58,7 +58,11 @@ import java.math.*;
         }
         String ifsc=V.opt(p,"ifsc",11).toUpperCase(Locale.ROOT);
         if(!ifsc.isBlank()&&!ifsc.matches("[A-Z]{4}0[A-Z0-9]{6}"))throw new IllegalArgumentException("Check the IFSC.");
-        db.update("update ap_settings set payee=?,upi=?,bank=?,account=?,ifsc=?,bill_vacant=?,late_enabled=?,late_fee=?,grace_days=?,due_notify=?,reminders=?,reminder_days=?,expenses_visible=?,proof_required=?,quiet_start=?,quiet_end=?,booking_rules=? where tenant_id=?",V.opt(p,"payee",100),V.opt(p,"upi",100),V.opt(p,"bank",100),V.opt(p,"account",30),ifsc,V.bool(p,"billVacant",true),V.bool(p,"lateEnabled",false),V.zeroMoney(p,"lateFee"),V.num(p,"graceDays",0,30),V.bool(p,"dueNotify",true),V.bool(p,"reminders",true),days,V.bool(p,"expensesVisible",true),V.bool(p,"proofRequired",false),qs,qe,V.text(p,"bookingRules",2000),a.tenantId());
+        // Only new or changed values are checked, so a section save never fails on an older stored value it did not touch.
+        String upi=V.opt(p,"upi",100),account=V.opt(p,"account",30);
+        if(!upi.isBlank()&&!upi.equals(stored.get("upi"))&&!V.upi(upi))throw new IllegalArgumentException("Enter a UPI ID like name@bank.");
+        if(!account.isBlank()&&!account.equals(stored.get("account"))&&!account.matches("[0-9]{9,18}"))throw new IllegalArgumentException("Bank account number must be 9 to 18 digits.");
+        db.update("update ap_settings set payee=?,upi=?,bank=?,account=?,ifsc=?,bill_vacant=?,late_enabled=?,late_fee=?,grace_days=?,due_notify=?,reminders=?,reminder_days=?,expenses_visible=?,proof_required=?,quiet_start=?,quiet_end=?,booking_rules=? where tenant_id=?",V.opt(p,"payee",100),upi,V.opt(p,"bank",100),account,ifsc,V.bool(p,"billVacant",true),V.bool(p,"lateEnabled",false),V.zeroMoney(p,"lateFee"),V.num(p,"graceDays",0,30),V.bool(p,"dueNotify",true),V.bool(p,"reminders",true),days,V.bool(p,"expensesVisible",true),V.bool(p,"proofRequired",false),qs,qe,V.text(p,"bookingRules",2000),a.tenantId());
         c.audit(a,"SETTINGS_UPDATED",a.tenantId(),null,"Financial, notification and booking controls updated");
         return Map.of("ok",true);
     }
@@ -71,6 +75,8 @@ import java.math.*;
         if(s.get("openingDate")!=null)throw ApiError.conflict("Opening cash is already set. Record a documented adjustment as income/expense instead.");
         var first=db.one("select min(d) as first_date from(select paid_on d from ap_payment where tenant_id=? and status='APPROVED' union all select paid_on from ap_expense where tenant_id=? and paid=true union all select received_on from ap_income where tenant_id=?) x",a.tenantId(),a.tenantId(),a.tenantId()).get("firstDate");
         if(first!=null&&date.isAfter(LocalDate.parse(first.toString())))throw new IllegalArgumentException("Opening date must not follow existing cash entries.");
+        // One-time, irreversible entry: a missing amount must not silently become 0.00. An explicit 0 is allowed.
+        if(p.get("amount")==null||String.valueOf(p.get("amount")).isBlank())throw new IllegalArgumentException("Enter the opening cash amount (0 is allowed).");
         BigDecimal amount=V.zeroMoney(p,"amount");
         db.update("update ap_settings set opening_amount=?,opening_date=? where tenant_id=?",amount,V.sql(date),a.tenantId());
         c.audit(a,"OPENING_CASH_SET",a.tenantId(),null,date+" · "+amount);
