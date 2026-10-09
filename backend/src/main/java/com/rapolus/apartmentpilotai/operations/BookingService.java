@@ -23,6 +23,7 @@ import java.time.*;
         return rows;
     }
     @Transactional public Object saveResource(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireAdmin();
         db.lockTenant(a.tenantId());
         var old=c.previous(a,"RESOURCE_SAVE",p);
@@ -70,6 +71,7 @@ import java.time.*;
         return Map.of("ok",true);
     }
     @Transactional public Object block(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireAdmin();
         db.lockTenant(a.tenantId());
         var old=c.previous(a,"RESOURCE_BLOCK",p);
@@ -179,6 +181,7 @@ import java.time.*;
         return Map.of("id",id,"status","PENDING");
     }
     @Transactional public Object decide(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         db.lockTenant(a.tenantId());
         var b=get(a,id);
         var old=c.previous(a,"BOOKING_DECISION",p);

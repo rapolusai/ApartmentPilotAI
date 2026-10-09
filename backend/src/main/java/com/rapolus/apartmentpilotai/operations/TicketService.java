@@ -57,6 +57,7 @@ import java.time.*;
         db.update("insert into ap_ticket_event(id,tenant_id,ticket_id,actor_id,message,status) values(?,?,?,?,?,?)",UUID.randomUUID(),a.tenantId(),id,a.id(),note,status);
     }
     @Transactional public Object update(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         db.lockTenant(a.tenantId());
         var t=get(a,id);
         var old=c.previous(a,"TICKET_UPDATE",p);
@@ -79,6 +80,7 @@ import java.time.*;
         return Map.of("id",id);
     }
     @Transactional public Object comment(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         db.lockTenant(a.tenantId());
         get(a,id);
         var old=c.previous(a,"TICKET_COMMENT",p);
@@ -110,6 +112,7 @@ import java.time.*;
         return s;
     }
     @Transactional public Object saveService(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireStaff();
         db.lockTenant(a.tenantId());
         var old=c.previous(a,"SERVICE_SAVE",p);
@@ -130,6 +133,7 @@ import java.time.*;
         return Map.of("id",id);
     }
     @Transactional public Object completeService(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireStaff();
         db.lockTenant(a.tenantId());
         var s=service(a,id);

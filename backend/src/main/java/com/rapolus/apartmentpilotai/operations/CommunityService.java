@@ -63,6 +63,7 @@ import java.time.*;
         return db.one("select f.id,f.label,f.block,f.floor,f.active,f.occupied,u.id as member_id,u.name,u.role,u.status from ap_flat f left join ap_user u on u.tenant_id=f.tenant_id and u.flat_id=f.id and u.status in ('ACTIVE','PENDING') where f.tenant_id=? and f.id=?",a.tenantId(),id);
     }
     @Transactional public Object saveFlat(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireAdmin();
         db.lockTenant(a.tenantId());
         var prev=commands.previous(a,"FLAT_SAVE",p);
@@ -91,6 +92,7 @@ import java.time.*;
         return rows;
     }
     @Transactional public Object memberRecord(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireAdmin();
         db.lockTenant(a.tenantId());
         var old=commands.previous(a,"MEMBER_RECORD",p);
@@ -117,10 +119,15 @@ import java.time.*;
         String role=V.choice(p,"role","ADMIN","TREASURER","RESIDENT");
         var u=db.one("select role,flat_id from ap_user where tenant_id=? and id=? and status='ACTIVE'",a.tenantId(),id);
         if(role.equals("RESIDENT")&&u.get("flatId")==null)throw ApiError.conflict("A resident must have an assigned flat.");
+        if(!role.equals("ADMIN"))keepAnAdmin(a,id,u);
         db.update("update ap_user set role=? where tenant_id=? and id=?",role,a.tenantId(),id);
         db.update("delete from ap_session where user_id=?",id);
         commands.audit(a,"ROLE_CHANGED",id,u.get("role").toString(),role);
         return Map.of("ok",true);
+    }
+    // Checked under the tenant lock: two Admins demoting each other at once must not leave the apartment with none.
+    private void keepAnAdmin(Account a,UUID target,Map<String,Object> u) {
+        if("ADMIN".equals(u.get("role"))&&db.count("select count(*) from ap_user where tenant_id=? and role='ADMIN' and status='ACTIVE' and id<>?",a.tenantId(),target)==0)throw ApiError.conflict("This is the last active Admin of the apartment. Make another member Admin first.");
     }
     @Transactional public Object endAccess(Account a,UUID id,Map<String,Object> p) {
         a.requireAdmin();
@@ -128,6 +135,7 @@ import java.time.*;
         if(a.id().equals(id))throw ApiError.conflict("You cannot end your own Admin access.");
         String reason=V.text(p,"reason",300);
         var u=db.one("select role,flat_id from ap_user where tenant_id=? and id=? and status='ACTIVE'",a.tenantId(),id);
+        keepAnAdmin(a,id,u);
         db.update("update ap_user set status='DISABLED',rejection_reason=? where tenant_id=? and id=?",reason,a.tenantId(),id);
         db.update("delete from ap_session where user_id=?",id);
         commands.audit(a,"ACCESS_ENDED",id,"Active",reason);
@@ -142,7 +150,7 @@ import java.time.*;
     }
     @Transactional public Object changePin(Account a,Map<String,Object> p) {
         String current=V.text(p,"currentPin",6),next=V.text(p,"newPin",6);
-        if(!next.matches("[0-9]{6}"))throw new IllegalArgumentException("Use a six-digit PIN.");
+        PinPolicy.requireNew(next);
         var u=db.one("select pin_hash from ap_user where id=? and tenant_id=? for update",a.id(),a.tenantId());
         if(!encoder.matches(current,u.get("pinHash").toString()))throw new ApiError(org.springframework.http.HttpStatus.BAD_REQUEST,"Current PIN is incorrect.");
         db.update("update ap_user set pin_hash=? where id=?",encoder.encode(next),a.id());
@@ -154,6 +162,7 @@ import java.time.*;
         return db.rows("select c.*,f.label as flat_label from ap_committee c left join ap_flat f on f.id=c.flat_id where c.tenant_id=?"+(a.staff()?"":" and c.public=true and c.active=true")+" order by c.title",a.tenantId());
     }
     @Transactional public Object saveCommittee(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireAdmin();
         db.lockTenant(a.tenantId());
         var old=commands.previous(a,"COMMITTEE",p);
@@ -179,6 +188,7 @@ import java.time.*;
         return db.rows("select * from ap_contact where tenant_id=? and kind=?"+(a.staff()?"":" and public=true and active=true")+" order by name",a.tenantId(),kind);
     }
     @Transactional public Object saveContact(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireStaff();
         db.lockTenant(a.tenantId());
         var old=commands.previous(a,"CONTACT",p);

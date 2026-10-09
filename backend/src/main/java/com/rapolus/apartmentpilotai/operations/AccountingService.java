@@ -198,6 +198,7 @@ import java.math.*;
         return e;
     }
     @Transactional public Object editExpense(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireStaff();
         db.lockTenant(a.tenantId());
         var e=expense(a,id);
@@ -223,6 +224,7 @@ import java.math.*;
         return Map.of("id",id);
     }
     @Transactional public Object reverseExpense(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireStaff();
         db.lockTenant(a.tenantId());
         var e=expense(a,id);
@@ -237,6 +239,7 @@ import java.math.*;
         return Map.of("id",id);
     }
     @Transactional public Object reversePayment(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireStaff();
         db.lockTenant(a.tenantId());
         var old=c.previous(a,"PAYMENT_REVERSE",p);
@@ -304,6 +307,7 @@ import java.math.*;
         return Map.of("id",expenseId);
     }
     @Transactional public Object recurring(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireStaff();
         db.lockTenant(a.tenantId());
         var old=c.previous(a,"RECURRING",p);
