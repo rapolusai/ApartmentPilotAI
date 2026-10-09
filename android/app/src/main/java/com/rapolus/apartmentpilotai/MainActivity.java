@@ -541,7 +541,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     }
     private void subscriptionRequired() {
         header("Subscription required");
-        ui.state(content,R.drawable.ic_shield,"Apartment access paused","The apartment’s 3-day free trial has ended. An active subscription or earned referral credit is required to continue. One apartment subscription covers its Admin, Treasurer, and Residents.",R.color.ap_amber,R.color.ap_ambg);
+        ui.state(content,R.drawable.ic_shield,"Apartment access paused","The apartment’s free first month has ended. An active subscription or earned referral credit is required to continue. One apartment subscription covers its Admin, Treasurer, and Residents.",R.color.ap_amber,R.color.ap_ambg);
         if(admin())ui.button(content,"View subscription",R.drawable.ic_receipt,true,()->go("subscription"));
         else ui.note(content,"Please ask your apartment Admin to review Subscription & referrals.");
         ui.button(content,"Sign out",R.drawable.ic_logout,false,()->ui.confirm("Sign out?","You can sign in again after the apartment Admin restores access.","Sign out",()->request("POST","/logout",json(),r->exitSession())));
