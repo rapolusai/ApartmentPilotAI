@@ -1,0 +1,4 @@
+<resources>
+ <dimen name="brand_footer_text">11sp</dimen>
+ <dimen name="nav_label_text">12sp</dimen>
+</resources>

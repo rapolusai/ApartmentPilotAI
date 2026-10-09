@@ -587,7 +587,7 @@ import java.util.*;
                     choice.setContentDescription("Open flat "+f.optString("label"));holder.removeView(choice);
                     GridLayout.LayoutParams p=new GridLayout.LayoutParams();p.width=0;p.height=u.dp(82);p.columnSpec=GridLayout.spec(GridLayout.UNDEFINED,1f);p.setMargins(u.dp(3),u.dp(3),u.dp(3),u.dp(3));grid.addView(choice,p);
                 }
-                if(count==0)u.empty(list,arr.length()==0?"No flats configured":"No matching flats","Try another flat, resident or block.");
+                if(count==0)u.empty(list,R.drawable.ic_building,arr.length()==0?"No flats configured":"No matching flats","Try another flat, resident or block.");
             };
             search.addTextChangedListener(new android.text.TextWatcher() {
                 public void beforeTextChanged(CharSequence s,int start,int count,int after) {}
@@ -604,7 +604,7 @@ import java.util.*;
     }
     private void flat() {
         title("Flat details");
-        if(id.isEmpty()) {u.empty(b,"No flat selected","Choose a flat from the Flats page.");return;}
+        if(id.isEmpty()) {u.empty(b,R.drawable.ic_building,"No flat selected","Choose a flat from the Flats page.");return;}
         get("/ops/flats/"+id,r-> {
             JSONObject f=(JSONObject)r;
             LinearLayout c=card();c.addView(u.text(f.optString("label"),28,true,R.color.ap_ink));
@@ -627,7 +627,7 @@ import java.util.*;
         u.button(b,"Add block",R.drawable.ic_plus,true,()->go("block-form"));
         get("/ops/blocks",r-> {
             JSONArray rows=(JSONArray)r;
-            if(rows.length()==0)u.empty(b,"No blocks configured","Add a block before creating its flats.");
+            if(rows.length()==0)u.empty(b,R.drawable.ic_building,"No blocks configured","Add a block before creating its flats.");
             for(int i=0;i<rows.length();i++) {
                 JSONObject block=rows.getJSONObject(i);
                 row(card(),"Block "+block.optString("name"),Ui.count(block.optInt("flatCount"),"flat","flats"),R.drawable.ic_building,"block-form",block.optString("id"));
@@ -715,7 +715,7 @@ import java.util.*;
         if(h.isAdmin())u.button(b,"Add committee member",R.drawable.ic_plus,true,()->go("committee-form"));
         get("/ops/committee",r-> {
             JSONArray arr=(JSONArray)r;
-            if(arr.length()==0)u.empty(b,"Committee not added","Apartment team appears here.");
+            if(arr.length()==0)u.empty(b,R.drawable.ic_users,"Committee not added","Apartment team appears here.");
             for(int i=0; i<arr.length(); i++) {
                 JSONObject m=arr.getJSONObject(i);
                 LinearLayout c=card();
@@ -810,7 +810,7 @@ import java.util.*;
                 if(val(member,"flatLabel").isEmpty()||!status.equals(member.optString("status")))continue;
                 requestCount++;
             }
-            if(requestCount==0)u.empty(b,"No "+(status.equals("ACTIVE")?"approved":status.toLowerCase(Locale.ROOT))+" requests","Resident requests in this state will appear here.");
+            if(requestCount==0)u.empty(b,R.drawable.ic_users,"No "+(status.equals("ACTIVE")?"approved":status.toLowerCase(Locale.ROOT))+" requests","Resident requests in this state will appear here.");
             LinearLayout requests=requestCount==0?null:card();
             if(requests!=null)requests.setPadding(0,0,0,0);
             for(int i=0;i<rows.length();i++) {
@@ -885,7 +885,7 @@ import java.util.*;
         get("/members/"+id,value-> {
             JSONObject member=(JSONObject)value;
             if(!"PENDING".equals(member.optString("status"))) {
-                u.empty(b,"Request already reviewed","Return to join requests for its current status.");
+                u.empty(b,R.drawable.ic_check,"Request already reviewed","Return to join requests for its current status.");
                 return;
             }
             u.hero(b,val(member,"flatLabel"),member.optString("name"),"Explain what the resident should correct.");
@@ -906,7 +906,7 @@ import java.util.*;
     private void inviteSettings() {
         title("Invite controls");
         if(!h.isAdmin()) {
-            u.empty(b,"Admin access required","Only your apartment Admin can change the resident invite.");
+            u.empty(b,R.drawable.ic_shield,"Admin access required","Only your apartment Admin can change the resident invite.");
             return;
         }
         get("/invites/current",value-> {
@@ -972,7 +972,7 @@ import java.util.*;
         if(h.isStaff())u.button(b,"Add "+route,R.drawable.ic_plus,true,()->go(route+"-form"));
         get("/ops/contacts?kind="+kind,r-> {
             JSONArray arr=(JSONArray)r;
-            if(arr.length()==0)u.empty(b,"No contacts yet","Add verified apartment contacts.");
+            if(arr.length()==0)u.empty(b,R.drawable.ic_phone,"No contacts yet","Add verified apartment contacts.");
             for(int i=0; i<arr.length(); i++) {
                 JSONObject c=arr.getJSONObject(i);
                 row(card(),c.optString("name"),c.optString("category"),R.drawable.ic_user,route,c.optString("id"));
@@ -1101,7 +1101,7 @@ import java.util.*;
             u.prominentIconRow(u.card(list),ticket.optString("title"),subtitle,categoryIcon(ticket.optString("category")),()->go("ticket",ticket.optString("id")));
             shown++;
         }
-        if(shown==0)u.empty(list,term.isEmpty()&&filter.equals("Active")?"All clear":"No matching issues",term.isEmpty()&&filter.equals("Active")?"No active issues have been reported.":"Try another search or filter.");
+        if(shown==0)u.empty(list,R.drawable.ic_tools,term.isEmpty()&&filter.equals("Active")?"All clear":"No matching issues",term.isEmpty()&&filter.equals("Active")?"No active issues have been reported.":"Try another search or filter.");
     }
     private void issueCategories() {
         title("What needs attention?");
@@ -1185,7 +1185,7 @@ import java.util.*;
             get("/ops/tickets/"+id+"/affected",rowsValue-> {
                 JSONArray rows=(JSONArray)rowsValue;
                 u.hero(b,Ui.count(rows.length(),"flat","flats"),ticket.optString("title"),ticket.optString("scope"));
-                if(rows.length()==0)u.empty(b,"No affected flats yet","Residents can follow an active shared-area issue.");
+                if(rows.length()==0)u.empty(b,R.drawable.ic_tools,"No affected flats yet","Residents can follow an active shared-area issue.");
                 for(int i=0;i<rows.length();i++) {
                     JSONObject affectedRow=rows.getJSONObject(i);
                     row(card(),affectedRow.optString("flatLabel"),affectedRow.optString("name")+" · Block "+affectedRow.optString("block"),R.drawable.ic_home,"directory-detail",affectedRow.optString("userId"));
@@ -1230,7 +1230,7 @@ import java.util.*;
         if(h.isStaff())u.button(b,"Schedule service",R.drawable.ic_plus,true,()->go("service-form"));
         get("/ops/services",r-> {
             JSONArray arr=(JSONArray)r;
-            if(arr.length()==0)u.empty(b,"No schedules yet","Set reminders for lift service, cleaning and equipment checks.");
+            if(arr.length()==0)u.empty(b,R.drawable.ic_lift,"No schedules yet","Set reminders for lift service, cleaning and equipment checks.");
             for(int i=0; i<arr.length(); i++) {
                 JSONObject s=arr.getJSONObject(i);
                 row(card(),s.optString("title"),s.optString("nextOn")+" · "+friendly(s.optString("frequency"))+" · "+serviceStatus(s),categoryIcon(s.optString("category")),"service",s.optString("id"));
@@ -1388,7 +1388,7 @@ import java.util.*;
             row(u.card(list),event.optString("title"),friendly(status)+" · "+timing,R.drawable.ic_calendar,"booking",event.optString("id"));
             shown++;
         }
-        if(shown==0)u.empty(list,term.isEmpty()&&filter.equals("Upcoming")?"No upcoming events":"No matching events",term.isEmpty()&&filter.equals("Upcoming")?"Request a space for your next gathering.":"Try another search or filter.");
+        if(shown==0)u.empty(list,R.drawable.ic_calendar,term.isEmpty()&&filter.equals("Upcoming")?"No upcoming events":"No matching events",term.isEmpty()&&filter.equals("Upcoming")?"Request a space for your next gathering.":"Try another search or filter.");
     }
     private void booking() {
         title("Event details");
@@ -1535,7 +1535,7 @@ import java.util.*;
         if(h.isAdmin())u.button(b,"Add space",R.drawable.ic_plus,true,()->go("resource-form"));
         get("/ops/resources",r-> {
             JSONArray arr=(JSONArray)r;
-            if(arr.length()==0)u.empty(b,"No spaces configured","Admin can add a terrace, event area and guest parking.");
+            if(arr.length()==0)u.empty(b,R.drawable.ic_calendar,"No spaces configured","Admin can add a terrace, event area and guest parking.");
             for(int i=0; i<arr.length(); i++) {
                 JSONObject x=arr.getJSONObject(i);
                 row(card(),x.optString("name"),friendly(x.optString("kind"))+" · "+x.optInt("capacity")+" capacity",x.optString("kind").equals("SPACE")?R.drawable.ic_home:R.drawable.ic_car,"resource",x.optString("id"));
@@ -1694,7 +1694,7 @@ import java.util.*;
             if(!body.isEmpty())u.note(card,body.length()>100?body.substring(0,100)+"…":body);
             shown++;
         }
-        if(shown==0)u.empty(list,term.isEmpty()&&filter.equals("All")?"No notices yet":"No matching notices",term.isEmpty()&&filter.equals("All")?"Updates from your apartment team.":"Try another search or filter.");
+        if(shown==0)u.empty(list,R.drawable.ic_notice,term.isEmpty()&&filter.equals("All")?"No notices yet":"No matching notices",term.isEmpty()&&filter.equals("All")?"Updates from your apartment team.":"Try another search or filter.");
     }
     private void notice() {
         title("Apartment notice");
@@ -1724,8 +1724,8 @@ import java.util.*;
                 boolean read=!n.isNull("myReadAt")&&n.has("myReadAt"),acknowledged=!n.isNull("myAcknowledgedAt")&&n.has("myAcknowledgedAt");
                 if(acknowledged)u.note(b,"✓ You acknowledged this notice on "+n.optString("myAcknowledgedAt")+".");
                 else if(read&&!n.optBoolean("acknowledge"))u.note(b,"✓ Read");
-                if(!read)u.button(b,"Mark read",R.drawable.ic_check,false,()->h.requestApi("POST","/notices/"+id+"/read",obj(),x->{Toast.makeText(h.activity(),"Marked read",Toast.LENGTH_SHORT).show();h.refreshPage();}));
-                if(n.optBoolean("acknowledge")&&!acknowledged)u.button(b,"Acknowledge",R.drawable.ic_check,true,()->u.confirm("Acknowledge notice?","Confirm you have read this announcement.","Acknowledge",()->h.requestApi("POST","/notices/"+id+"/read",obj("acknowledge",true),x->{Toast.makeText(h.activity(),"Acknowledged",Toast.LENGTH_SHORT).show();h.refreshPage();})));
+                if(!read)u.button(b,"Mark read",R.drawable.ic_check,false,()->h.requestApi("POST","/notices/"+id+"/read",obj(),x->{u.message("Marked read",false);h.refreshPage();}));
+                if(n.optBoolean("acknowledge")&&!acknowledged)u.button(b,"Acknowledge",R.drawable.ic_check,true,()->u.confirm("Acknowledge notice?","Confirm you have read this announcement.","Acknowledge",()->h.requestApi("POST","/notices/"+id+"/read",obj("acknowledge",true),x->{u.message("Acknowledged",false);h.refreshPage();})));
             }
         }
         );
@@ -1878,7 +1878,7 @@ import java.util.*;
             row(u.card(list),document.optString("title"),document.optString("category")+" · "+visibility,R.drawable.ic_copy,"document",document.optString("id"));
             shown++;
         }
-        if(shown==0)u.empty(list,term.isEmpty()&&filter.equals("All")?"No shared files":"No matching documents",term.isEmpty()&&filter.equals("All")?"Apartment documents appear here.":"Try another title or category.");
+        if(shown==0)u.empty(list,R.drawable.ic_report,term.isEmpty()&&filter.equals("All")?"No shared files":"No matching documents",term.isEmpty()&&filter.equals("All")?"Apartment documents appear here.":"Try another title or category.");
     }
     private void document() {
         title("Document");
@@ -1916,7 +1916,7 @@ import java.util.*;
         title("Attachments");
         String[] parts=id.split(":",2);
         if(parts.length!=2) {
-            u.empty(b,"No record selected","");
+            u.empty(b,R.drawable.ic_report,"No record selected","");
             return;
         }
         String kind=parts[0],parent=parts[1];
@@ -1925,7 +1925,7 @@ import java.util.*;
         u.note(b,"Up to 5 files · 5 MB each. Access follows the parent record.");
         get("/ops/files?kind="+kind+"&parentId="+parent,r-> {
             JSONArray arr=(JSONArray)r;
-            if(arr.length()==0)u.empty(b,"No attachments","");
+            if(arr.length()==0)u.empty(b,R.drawable.ic_report,"No attachments","");
             for(int i=0; i<arr.length(); i++) {
                 JSONObject x=arr.getJSONObject(i);
                 u.iconRow(card(),x.optString("name"),(x.optLong("size")/1024)+" KB",R.drawable.ic_copy,()->get("/ops/files/"+x.optString("id"),data->h.openSharedFile((JSONObject)data)));
@@ -1935,7 +1935,7 @@ import java.util.*;
     }
     private void settings() {
         title("Financial controls");
-        if(!h.isStaff()) {u.empty(b,"Staff access only","Your apartment admin manages these controls.");return;}
+        if(!h.isStaff()) {u.empty(b,R.drawable.ic_shield,"Staff access only","Your apartment admin manages these controls.");return;}
         LinearLayout c=card();
         row(c,"Monthly maintenance","Amount and due date",R.drawable.ic_receipt,"billing-settings");
         row(c,"Payment account","UPI and bank details",R.drawable.ic_wallet,"payment-settings");
@@ -1949,7 +1949,7 @@ import java.util.*;
     private void settingsForm(String section) {
         String heading=section.equals("payment")?"Payment account":section.equals("billing")?"Billing options":section.equals("verification")?"Payment verification":section.equals("reminders")?"Reminder settings":"Booking rules";
         title(heading);
-        if(!h.isStaff()) {u.empty(b,"Staff access only","Your apartment admin manages these controls.");return;}
+        if(!h.isStaff()) {u.empty(b,R.drawable.ic_shield,"Staff access only","Your apartment admin manages these controls.");return;}
         get("/ops/settings",r-> {
             JSONObject x=(JSONObject)r;
             Ui.Fields f=h.newFields();
@@ -2020,7 +2020,7 @@ import java.util.*;
         u.button(b,"Add rate exception",R.drawable.ic_plus,true,()->go("rate-override-form"));
         get("/ops/rate-overrides",r-> {
             JSONArray arr=(JSONArray)r;
-            if(arr.length()==0)u.empty(b,"One rate for all flats","Add only agreed exceptions.");
+            if(arr.length()==0)u.empty(b,R.drawable.ic_expense,"One rate for all flats","Add only agreed exceptions.");
             for(int i=0; i<arr.length(); i++) {
                 JSONObject x=arr.getJSONObject(i);
                 LinearLayout c=card();
@@ -2056,7 +2056,7 @@ import java.util.*;
                 found++;
                 row(card(),x.optString("title"),x.optString("flatLabel")+" · "+Ui.money(Ui.decimal(x.opt("amount")).subtract(Ui.decimal(x.opt("paid")))),R.drawable.ic_receipt,"bill",x.optString("id"));
             }
-            if(found==0)u.empty(b,"No contributions for "+h.selectedMonth(),"Regular monthly maintenance remains separate.");
+            if(found==0)u.empty(b,R.drawable.ic_expense,"No contributions for "+h.selectedMonth(),"Regular monthly maintenance remains separate.");
         }
         );
     }
@@ -2088,7 +2088,7 @@ import java.util.*;
         title("Review contribution");
         JSONObject draft=h.pageDraft("contribution");
         if(!draft.has("title")) {
-            u.empty(b,"No contribution draft","Start a new collection to review it here.");
+            u.empty(b,R.drawable.ic_expense,"No contribution draft","Start a new collection to review it here.");
             u.button(b,"New collection",R.drawable.ic_plus,true,()->go("contribution-form"));
             return;
         }
@@ -2110,7 +2110,7 @@ import java.util.*;
             write("/ops/charges",command,value-> {
                 JSONObject result=(JSONObject)value;
                 h.clearPageDraft("contribution");
-                Toast.makeText(h.activity(),result.optInt("created")+" contribution due(s) created. No payment recorded.",Toast.LENGTH_LONG).show();
+                u.message(result.optInt("created")+" contribution due(s) created. No payment recorded.",true);
                 go("contributions");
             });
         });
@@ -2120,7 +2120,7 @@ import java.util.*;
         u.button(b,"Record income",R.drawable.ic_plus,true,()->go("income-form"));
         get("/ops/income",r-> {
             JSONArray arr=(JSONArray)r;
-            if(arr.length()==0)u.empty(b,"No other income","");
+            if(arr.length()==0)u.empty(b,R.drawable.ic_expense,"No other income","");
             for(int i=0; i<arr.length(); i++) {
                 JSONObject x=arr.getJSONObject(i);
                 LinearLayout c=card();
@@ -2205,7 +2205,7 @@ import java.util.*;
         u.button(b,"Add recurring expense",R.drawable.ic_plus,true,()->go("recurring-form"));
         get("/ops/recurring",r-> {
             JSONArray arr=(JSONArray)r;
-            if(arr.length()==0)u.empty(b,"No recurring templates","Recurring entries are drafts until payment is confirmed.");
+            if(arr.length()==0)u.empty(b,R.drawable.ic_expense,"No recurring templates","Recurring entries are drafts until payment is confirmed.");
             for(int i=0; i<arr.length(); i++) {
                 JSONObject x=arr.getJSONObject(i);
                 row(card(),x.optString("title"),Ui.money(x.opt("amount"))+" · "+x.optString("nextOn")+" · "+(x.optBoolean("active")?"Active":"Paused"),R.drawable.ic_clock,"recurring-detail",x.optString("id"));
@@ -2216,7 +2216,7 @@ import java.util.*;
     private void recurringDetail() {
         title("Recurring expense");
         if(!h.isStaff()){h.problem("Admin or treasurer access required.");return;}
-        if(id.isEmpty()){u.empty(b,"No recurring expense selected","Open a template from Recurring expenses.");return;}
+        if(id.isEmpty()){u.empty(b,R.drawable.ic_expense,"No recurring expense selected","Open a template from Recurring expenses.");return;}
         get("/ops/recurring/"+id,r->{
             JSONObject x=(JSONObject)r;
             boolean active=x.optBoolean("active");
@@ -2275,7 +2275,7 @@ import java.util.*;
                 u.kv(c,x.optString("title"),Ui.money(x.opt("amount")));
                 u.note(c,x.optString("date")+" · "+friendly(x.optString("kind")));
             }
-            if(arr.length()==0)u.empty(b,"No transactions this month","");
+            if(arr.length()==0)u.empty(b,R.drawable.ic_expense,"No transactions this month","");
             u.button(b,"Export PDF",R.drawable.ic_report,false,()->h.exportPdf("Cashbook · "+h.selectedMonth(),obj("entries",arr)));
         }
         );
@@ -2365,7 +2365,7 @@ import java.util.*;
             u.note(b,"Pay outside the app. Verify the account with your treasurer first.");
             if(!val(x,"upi").trim().isEmpty())u.button(b,"Copy UPI ID",R.drawable.ic_copy,true,()-> {
                 ((android.content.ClipboardManager)h.activity().getSystemService(Context.CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("Association UPI",x.optString("upi")));
-                Toast.makeText(h.activity(),"UPI ID copied",Toast.LENGTH_SHORT).show();
+                u.message("UPI ID copied",false);
             }
             );
             if(h.isStaff())u.button(b,"Edit payment account",R.drawable.ic_settings,false,()->go("payment-settings"));
@@ -2397,7 +2397,7 @@ import java.util.*;
         row(c,"Service schedules","Preventive maintenance",R.drawable.ic_tools,"services");
         u.button(b,"Run due tasks now",R.drawable.ic_clock,true,()->u.confirm("Run scheduled tasks?","Due tasks are evaluated for today's date. Existing bills and jobs are not duplicated.","Run tasks",()->h.requestApi("POST","/ops/automation/run",obj(),r-> {
             JSONObject x=(JSONObject)r;
-            Toast.makeText(h.activity(),"Tasks ran: "+x.optInt("billsCreated")+" bills, "+x.optInt("expenseDraftsCreated")+" expense drafts, "+x.optInt("noticesPublished")+" notices",Toast.LENGTH_LONG).show();
+            u.message("Tasks ran: "+x.optInt("billsCreated")+" bills, "+x.optInt("expenseDraftsCreated")+" expense drafts, "+x.optInt("noticesPublished")+" notices",true);
             u.heading(b,"Last run result");
             details(x,"billsCreated","Bills generated","expenseDraftsCreated","Expense drafts","lateFeesApplied","Late charges","reminderRecipientsConsidered","Eligible reminder recipients","noticesPublished","Notices published","bookingsCompleted","Ended reservations");
         }
@@ -2429,7 +2429,7 @@ import java.util.*;
             u.button(b,"Share referral",R.drawable.ic_users,true,()->h.activity().startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,"ApartmentPilotAI referral code: "+code+". Every apartment gets its first month free. If two new apartments join with this code and are verified within their first month, all three apartments also get their first paid month free. Terms apply."),"Share referral")));
             if(s.optBoolean("referralApplied"))u.note(b,"✓ A referral code has been applied to this apartment.");
             else u.button(b,"I was referred",R.drawable.ic_plus,false,()->go("referral-claim"));
-            if(s.isNull("installedAt"))u.button(b,"Register this installation",R.drawable.ic_check,false,()->h.requestApi("POST","/ops/subscription/install",obj(),x->{Toast.makeText(h.activity(),"Installation reported. The service operator verifies it separately.",Toast.LENGTH_LONG).show();h.refreshPage();}));
+            if(s.isNull("installedAt"))u.button(b,"Register this installation",R.drawable.ic_check,false,()->h.requestApi("POST","/ops/subscription/install",obj(),x->{u.message("Installation reported. The service operator verifies it separately.",true);h.refreshPage();}));
             else u.note(b,"✓ Installation reported on "+s.optString("installedAt")+". Awaiting independent verification.");
             JSONArray referrals=s.optJSONArray("referrals");
             if(referrals!=null) {
@@ -2532,7 +2532,7 @@ import java.util.*;
         f.field("message","Message","",TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         u.note(b,"Saved privately in this application. External support delivery is not configured. Do not include PINs or passwords.");
         submit("Save request",()->write("/ops/support",f.values(),r->{
-            Toast.makeText(h.activity(),"Help request saved privately",Toast.LENGTH_LONG).show();
+            u.message("Help request saved privately",true);
             h.refreshPage();
         }));
         u.button(b,"Apartment contacts",R.drawable.ic_phone,false,()->go("contacts"));
@@ -2607,7 +2607,7 @@ import java.util.*;
         if(h.isAdmin())u.button(b,"New poll",R.drawable.ic_plus,true,()->go("poll-form"));
         get("/ops/polls",r-> {
             JSONArray arr=(JSONArray)r;
-            if(arr.length()==0)u.empty(b,"No polls yet","");
+            if(arr.length()==0)u.empty(b,R.drawable.ic_check,"No polls yet","");
             for(int i=0; i<arr.length(); i++) {
                 JSONObject p=arr.getJSONObject(i);
                 row(card(),p.optString("title"),p.optBoolean("closed")?"Closed":"Ends "+com.rapolus.apartmentpilotai.data.DateText.humanize(p.optString("closesAt")),R.drawable.ic_check,"poll",p.optString("id"));
@@ -2681,7 +2681,7 @@ import java.util.*;
             row(u.card(list),vehicle.optString("registration"),vehicle.optString("flatLabel")+" · "+vehicle.optString("parkingLabel"),R.drawable.ic_car,"vehicle",vehicle.optString("id"));
             shown++;
         }
-        if(shown==0)u.empty(list,term.isEmpty()?"No vehicles":"No matching vehicles",term.isEmpty()?"":"Try another registration, flat, or parking label.");
+        if(shown==0)u.empty(list,R.drawable.ic_car,term.isEmpty()?"No vehicles":"No matching vehicles",term.isEmpty()?"":"Try another registration, flat, or parking label.");
     }
     private void vehicle() {
         title("Vehicle");
@@ -2692,7 +2692,7 @@ import java.util.*;
             Ui.Fields f=h.newFields();
             f.field("message","Message to flat member","Please move your vehicle; the parking access is blocked.",TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
             u.note(b,"Notifies the flat's in-app inbox without revealing phone numbers.");
-            submit("Contact owner",()->write("/ops/vehicles/"+id+"/contact",obj("message",f.get("message")),x->Toast.makeText(h.activity(),"Request added to the owner's inbox",Toast.LENGTH_LONG).show()));
+            submit("Contact owner",()->write("/ops/vehicles/"+id+"/contact",obj("message",f.get("message")),x->u.message("Request added to the owner's inbox",true)));
         }
         );
     }

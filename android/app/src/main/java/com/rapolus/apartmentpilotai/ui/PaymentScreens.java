@@ -43,7 +43,7 @@ public final class PaymentScreens {
     private String mode(String value) {return value.equals("BANK_TRANSFER")?"Bank transfer":value.equals("CASH")?"Cash":value.equals("CHEQUE")?"Cheque":value;}
     private void status() {
         h.pageTitle("Payment status");
-        if(id.isEmpty()) {u.empty(b,"No payment to track","Open a payment from history.");u.button(b,"Payment history",R.drawable.ic_receipt,true,()->go("history",""));return;}
+        if(id.isEmpty()) {u.empty(b,R.drawable.ic_receipt,"No payment to track","Open a payment from history.");u.button(b,"Payment history",R.drawable.ic_receipt,true,()->go("history",""));return;}
         get("/payments/"+id,r->{
             JSONObject p=(JSONObject)r;
             String status=p.optBoolean("reversed")?"REVERSED":p.optString("status");
@@ -97,7 +97,7 @@ public final class PaymentScreens {
                     String target=p.optString("status").equals("APPROVED")?"receipt":h.isStaff()?"payment":"payment-status";
                     u.iconRow(u.card(list),label,mode(p.optString("mode"))+" · "+date(p.optString("paidOn"))+" · "+state,R.drawable.ic_receipt,()->go(target,p.optString("id")));
                 }
-                if(count==0)u.empty(list,term.isEmpty()?"No payment history":"No matching payments",term.isEmpty()?"Your declarations and receipts will appear here.":"Try another flat, reference or month.");
+                if(count==0)u.empty(list,R.drawable.ic_receipt,term.isEmpty()?"No payment history":"No matching payments",term.isEmpty()?"Your declarations and receipts will appear here.":"Try another flat, reference or month.");
             };
             display.run();
             search.addTextChangedListener(new TextWatcher() {
@@ -109,7 +109,7 @@ public final class PaymentScreens {
     }
     private void proof() {
         h.pageTitle("Payment proof");
-        if(id.isEmpty()) {u.empty(b,"No payment selected","Open proof from your payment.");return;}
+        if(id.isEmpty()) {u.empty(b,R.drawable.ic_receipt,"No payment selected","Open proof from your payment.");return;}
         get("/payments/"+id,r->{
             JSONObject p=(JSONObject)r;
             LinearLayout summary=u.card(b);
@@ -117,7 +117,7 @@ public final class PaymentScreens {
             u.kv(summary,"Paid on",date(p.optString("paidOn")));u.kv(summary,"Reference",text(p,"reference","Cash declaration"));
             get("/ops/files?kind=PAYMENT&parentId="+p.optString("id"),files->{
                 JSONArray items=(JSONArray)files;
-                if(items.length()==0)u.empty(b,"No proof uploaded","No sample or bank confirmation is shown.");
+                if(items.length()==0)u.empty(b,R.drawable.ic_report,"No proof uploaded","No sample or bank confirmation is shown.");
                 for(int i=0;i<items.length();i++) {
                     JSONObject file=items.getJSONObject(i);
                     u.iconRow(u.card(b),file.optString("name"),file.optString("mime")+" · "+((file.optLong("size")+1023)/1024)+" KB",R.drawable.ic_copy,()->get("/ops/files/"+file.optString("id"),value->h.openSharedFile((JSONObject)value)));

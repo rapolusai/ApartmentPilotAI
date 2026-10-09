@@ -15,9 +15,12 @@
   <ScrollView android:id="@+id/sideScroll" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="38" android:visibility="gone" android:background="@color/ap_surface" android:clipToPadding="false">
    <LinearLayout android:id="@+id/side" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingHorizontal="12dp" android:paddingTop="8dp" android:paddingBottom="24dp"/>
   </ScrollView>
-  <ScrollView android:id="@+id/scroll" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="62" android:fillViewport="true" android:clipToPadding="false">
-   <LinearLayout android:id="@+id/content" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingHorizontal="20dp" android:paddingTop="8dp" android:paddingBottom="24dp"/>
-  </ScrollView>
+  <!-- Pull down to reload the current page (disabled on forms). -->
+  <androidx.swiperefreshlayout.widget.SwipeRefreshLayout android:id="@+id/refresh" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="62">
+   <ScrollView android:id="@+id/scroll" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:clipToPadding="false">
+    <LinearLayout android:id="@+id/content" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingHorizontal="20dp" android:paddingTop="8dp" android:paddingBottom="24dp"/>
+   </ScrollView>
+  </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
  </LinearLayout>
  <com.google.android.material.bottomnavigation.BottomNavigationView android:id="@+id/navigation" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@color/ap_surface" android:elevation="0dp" app:backgroundTint="@color/ap_surface"
   app:itemIconTint="@color/nav_icon_tint" app:itemIconSize="22dp" app:itemTextColor="@color/ap_ink" app:itemTextAppearanceActive="@style/ApNavLabel" app:itemTextAppearanceInactive="@style/ApNavLabel" app:itemPaddingTop="2dp" app:itemPaddingBottom="2dp" app:itemActiveIndicatorStyle="@style/ApNavIndicator" app:labelVisibilityMode="labeled" app:menu="@menu/bottom_navigation"/>

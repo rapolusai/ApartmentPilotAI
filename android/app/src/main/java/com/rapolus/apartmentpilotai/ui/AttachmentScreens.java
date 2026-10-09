@@ -13,10 +13,10 @@ public final class AttachmentScreens {
         if(!route.equals("expense-proof"))return false;
         h.pageTitle("Expense attachment");
         LinearLayout body=h.body();
-        if(parent.isEmpty()){u.empty(body,"No expense selected","Open an expense first.");return true;}
+        if(parent.isEmpty()){u.empty(body,R.drawable.ic_expense,"No expense selected","Open an expense first.");return true;}
         h.requestApi("GET","/ops/files?kind=EXPENSE&parentId="+parent,null,value->{
             JSONArray files=(JSONArray)value;
-            if(files.length()==0)u.empty(body,"No attachment","A file has not been added.");
+            if(files.length()==0)u.empty(body,R.drawable.ic_report,"No attachment","A file has not been added.");
             else {
                 LinearLayout preview=u.column();body.addView(preview);
                 LinearLayout actions=u.column();body.addView(actions);
