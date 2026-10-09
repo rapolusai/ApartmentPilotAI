@@ -15,7 +15,7 @@ class QaFixesTest {
     @Test void fieldNamesReadAsWords() {
         assertEquals("Due day",ErrorHandler.label("dueDay"));
         assertEquals("Title",ErrorHandler.label("title"));
-        assertEquals("Pin",ErrorHandler.label("pin"));
+        assertEquals("PIN",ErrorHandler.label("pin"));
     }
     @Test void scheduledJobsAreAuditedAsSystemNotAsTheAdmin() {
         UUID admin=UUID.randomUUID(),tenant=UUID.randomUUID();

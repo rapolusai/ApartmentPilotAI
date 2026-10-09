@@ -60,6 +60,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
     }
     /** "dueDay" -> "Due day", for user-facing validation messages. */
     public static String label(String field) {
+        if(field.equalsIgnoreCase("pin"))return "PIN";
         String spaced=field.replaceAll("([a-z])([A-Z])","$1 $2").toLowerCase(java.util.Locale.ROOT);
         return spaced.isEmpty()?spaced:Character.toUpperCase(spaced.charAt(0))+spaced.substring(1);
     }

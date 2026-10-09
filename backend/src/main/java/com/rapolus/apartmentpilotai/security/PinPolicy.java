@@ -3,7 +3,7 @@ import java.util.Set;
 /** One PIN rule for register, join and change-PIN: exactly six digits and not trivially guessable. Login still accepts
  * legacy 4-5 digit PINs; the login response then carries pinChangeRequired=true. */
 public final class PinPolicy {
-    public static final String LENGTH_MESSAGE="Use a six-digit PIN.";
+    public static final String LENGTH_MESSAGE="PIN must be 6 digits.";
     public static final String WEAK_MESSAGE="Choose a harder PIN. Avoid repeated digits, sequences such as 123456 and patterns such as 121212.";
     private static final Set<String> COMMON=Set.of("121212","112233","123123","123321","111222","110011","101010","010101","696969","131313","007007","100100","200200","998877","778899","147258","159753","142536","102030");
     private PinPolicy() {
