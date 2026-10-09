@@ -154,7 +154,7 @@ import java.util.*;
             r.addView(chevron,new LinearLayout.LayoutParams(dp(iconSize>28?20:18),dp(iconSize>28?20:18)));
             r.setOnClickListener(v->action.run());
             r.setFocusable(true);
-            r.setContentDescription(title+". "+detail);
+            r.setContentDescription(com.rapolus.apartmentpilotai.data.DateText.humanize(title+". "+detail));
         }
         parent.addView(r);
     }

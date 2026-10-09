@@ -1168,7 +1168,7 @@ import java.util.*;
             if(events!=null)for(int i=0; i<events.length(); i++) {
                 JSONObject e=events.getJSONObject(i);
                 LinearLayout ev=card();
-                u.kv(ev,e.optString("actor"),val(e,"status"));
+                u.kv(ev,e.optString("actor"),friendly(val(e,"status")));
                 ev.addView(u.text(e.optString("message"),13,false,R.color.ap_sub));
                 u.note(ev,e.optString("createdAt"));
             }

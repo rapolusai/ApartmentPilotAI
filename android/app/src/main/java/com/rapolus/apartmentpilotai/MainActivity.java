@@ -1478,7 +1478,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             ui.kv(c,"Flat",p.optString("flatLabel"));
             ui.kv(c,"Month",p.optString("billingMonth").length()>=7?YearMonth.parse(p.optString("billingMonth").substring(0,7)).format(DateTimeFormatter.ofPattern("MMMM uuuu",Locale.ENGLISH)):p.optString("billingMonth"));
             ui.kv(c,"Mode",pretty(p.optString("mode")));
-            ui.kv(c,"Paid on",p.optString("paidOn"));
+            ui.kv(c,"Paid on",com.rapolus.apartmentpilotai.data.DateText.day(p.optString("paidOn")));
             ui.kv(c,"Approved by",p.optString("approvedBy"));
             ui.note(c,p.optString("receiptNumber"));
             getLayoutInflater().inflate(R.layout.view_brand_footer,c,true);
@@ -1882,6 +1882,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     }
     private static String pretty(String s) {
         if(s==null||s.isEmpty())return "";
+        if(s.equalsIgnoreCase("UPI"))return "UPI";
         String t=s.toLowerCase(Locale.ROOT).replace('_',' ');
         return Character.toUpperCase(t.charAt(0))+t.substring(1);
     }
