@@ -34,7 +34,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
         return ResponseEntity.badRequest().body(Map.of("message",e instanceof IllegalArgumentException && e.getMessage()!=null ? e.getMessage():"Invalid request values."));
     }
     @ExceptionHandler(MethodArgumentNotValidException.class) public ResponseEntity<?> validation(MethodArgumentNotValidException e) {
-        String m=e.getBindingResult().getFieldErrors().stream().map(f->label(f.getField())+" "+f.getDefaultMessage()+".").findFirst().orElse("Check your input.");
+        String m=e.getBindingResult().getFieldErrors().stream().map(f->label(f.getField())+" "+wording(f.getDefaultMessage())+".").findFirst().orElse("Check your input.");
         return ResponseEntity.badRequest().body(Map.of("message",m));
     }
     @ExceptionHandler(MissingServletRequestParameterException.class) public ResponseEntity<?> missingParameter(MissingServletRequestParameterException e) {
@@ -57,6 +57,14 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
     }
     @ExceptionHandler(NoResourceFoundException.class) public ResponseEntity<?> noRoute(NoResourceFoundException e) {
         return message(HttpStatus.NOT_FOUND,"Not found.");
+    }
+    /** Bean Validation's "must not be null/blank/empty" reads as "is required" to a resident. */
+    public static String wording(String message) {
+        if(message==null)return "is invalid";
+        return switch(message) {
+            case "must not be null","must not be blank","must not be empty" -> "is required";
+            default -> message;
+        };
     }
     /** "dueDay" -> "Due day", for user-facing validation messages. */
     public static String label(String field) {
