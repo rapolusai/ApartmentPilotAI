@@ -1384,7 +1384,7 @@ import java.util.*;
             if(filter.equals("Past")&&!past)continue;
             if(filter.equals("Mine")&&!account.equals(event.optString("createdBy"))&&!flat.equals(event.optString("flatId")))continue;
             if(!term.isEmpty()&&!event.optString("title").toLowerCase(Locale.ROOT).contains(term)&&!event.optString("eventType").toLowerCase(Locale.ROOT).contains(term)&&!event.optString("flatLabel").toLowerCase(Locale.ROOT).contains(term)&&!event.optString("notes").toLowerCase(Locale.ROOT).contains(term))continue;
-            String timing=local(event.optString("startsAt"))+" IST";
+            String timing=com.rapolus.apartmentpilotai.data.DateText.humanize(event.optString("startsAt"));
             row(u.card(list),event.optString("title"),friendly(status)+" · "+timing,R.drawable.ic_calendar,"booking",event.optString("id"));
             shown++;
         }
@@ -1394,11 +1394,11 @@ import java.util.*;
         title("Event details");
         get("/ops/bookings/"+id,r-> {
             JSONObject e=(JSONObject)r;
-            u.hero(b,friendly(e.optString("status")),e.optString("title"),local(e.optString("startsAt"))+" IST");
+            u.hero(b,friendly(e.optString("status")),e.optString("title"),e.optString("startsAt"));
             details(e,"eventType","Event","flatLabel","Flat","guests","Guests","notes","Notes","decisionNote","Decision");
             LinearLayout timing=card();
-            u.kv(timing,"Start · IST",local(e.optString("startsAt")));
-            u.kv(timing,"End · IST",local(e.optString("endsAt")));
+            u.kv(timing,"Start",e.optString("startsAt"));
+            u.kv(timing,"End",e.optString("endsAt"));
             JSONArray items=e.optJSONArray("items");
             if(items!=null)for(int i=0; i<items.length(); i++) {
                 JSONObject v=items.getJSONObject(i);
@@ -1406,8 +1406,8 @@ import java.util.*;
             }
             String s=e.optString("status");
             if("ALTERNATIVE".equals(s)) {
-                u.kv(timing,"Proposed start",local(val(e,"offeredStart")));
-                u.kv(timing,"Proposed end",local(val(e,"offeredEnd")));
+                u.kv(timing,"Proposed start",val(e,"offeredStart"));
+                u.kv(timing,"Proposed end",val(e,"offeredEnd"));
                 if(h.client().account().optString("id").equals(e.optString("createdBy")))u.button(b,"Accept alternative",R.drawable.ic_check,true,()->decision(e,"ACCEPT","I accept the offered spaces and times."));
             }
             if(h.isAdmin()&&"PENDING".equals(s)) {
@@ -1558,7 +1558,7 @@ import java.util.*;
             if(blocks!=null)for(int i=0; i<blocks.length(); i++) {
                 JSONObject v=blocks.getJSONObject(i);
                 LinearLayout c=card();
-                u.kv(c,"Unavailable",local(v.optString("startsAt"))+" — "+local(v.optString("endsAt")));
+                u.kv(c,"Unavailable",v.optString("startsAt")+" — "+v.optString("endsAt"));
                 u.note(c,v.optString("reason"));
                 if(h.isAdmin())u.button(c,"Remove block",R.drawable.ic_error,false,()->u.confirm("Restore availability?","Approved reservations are not removed.","Remove block",()->h.requestApi("DELETE","/ops/resource-blocks/"+v.optString("id"),null,z->h.refreshPage())));
             }
@@ -1709,7 +1709,7 @@ import java.util.*;
                 if(n.optString("status").equals("DRAFT")) {
                     u.button(b,"Edit draft",R.drawable.ic_settings,false,()->go("notice-form",id));
                     if(!n.optBoolean("scheduleConfirmed"))u.button(b,"Preview notice",R.drawable.ic_notice,true,()->go("notice-preview",id));
-                    else u.note(b,"Scheduled · "+local(n.optString("scheduledAt"))+" IST · in-app delivery");
+                    else u.note(b,"Scheduled · "+n.optString("scheduledAt")+" · in-app delivery");
                 } else u.button(b,n.optBoolean("pinned")?"Unpin":"Pin notice",R.drawable.ic_notice,false,()->h.requestApi("POST","/notices/"+id+"/pin",obj("pinned",!n.optBoolean("pinned")),x->h.refreshPage()));
                 if(n.optBoolean("phoneNotify"))u.note(b,"Phone notification requested · phone delivery "+Ui.delivery(n.optString("externalDeliveryStatus")));
                 JSONArray recipients=n.optJSONArray("recipients");
@@ -1802,11 +1802,11 @@ import java.util.*;
             u.kv(delivery,"Recipients",n.optInt("recipientCount")+" active accounts");
             u.kv(delivery,"Phone notification",n.optBoolean("phoneNotify")?"Requested · phone delivery "+Ui.delivery(n.optString("externalDeliveryStatus")):"Off");
             u.kv(delivery,"Acknowledgement",n.optBoolean("acknowledge")?"Required":"Not requested");
-            u.kv(delivery,"Publish",n.isNull("scheduledAt")?"Now":local(n.optString("scheduledAt"))+" IST");
+            u.kv(delivery,"Publish",n.isNull("scheduledAt")?"Now":n.optString("scheduledAt"));
             u.note(b,"Delivery mode: authenticated in-app inbox only. A phone request is not proof of external delivery.");
             u.button(b,"Edit",R.drawable.ic_settings,false,()->go("notice-form",id));
             if(n.isNull("scheduledAt"))submit("Publish",()->u.confirm("Publish notice?","Send this immutable message to the reviewed in-app audience.","Publish",()->h.requestApi("POST","/notices/"+id+"/publish",obj(),x->h.openPageWithBackTarget("notice",id,"notices"))));
-            else submit("Schedule",()->u.confirm("Schedule notice?","The local backend will publish it at "+local(n.optString("scheduledAt"))+" IST.","Schedule",()->write("/notices/"+id+"/schedule",obj(),x->h.openPageWithBackTarget("notice",id,"notices"))));
+            else submit("Schedule",()->u.confirm("Schedule notice?","The local backend will publish it at "+com.rapolus.apartmentpilotai.data.DateText.humanize(n.optString("scheduledAt"))+".","Schedule",()->write("/notices/"+id+"/schedule",obj(),x->h.openPageWithBackTarget("notice",id,"notices"))));
             u.button(b,"Keep draft",R.drawable.ic_report,false,()->go("notices"));
         });
     }
@@ -2610,7 +2610,7 @@ import java.util.*;
             if(arr.length()==0)u.empty(b,"No polls yet","");
             for(int i=0; i<arr.length(); i++) {
                 JSONObject p=arr.getJSONObject(i);
-                row(card(),p.optString("title"),p.optBoolean("closed")?"Closed":"Ends "+local(p.optString("closesAt"))+" IST",R.drawable.ic_check,"poll",p.optString("id"));
+                row(card(),p.optString("title"),p.optBoolean("closed")?"Closed":"Ends "+com.rapolus.apartmentpilotai.data.DateText.humanize(p.optString("closesAt")),R.drawable.ic_check,"poll",p.optString("id"));
             }
         }
         );
@@ -2735,7 +2735,7 @@ import java.util.*;
                     String from=local(booking.optString("startsAt")).substring(0,10),to=local(booking.optString("endsAt")).substring(0,10);
                     if(date.compareTo(from)<0||date.compareTo(to)>0)continue;
                     found++;
-                    row(u.card(selected),booking.optString("title"),local(booking.optString("startsAt"))+" IST",R.drawable.ic_calendar,"booking",booking.optString("id"));
+                    row(u.card(selected),booking.optString("title"),booking.optString("startsAt"),R.drawable.ic_calendar,"booking",booking.optString("id"));
                 }
                 if(found==0)u.note(selected,"No visible approved bookings on this date.");
             }
