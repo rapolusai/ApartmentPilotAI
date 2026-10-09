@@ -183,15 +183,14 @@ import java.time.*;
         db.lockTenant(a.tenantId());
         var old=commands.previous(a,"CONTACT",p);
         if(old.isPresent())return Map.of("id",old.get());
-        String kind=V.choice(p,"kind","VENDOR","CONTACT"),name=V.text(p,"name",100),category=V.text(p,"category",40),phone=V.opt(p,"phone",20),notes=V.opt(p,"notes",500);
-        if(!phone.isBlank()&&!phone.matches("[+0-9 ()-]{3,20}"))throw new IllegalArgumentException("Invalid contact number.");
+        String kind=V.choice(p,"kind","VENDOR","CONTACT"),name=V.text(p,"name",100),category=V.text(p,"category",40),phone=V.phone(p,"phone"),notes=V.opt(p,"notes",500);
         LocalDate amc=V.optionalDate(p,"amcEnd");
         if(id==null) {
             id=UUID.randomUUID();
             db.update("insert into ap_contact(id,tenant_id,kind,name,category,phone,notes,public,active,amc_end) values(?,?,?,?,?,?,?,?,?,?)",id,a.tenantId(),kind,name,category,phone,notes,V.bool(p,"public",true),V.bool(p,"active",true),V.sql(amc));
         } else {
             db.one("select id from ap_contact where tenant_id=? and id=?",a.tenantId(),id);
-            db.update("update ap_contact set name=?,category=?,phone=?,notes=?,public=?,active=?,amc_end=? where id=? and tenant_id=?",name,category,phone,notes,V.bool(p,"public",true),V.bool(p,"active",true),V.sql(amc),id,a.tenantId());
+            db.update("update ap_contact set kind=?,name=?,category=?,phone=?,notes=?,public=?,active=?,amc_end=? where id=? and tenant_id=?",kind,name,category,phone,notes,V.bool(p,"public",true),V.bool(p,"active",true),V.sql(amc),id,a.tenantId());
         }
         commands.remember(a,"CONTACT",p,id);
         commands.audit(a,"CONTACT_SAVED",id,null,name);

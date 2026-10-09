@@ -137,15 +137,17 @@ import java.security.MessageDigest;
         UUID root=parent.isEmpty()?tenant:(UUID)parent.get().get("referrerId");
         // Single promotion lock serialises cross-tenant rewards and prevents referral/activation races.
         var s=ensure(tenant);
-        if(s.get("installedAt")==null)throw ApiError.conflict("The apartment Admin must first register this app installation.");
+        // Idempotent: a repeat keeps the original verifier and time, writes no second audit row and awards nothing again.
+        if(s.get("verifiedAt")!=null)return Map.of("verified",true,"alreadyVerified",true,"verifiedAt",s.get("verifiedAt"),"verifiedBy",String.valueOf(s.get("verifiedBy")));
         if(db.count("select count(*) from ap_user where tenant_id=? and role='RESIDENT' and status='ACTIVE'",tenant)<1)throw ApiError.conflict("At least one approved resident is required for activation review.");
         String verifier=V.text(p,"verifiedBy",80);
         if(!V.bool(p,"identityAndApartmentVerified",false))throw new IllegalArgumentException("Independent apartment and authorised-admin verification is required.");
-        db.update("update ap_subscription set verified_at=coalesce(verified_at,now()),verified_by=? where tenant_id=?",verifier,tenant);
+        db.update("update ap_subscription set verified_at=now(),verified_by=? where tenant_id=? and verified_at is null",verifier,tenant);
         db.audit(tenant,null,"PROVIDER_ACTIVATION_VERIFIED",tenant,null,verifier);
         award(root);
         award(tenant);
-        return Map.of("verified",true);
+        var done=db.one("select verified_at,verified_by from ap_subscription where tenant_id=?",tenant);
+        return Map.of("verified",true,"alreadyVerified",false,"verifiedAt",done.get("verifiedAt"),"verifiedBy",String.valueOf(done.get("verifiedBy")));
     }
     private boolean eligible(UUID tenant) {
         var s=ensure(tenant);

@@ -57,7 +57,16 @@ import java.time.*;
         if(!Set.of("ALL","UNPAID").contains(audience)&&value.isBlank())throw new IllegalArgumentException("Choose recipients.");
         if(audience.equals("BLOCK")&&db.count("select count(*) from ap_flat where tenant_id=? and block=?",a.tenantId(),value)==0)throw new IllegalArgumentException("Unknown block.");
         if(audience.equals("SELECTED")) {
-            for(String f:value.split(","))if(db.count("select count(*) from ap_flat where tenant_id=? and label=?",a.tenantId(),f.trim())==0)throw new IllegalArgumentException("Unknown selected flat: "+f.trim());
+            // Flat labels are stored upper-case (flat save and join normalise them), so the selection is normalised the same way.
+            List<String> labels=new ArrayList<>();
+            for(String f:value.split(",")) {
+                String label=f.trim().toUpperCase(Locale.ROOT);
+                if(label.isEmpty())continue;
+                if(db.count("select count(*) from ap_flat where tenant_id=? and upper(label)=?",a.tenantId(),label)==0)throw new IllegalArgumentException("Unknown selected flat: "+f.trim());
+                if(!labels.contains(label))labels.add(label);
+            }
+            if(labels.isEmpty())throw new IllegalArgumentException("Choose recipients.");
+            value=String.join(",",labels);
         }
         if(id==null) {
             id=UUID.randomUUID();
@@ -78,7 +87,7 @@ import java.time.*;
         return switch(type) {
             case "ALL"->true;
             case "BLOCK"->v.equals(u.get("block"));
-            case "SELECTED"->Arrays.stream(v.split(",")).map(String::trim).anyMatch(s->s.equals(u.get("label")));
+            case "SELECTED"->Arrays.stream(v.split(",")).map(String::trim).anyMatch(s->s.equalsIgnoreCase(String.valueOf(u.get("label"))));
             case "UNPAID"->u.get("flatId")!=null&&db.count("select count(*) from ap_bill b where b.tenant_id=? and b.flat_id=? and b.amount+b.late_fee>coalesce((select sum(p.amount) from ap_payment p where p.bill_id=b.id and p.status='APPROVED' and not exists(select 1 from ap_payment_reversal rv where rv.payment_id=p.id)),0)",a.tenantId(),u.get("flatId"))>0;
             default->false;
         };

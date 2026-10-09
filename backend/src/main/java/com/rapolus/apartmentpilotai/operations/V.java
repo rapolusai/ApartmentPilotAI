@@ -106,6 +106,21 @@ import com.rapolus.apartmentpilotai.domain.Rules;
     public static LocalDate today() {
         return LocalDate.now(ZoneId.of("Asia/Kolkata"));
     }
+    /** UPI virtual payment address: name@handle. */
+    public static boolean upi(String s) {
+        return s.matches("[a-zA-Z0-9._-]{2,256}@[a-zA-Z]{2,64}");
+    }
+    /**
+     * Optional vendor or contact phone. Spaces, hyphens and brackets are ignored; then either a ten-digit Indian mobile
+     * (starting 6-9, the same rule as member mobiles) or a 6-12 digit landline, each with an optional +91 or 0 prefix.
+     */
+    public static String phone(Map<String,Object> m,String k) {
+        String s=opt(m,k,20);
+        if(s.isBlank())return s;
+        String digits=s.replaceAll("[ ()-]","");
+        if(!digits.matches("(\\+91|0)?([6-9][0-9]{9}|[0-9]{6,12})"))throw new IllegalArgumentException("Enter a 10-digit mobile number or a landline with its STD code.");
+        return s;
+    }
     public static UUID uid(Object o) {
         return UUID.fromString(String.valueOf(o));
     }

@@ -14,7 +14,22 @@ import java.time.*;
         this.db=db;
         this.c=c;
     }
+    /** Staff and the owning flat's users see a private space's owner, consent and release window; everyone else sees only that it is private. */
     public List<Map<String,Object>> resources(Account a) {
+        var rows=allResources(a);
+        for(var r:rows)hidePrivateDetails(a,r);
+        return rows;
+    }
+    private void hidePrivateDetails(Account a,Map<String,Object> r) {
+        Object owner=r.get("privateFlatId");
+        r.put("privateSpace",owner!=null);
+        if(owner==null||a.staff()||(a.flatId()!=null&&a.flatId().equals(owner)))return;
+        r.remove("privateFlatId");
+        r.remove("ownerConsent");
+        r.remove("availableFrom");
+        r.remove("availableUntil");
+    }
+    private List<Map<String,Object>> allResources(Account a) {
         var rows=db.rows("select id,name,kind,capacity,bookable,private_flat_id,owner_consent,available_from,available_until from ap_resource where tenant_id=? order by kind,name",a.tenantId());
         for(var r:rows) {
             r.put("conflicts",db.rows("select other_id from ap_resource_conflict where tenant_id=? and resource_id=?",a.tenantId(),r.get("id")));
@@ -114,9 +129,10 @@ import java.time.*;
     }
     @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ) public List<Map<String,Object>> availability(Account a,Instant start,Instant end) {
         OperationsRules.window(start,end,Instant.now());
-        var rs=resources(a);
+        var rs=allResources(a);
         for(var r:rs) {
             r.put("available",free(a,r,start,end,null));
+            hidePrivateDetails(a,r);
             r.remove("privateFlatId");
         }
         return rs;
