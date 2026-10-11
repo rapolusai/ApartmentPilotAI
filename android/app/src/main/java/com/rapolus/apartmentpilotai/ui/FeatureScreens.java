@@ -248,6 +248,10 @@ import java.util.*;
             break;
             case "help":help();
             break;
+            case "privacy-policy":privacyPolicy();
+            break;
+            case "delete-account":deleteAccount();
+            break;
             case "permissions":permissions();
             break;
             case "audit-detail":auditDetail();
@@ -488,6 +492,7 @@ import java.util.*;
             details(j,"name","Name","apartmentName","Apartment","mobile","Mobile","role","Role");
             u.button(b,"Edit profile",R.drawable.ic_user,true,()->go("profile-edit"));
             u.button(b,"Change PIN",R.drawable.ic_shield,false,()->go("change-pin"));
+            u.button(b,"Delete my account",R.drawable.ic_close,false,()->go("delete-account"));
         }
         );
     }
@@ -2534,8 +2539,74 @@ import java.util.*;
         row(c,"Payment status guide","Review, approval & receipts",R.drawable.ic_receipt,"payment-help");
         row(c,"Get help","Record a private help request",R.drawable.ic_tools,"support");
         row(c,"Change PIN","Revoke existing sessions",R.drawable.ic_shield,"change-pin");
+        row(c,"Privacy policy","What is kept and why",R.drawable.ic_shield,"privacy-policy");
+        row(c,"Delete my account","Close your account for good",R.drawable.ic_close,"delete-account");
         row(c,"Build status","Integrations & test limits",R.drawable.ic_grid,"status");
         u.note(b,"Submitting a payment is not approval. Receipts require verification. This app is not an emergency response service.");
+    }
+    private void para(LinearLayout c,String text) {
+        TextView t=u.text(text,12,false,R.color.ap_ink);
+        t.setPadding(u.dp(12),u.dp(4),u.dp(12),u.dp(8));
+        c.addView(t);
+    }
+    private void openWeb(String url) {
+        try {
+            h.activity().startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url)));
+        } catch(ActivityNotFoundException e) {
+            h.problem("No browser is available to open "+url);
+        }
+    }
+    private void privacyPolicy() {
+        title("Privacy policy");
+        u.note(b,"ApartmentCare keeps only what your apartment needs to manage dues, expenses, notices, bookings and requests. There are no advertisements, no analytics and no tracking.");
+        LinearLayout c=card();
+        u.heading(c,"Collected");
+        para(c,"Name, mobile, optional email, flat and owner/tenant type; bills, payments and the proofs you upload; notices, polls, bookings and requests; vehicle numbers for your flat.");
+        u.heading(c,"Who sees it");
+        para(c,"You; your apartment's Admin and Treasurer for their own apartment; other residents see shared notices, polls, apartment totals and the directory the Admin shares, never your payment proofs or private requests.");
+        u.heading(c,"Stored");
+        para(c,"On a server in India, over encrypted connections only. Your PIN is kept as a one-way hash.");
+        u.heading(c,"Kept for");
+        para(c,"Account details while the account is active. Financial records for as long as the association must keep its accounts.");
+        u.heading(c,"Deletion");
+        para(c,"In the app under My profile, or on the web page below without the app. Your details are removed; financial records stay as \"Former resident\" with the flat number.");
+        u.button(b,"Open the full policy on the web",R.drawable.ic_shield,false,()->openWeb(com.rapolus.apartmentpilotai.data.PublicPages.privacy(h.client().base())));
+        u.button(b,"Delete my account",R.drawable.ic_close,false,()->go("delete-account"));
+        u.note(b,"The full policy, with contact details for privacy questions, is published on the web page above and in the Play listing.");
+    }
+    private void deleteAccount() {
+        title("Delete my account");
+        get("/account/deletion",r-> {
+            JSONObject j=(JSONObject)r;
+            boolean lastAdmin=j.optBoolean("lastAdmin");
+            String flat=j.optString("flatLabel");
+            LinearLayout removes=card();
+            u.heading(removes,"Removed straight away");
+            JSONArray gone=j.optJSONArray("removes");
+            for(int i=0; gone!=null&&i<gone.length(); i++)para(removes,"•  "+gone.optString(i));
+            LinearLayout keeps=card();
+            u.heading(keeps,"Kept by the apartment");
+            JSONArray kept=j.optJSONArray("keeps");
+            for(int i=0; kept!=null&&i<kept.length(); i++)para(keeps,"•  "+kept.optString(i));
+            if(lastAdmin) {
+                u.note(b,"You are the only active Admin of this apartment. Make another member Admin first (Apartment → Team roles), or ask for the whole apartment to be removed. Until then your account cannot be deleted.");
+                u.button(b,"Team roles",R.drawable.ic_shield,false,()->go("roles"));
+                return;
+            }
+            Ui.Fields f=h.newFields();
+            f.field("pin","Your PIN · to confirm","",NUM);
+            u.note(b,"This cannot be undone. You will be signed out on every device"+(flat.isEmpty()?"":", and flat "+flat+" is released for the next resident")+".");
+            u.button(b,"Delete my account",R.drawable.ic_close,true,()->safe(()-> {
+                if(f.get("pin").trim().length()<4)throw new IllegalArgumentException("Enter your PIN to confirm.");
+                u.confirm("Delete your account?","Your name, mobile and PIN are removed and you are signed out everywhere. Financial records of your flat stay with the apartment as \"Former resident\".","Delete",()->h.requestApi("POST","/account/delete",obj("pin",f.get("pin").trim()),x-> {
+                    u.message("Your account has been deleted.",true);
+                    h.exitSession();
+                }
+                ));
+            }
+            ));
+        }
+        );
     }
     private void permissions() {
         title("Permissions");

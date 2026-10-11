@@ -35,6 +35,12 @@ public final class Requests {
     }
     public record Expense(@NotBlank @Size(max=100) String title,@NotBlank @Size(max=30) String category, @NotNull BigDecimal amount,@NotNull LocalDate paidOn,boolean paid,boolean visibleToResidents,@NotNull UUID requestKey) {
     }
+    public record DeleteAccount(@Pattern(regexp="[0-9]{4,6}") @NotNull String pin) {
+    }
+    public record DeletionRequest(@Pattern(regexp="[6-9][0-9]{9}") @NotNull String mobile,@NotBlank @Size(max=80) String apartmentName,@Size(max=300) String note) {
+    }
+    public record DeletionDecision(boolean approve,@Size(max=300) String outcome) {
+    }
     public record Notice(@NotBlank @Size(max=100) String title,@NotBlank @Size(max=2000) String body,boolean publish) {
     }
 }

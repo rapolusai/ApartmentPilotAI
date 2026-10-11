@@ -230,7 +230,7 @@ import org.springframework.transaction.annotation.Transactional;
     }
     public Map<String,Object> member(Account a,UUID id) {
         a.requireAdmin();
-        return db.one("select u.id,u.name,u.mobile,u.role,u.status,u.resident_type,u.rejection_reason,u.created_at,f.label as flat_label from ap_user u left join ap_flat f on f.tenant_id=u.tenant_id and f.id=u.flat_id where u.tenant_id=? and u.id=?",a.tenantId(),id);
+        return db.one("select u.id,u.name,case when u.deleted_at is null then u.mobile else '' end as mobile,u.role,u.status,u.resident_type,u.rejection_reason,u.created_at,u.deleted_at,f.label as flat_label from ap_user u left join ap_flat f on f.tenant_id=u.tenant_id and f.id=u.flat_id where u.tenant_id=? and u.id=?",a.tenantId(),id);
     }
     @Transactional public void reject(Account a,UUID id,String reason) {
         a.requireAdmin();

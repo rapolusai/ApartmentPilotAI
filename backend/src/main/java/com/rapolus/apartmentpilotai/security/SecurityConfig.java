@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
     // The ERROR dispatch only renders the status the original (already authorised) request produced. Without this permit the
     // stateless context is gone by then and the entry point turned every unmapped 4xx/5xx into a misleading 401.
     @Bean SecurityFilterChain security(HttpSecurity http,Db db,SubscriptionService subscriptions) throws Exception {
-        http.csrf(c->c.disable()).sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) .authorizeHttpRequests(a->a.requestMatchers("/actuator/health","/api/v1/status","/api/v1/auth/**","/api/v1/provider/**").permitAll().dispatcherTypeMatchers(DispatcherType.ERROR).permitAll().anyRequest().authenticated()) .exceptionHandling(e->e.authenticationEntryPoint((req,res,ex)->json401(res))) .addFilterBefore(new ActivityLoggingFilter(),UsernamePasswordAuthenticationFilter.class).addFilterBefore(new BearerFilter(db,subscriptions),UsernamePasswordAuthenticationFilter.class);
+        http.csrf(c->c.disable()).sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) .authorizeHttpRequests(a->a.requestMatchers("/actuator/health","/api/v1/status","/api/v1/auth/**","/api/v1/provider/**","/privacy","/delete-account").permitAll().dispatcherTypeMatchers(DispatcherType.ERROR).permitAll().anyRequest().authenticated()) .exceptionHandling(e->e.authenticationEntryPoint((req,res,ex)->json401(res))) .addFilterBefore(new ActivityLoggingFilter(),UsernamePasswordAuthenticationFilter.class).addFilterBefore(new BearerFilter(db,subscriptions),UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
     static void json401(HttpServletResponse r) throws IOException {
@@ -96,6 +96,8 @@ import org.slf4j.LoggerFactory;
         private boolean subscriptionManagementAllowed(HttpServletRequest req,Account account) {
             String path=req.getRequestURI();
             if("POST".equals(req.getMethod())&&"/api/v1/logout".equals(path))return true;
+            // Deleting one's own account must work even after the apartment's subscription lapsed (Play policy).
+            if("/api/v1/account/delete".equals(path)||"/api/v1/account/deletion".equals(path))return true;
             if(!account.role().equals("ADMIN"))return false;
             return "GET".equals(req.getMethod())&&"/api/v1/ops/subscription".equals(path)
                 ||"POST".equals(req.getMethod())&&Set.of("/api/v1/ops/subscription/offer","/api/v1/ops/subscription/install","/api/v1/ops/referrals/claim").contains(path);

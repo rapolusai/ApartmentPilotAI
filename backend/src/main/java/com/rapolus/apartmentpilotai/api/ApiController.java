@@ -79,7 +79,7 @@ import org.springframework.transaction.annotation.Transactional;
     }
     @GetMapping("/members") Object members(@AuthenticationPrincipal Account a) {
         a.requireAdmin();
-        return db.rows("select u.id,u.name,u.mobile,u.role,u.status,u.resident_type,u.rejection_reason,u.created_at,f.label as flat_label from ap_user u left join ap_flat f on f.tenant_id=u.tenant_id and f.id=u.flat_id where u.tenant_id=? order by u.created_at desc",a.tenantId());
+        return db.rows("select u.id,u.name,case when u.deleted_at is null then u.mobile else '' end as mobile,u.role,u.status,u.resident_type,u.rejection_reason,u.created_at,u.deleted_at,f.label as flat_label from ap_user u left join ap_flat f on f.tenant_id=u.tenant_id and f.id=u.flat_id where u.tenant_id=? order by u.created_at desc",a.tenantId());
     }
     @GetMapping("/members/{id}") Object member(@AuthenticationPrincipal Account a,@PathVariable UUID id) {
         return auth.member(a,id);
@@ -203,7 +203,7 @@ import org.springframework.transaction.annotation.Transactional;
         return Map.of("ok",true);
     }
     // Rows with no person as actor: provider operations, login-protection notices and scheduled automation.
-    private static final String AUDIT_COLUMNS="select a.id,a.action,a.record_id,a.before_value,a.after_value,a.created_at,coalesce(u.name,case when a.actor_id is not null then null when a.action like 'PROVIDER%' or a.action in ('REFERRAL_REFUND_REVIEW','FIRST_MONTH_WAIVED') then 'Provider' when a.action='LOGIN_LOCKED' then 'Security' else 'Automation' end) as actor from ap_audit a left join ap_user u on u.id=a.actor_id and u.tenant_id=a.tenant_id where a.tenant_id=?";
+    private static final String AUDIT_COLUMNS="select a.id,a.action,a.record_id,a.before_value,a.after_value,a.created_at,coalesce(u.name,case when a.actor_id is not null then null when a.action like 'PROVIDER%' or a.action in ('REFERRAL_REFUND_REVIEW','FIRST_MONTH_WAIVED') then 'Provider' when a.action='LOGIN_LOCKED' then 'Security' when a.action='ACCOUNT_DELETION_REQUESTED' then 'Web request' when a.action='ACCOUNT_DELETED' then 'Operator' else 'Automation' end) as actor from ap_audit a left join ap_user u on u.id=a.actor_id and u.tenant_id=a.tenant_id where a.tenant_id=?";
     /**
      * No parameters: the newest 100 rows exactly as before. Paging (any parameter given): newest first with an id tie-break,
      * {@code before=<createdAt>,<id>} taken from the last row of the previous page, {@code limit} 1-200 (larger values are

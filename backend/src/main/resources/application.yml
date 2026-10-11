@@ -37,6 +37,8 @@ app:
   local-registration-enabled: false
   session-hours: 12
   billing-job-enabled: false
+  # Shown on the public privacy and account-deletion pages. Empty = the pages point at the Play listing's contact.
+  support-email: ${SUPPORT_EMAIL:}
   invite-display-key: ${APP_INVITE_DISPLAY_KEY:}
   # PIN login protection (LoginGuard). Only failed attempts count; a correct PIN clears them.
   # enabled=false falls back to the old per-mobile limit of 10 attempts per 15 minutes.
