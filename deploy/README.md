@@ -64,8 +64,11 @@ Back up `APP_INVITE_DISPLAY_KEY` somewhere safe (a password manager): if it is l
    ```
 5. Pull the secrets: `sudo AWS_REGION=ap-south-1 ./fetch-secrets.sh prod` (writes `/etc/apartmentcare/app.env`, mode 600).
 
-## 5. DNS
-Route 53 → hosted zone for `rapolu.in` (or your registrar's DNS): an `A` record `api.apartmentcare` → the Elastic IP. Caddy obtains the certificate on first start, so DNS must resolve before step 6.
+## 5. DNS (GoDaddy, where rapolu.in already lives)
+rapolu.in stays exactly as it is: the `@` and `www` records keep pointing at the existing website and the MX records
+keep Zoho mail working. Add **one** record in GoDaddy → DNS: type `A`, name `api.apartmentcare`, value = the Elastic IP,
+TTL 600. Route 53 is not needed. Caddy obtains the certificate on first start, so wait until
+`nslookup api.apartmentcare.rapolu.in` answers before step 6.
 
 ## 6. First start
 ```bash
