@@ -93,6 +93,37 @@ public final class FinanceReportScreens {
             u.note(b,"Pending declarations are not collected money. Reversed payments are excluded from approved totals.");
         });
     }
+    /** Monthly summary in the standard report layout. Every figure is a value the server returned; nothing is recalculated. */
+    private ReportPdf.Doc monthlyReport(String apartment,JSONObject report,String[][] keys) {
+        String month=com.rapolus.apartmentpilotai.data.ReportText.month(h.selectedMonth());
+        ReportPdf.Doc doc=new ReportPdf.Doc(apartment,"Monthly summary",month,"");
+        String[][] cards={{"Opening",money(report,"opening")},{"Received",money(report,"received")},{"Spent",money(report,"spent")},{"Closing",money(report,"closing")}};
+        doc.cards(cards,3);
+        doc.section("Money in and out");
+        doc.bars(new String[]{"Approved receipts","Other income","Paid expenses"},
+            new BigDecimal[]{value(report,"received"),value(report,"otherIncome"),value(report,"spent")},
+            new int[]{ReportPdf.TONE_GOOD,ReportPdf.TONE_GOOD,ReportPdf.TONE_WAIT});
+        if(report.has("billed")) {
+            doc.section("Collection");
+            doc.bars(new String[]{"Bills issued","Approved for bills","Outstanding"},
+                new BigDecimal[]{value(report,"billed"),value(report,"collectedForBills"),value(report,"outstanding")},
+                new int[]{ReportPdf.TONE_GOOD,ReportPdf.TONE_GOOD,ReportPdf.TONE_BAD});
+        }
+        doc.section("Account summary");
+        ReportPdf.Table table=new ReportPdf.Table(new String[]{"Item","Amount"},new float[]{3,1.4f},new boolean[]{false,true});
+        for(String[] key:keys)if(report.has(key[0])&&!key[0].equals("closing"))table.row(key[1],money(report,key[0]));
+        if(report.has("closing"))table.total("Closing balance",money(report,"closing"));
+        doc.table(table);
+        if(report.has("pendingPayments")&&report.optLong("pendingPayments")>0)doc.note(report.optLong("pendingPayments")+" payment declaration(s) are waiting for approval and are not included in received money.");
+        doc.note("Pending declarations are not collected money. Reversed payments are excluded from approved totals.");
+        return doc;
+    }
+    private static BigDecimal value(JSONObject row,String key) {
+        return com.rapolus.apartmentpilotai.data.ReportText.amount(row.opt(key));
+    }
+    private static String money(JSONObject row,String key) {
+        return com.rapolus.apartmentpilotai.data.ReportText.money(value(row,key));
+    }
     private void exports() {
         h.pageTitle("Export report");
         h.monthControl();
@@ -111,7 +142,7 @@ public final class FinanceReportScreens {
             }
             text.append("Powered By @Rapolu`s");
             u.button(b,"Export CSV",R.drawable.ic_report,false,()->h.exportCsv("Monthly summary · "+h.selectedMonth(),csv));
-            u.button(b,"Save / share PDF",R.drawable.ic_receipt,false,()->h.exportPdf("Monthly summary · "+h.selectedMonth(),report));
+            u.button(b,"Save / share PDF",R.drawable.ic_receipt,false,()->h.exportReport(monthlyReport(apartment,report,keys)));
             u.button(b,"Share summary",R.drawable.ic_copy,false,()->{
                 Intent intent=new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,text.toString());
                 h.activity().startActivity(Intent.createChooser(intent,"Share monthly summary"));

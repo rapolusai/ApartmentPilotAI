@@ -1569,7 +1569,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             ui.kv(c,"Approved by",p.optString("approvedBy"));
             ui.note(c,p.optString("receiptNumber"));
             getLayoutInflater().inflate(R.layout.view_brand_footer,c,true);
-            ui.button(content,"Share PDF",R.drawable.ic_receipt,true,()->exportPdf("Maintenance receipt",p));
+            ui.button(content,"Share PDF",R.drawable.ic_receipt,true,()->exportReport(receiptReport(p)));
             ui.button(content,"Share text",R.drawable.ic_receipt,false,()-> {
                 String text=p.optString("apartmentName")+(p.optBoolean("reversed")?"\nREVERSED ":"\nPAID ")+Ui.money(p.opt("amount"))+"\nFlat "+p.optString("flatLabel")+"\nMonth "+p.optString("billingMonth")+"\nReceipt "+p.optString("receiptNumber")+"\nPowered By @Rapolu`s";
                 startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,text),"Share receipt"));
@@ -1577,6 +1577,23 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             );
         }
         );
+    }
+    /** Maintenance receipt in the standard report layout: the same fields as the receipt screen. */
+    private com.rapolus.apartmentpilotai.ui.ReportPdf.Doc receiptReport(JSONObject p) {
+        boolean reversed=p.optBoolean("reversed");
+        java.util.List<String[]> rows=new ArrayList<>();
+        rows.add(new String[]{"Flat",p.optString("flatLabel")});
+        rows.add(new String[]{"Billing month",com.rapolus.apartmentpilotai.data.ReportText.month(p.optString("billingMonth"))});
+        rows.add(new String[]{"Paid using",pretty(p.optString("mode"))});
+        rows.add(new String[]{"Paid on",com.rapolus.apartmentpilotai.data.DateText.day(p.optString("paidOn"))});
+        rows.add(new String[]{"Approved by",p.optString("approvedBy")});
+        rows.add(new String[]{"Receipt number",p.optString("receiptNumber")});
+        com.rapolus.apartmentpilotai.ui.ReportPdf.Doc doc=new com.rapolus.apartmentpilotai.ui.ReportPdf.Doc(p.optString("apartmentName"),"Maintenance receipt",com.rapolus.apartmentpilotai.data.ReportText.month(p.optString("billingMonth")),p.optString("receiptNumber"))
+            .amount("Amount received",com.rapolus.apartmentpilotai.data.ReportText.amount(p.opt("amount")),reversed?"REVERSED":"PAID",reversed)
+            .section("Payment details")
+            .details(rows);
+        doc.note(reversed?"This payment was reversed. The original receipt is kept for the record; check the current bill before paying again.":"This receipt was created when apartment staff approved the payment.");
+        return doc;
     }
     private void expenses() {
         header("Expenses");
@@ -2157,6 +2174,13 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     @Override public void exportPdf(String title,JSONObject record) {
         try {
             localFiles.exportPdf(title,record);
+        } catch(Exception e) {
+            showError("Export failed: "+e.getMessage());
+        }
+    }
+    @Override public void exportReport(com.rapolus.apartmentpilotai.ui.ReportPdf.Doc doc) {
+        try {
+            localFiles.exportReport(doc);
         } catch(Exception e) {
             showError("Export failed: "+e.getMessage());
         }

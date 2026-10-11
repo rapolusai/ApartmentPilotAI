@@ -2264,6 +2264,44 @@ import java.util.*;
         }
         );
     }
+    /** Cashbook as a table: positive amounts are money in, negative amounts money out, exactly as the server signs them. */
+    private ReportPdf.Doc cashbookReport(JSONArray arr) {
+        java.math.BigDecimal in=java.math.BigDecimal.ZERO,out=java.math.BigDecimal.ZERO;
+        ReportPdf.Table table=new ReportPdf.Table(new String[]{"Date","Description","Type","Money in","Money out"},new float[]{1.1f,3.2f,1.5f,1.3f,1.3f},new boolean[]{false,false,false,true,true}).status(2);
+        for(int i=0; i<arr.length(); i++) {
+            JSONObject x=arr.optJSONObject(i);
+            if(x==null)continue;
+            java.math.BigDecimal amount=com.rapolus.apartmentpilotai.data.ReportText.amount(x.opt("amount"));
+            if(amount.signum()>=0)in=in.add(amount);
+            else out=out.add(amount.negate());
+            String type=com.rapolus.apartmentpilotai.data.ReportText.label(x.optString("kind"));
+            table.row(com.rapolus.apartmentpilotai.data.DateText.day(x.optString("date")),x.optString("title"),type.contains("eversal")?"Reversed":type,
+                amount.signum()>=0?com.rapolus.apartmentpilotai.data.ReportText.plain(amount):"",amount.signum()<0?com.rapolus.apartmentpilotai.data.ReportText.plain(amount.negate()):"");
+        }
+        table.total("Total","","",com.rapolus.apartmentpilotai.data.ReportText.plain(in),com.rapolus.apartmentpilotai.data.ReportText.plain(out));
+        ReportPdf.Doc doc=new ReportPdf.Doc(h.client().account().optString("apartmentName"),"Cashbook",com.rapolus.apartmentpilotai.data.ReportText.month(h.selectedMonth()),"");
+        doc.cards(new String[][]{{"Money in",com.rapolus.apartmentpilotai.data.ReportText.money(in)},{"Money out",com.rapolus.apartmentpilotai.data.ReportText.money(out)},{"Net",com.rapolus.apartmentpilotai.data.ReportText.money(in.subtract(out))}},2);
+        doc.section(arr.length()==1?"1 transaction":arr.length()+" transactions");
+        if(arr.length()==0)doc.note("No transactions this month.");
+        else doc.table(table);
+        doc.note("Amounts in rupees. Reversals are listed on the date they were recorded.");
+        return doc;
+    }
+    /** One subscription invoice, with the same figures the Subscription screen shows. */
+    private ReportPdf.Doc subscriptionReport(JSONObject x,boolean trialMonth) {
+        String period=com.rapolus.apartmentpilotai.data.DateText.day(x.optString("startsOn"))+" – "+com.rapolus.apartmentpilotai.data.DateText.day(x.optString("endsOn"));
+        boolean waivedTrial=trialMonth&&"WAIVED".equals(x.optString("status"));
+        List<String[]> rows=new ArrayList<>();
+        rows.add(new String[]{"Period",period});
+        rows.add(new String[]{"Status",waivedTrial?"Free trial":friendly(x.optString("status"))});
+        rows.add(new String[]{"Price",com.rapolus.apartmentpilotai.data.ReportText.money(com.rapolus.apartmentpilotai.data.ReportText.amount(x.opt("amount")))});
+        rows.add(new String[]{trialMonth?"Free trial credit":"Referral credit",com.rapolus.apartmentpilotai.data.ReportText.money(com.rapolus.apartmentpilotai.data.ReportText.amount(x.opt("credit")))});
+        rows.add(new String[]{"Verified paid",com.rapolus.apartmentpilotai.data.ReportText.money(com.rapolus.apartmentpilotai.data.ReportText.amount(x.opt("paid")))});
+        return new ReportPdf.Doc(h.client().account().optString("apartmentName"),"Subscription record",period,"Not a tax invoice")
+            .section("Application subscription")
+            .details(rows)
+            .note("Not a tax invoice. This record is for the ApartmentCare app subscription and is separate from residents' maintenance payments. Payments are verified independently by the service operator.");
+    }
     private void cashbook() {
         title("Cashbook · "+h.selectedMonth());
         h.monthControl();
@@ -2276,7 +2314,7 @@ import java.util.*;
                 u.note(c,x.optString("date")+" · "+friendly(x.optString("kind")));
             }
             if(arr.length()==0)u.empty(b,R.drawable.ic_expense,"No transactions this month","");
-            u.button(b,"Export PDF",R.drawable.ic_report,false,()->h.exportPdf("Cashbook · "+h.selectedMonth(),obj("entries",arr)));
+            u.button(b,"Export PDF",R.drawable.ic_report,false,()->h.exportReport(cashbookReport(arr)));
         }
         );
     }
@@ -2451,7 +2489,7 @@ import java.util.*;
                 u.kv(invoice,"Price",Ui.money(x.opt("amount")));
                 u.kv(invoice,trialMonth?"Free trial credit":"Referral credit",Ui.money(x.opt("credit")));
                 u.kv(invoice,"Verified paid",Ui.money(x.opt("paid")));
-                u.button(invoice,"Share invoice PDF",R.drawable.ic_receipt,false,()->h.exportPdf("Subscription record · not a tax invoice",x));
+                u.button(invoice,"Share invoice PDF",R.drawable.ic_receipt,false,()->h.exportReport(subscriptionReport(x,trialMonth)));
             }
             u.note(b,"No checkout or automatic debit is connected. Only the service operator can independently verify activations and subscription payments. This is separate from residents' maintenance.");
             if(s.optBoolean("accessAllowed"))u.button(b,"Continue to ApartmentCare",R.drawable.ic_home,true,()->h.openPage("home",""));
