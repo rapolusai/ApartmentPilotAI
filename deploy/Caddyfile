@@ -1,0 +1,32 @@
+# HTTPS front door for the ApartmentCare backend. Certificates come from Let's Encrypt automatically and renew
+# themselves; nothing to install. APP_DOMAIN and ACME_EMAIL come from /etc/apartmentcare/caddy.env.
+{
+	email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		-Server
+	}
+	# Only the API, the health check and the two public pages are reachable from outside.
+	@allowed path /api/* /actuator/health /privacy /delete-account
+	handle @allowed {
+		reverse_proxy app:8080 {
+			header_up X-Forwarded-For {remote_host}
+		}
+	}
+	handle {
+		respond "Not found" 404
+	}
+	log {
+		output file /data/access.log {
+			roll_size 20mb
+			roll_keep 5
+		}
+	}
+}

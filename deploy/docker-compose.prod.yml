@@ -1,0 +1,61 @@
+# ApartmentCare backend on one server: the app plus Caddy for HTTPS. See deploy/README.md.
+#
+# Secrets never live in this file. /etc/apartmentcare/app.env is written by deploy/fetch-secrets.sh from
+# AWS SSM Parameter Store (mode 600, owned by root) and holds:
+#   DB_URL, DB_USER, DB_PASSWORD, APP_INVITE_DISPLAY_KEY, APP_PROVIDER_KEY, SUPPORT_EMAIL
+# /etc/apartmentcare/caddy.env holds APP_DOMAIN (for example api.apartmentcare.example.in) and ACME_EMAIL.
+#
+# IMAGE_TAG selects the release (a git tag or short SHA published by .github/workflows/backend-image.yml).
+# Rolling back is re-running `IMAGE_TAG=<previous> docker compose up -d app`.
+
+services:
+  app:
+    image: ghcr.io/rapolusai/apartmentpilotai-backend:${IMAGE_TAG:-latest}
+    container_name: apartmentcare-app
+    restart: unless-stopped
+    env_file:
+      - /etc/apartmentcare/app.env
+    environment:
+      SERVER_ADDRESS: 0.0.0.0
+      SERVER_PORT: "8080"
+      # Caddy sets X-Forwarded-For; Tomcat trusts it only from private (Docker network) addresses.
+      SERVER_FORWARD_HEADERS_STRATEGY: native
+      SPRING_PROFILES_ACTIVE: ""
+      TZ: Asia/Kolkata
+    expose:
+      - "8080"
+    networks: [web]
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "5" }
+    deploy:
+      resources:
+        limits:
+          memory: 1200m
+
+  caddy:
+    image: caddy:2.8
+    container_name: apartmentcare-caddy
+    restart: unless-stopped
+    env_file:
+      - /etc/apartmentcare/caddy.env
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [web]
+    depends_on: [app]
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "5" }
+
+networks:
+  web:
+
+volumes:
+  caddy_data:
+  caddy_config:

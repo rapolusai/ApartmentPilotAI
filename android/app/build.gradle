@@ -20,7 +20,9 @@ android {
   }
   release {
    minifyEnabled false
-   buildConfigField 'String','API_BASE_URL','"https://api.example.invalid/api/v1"'
+   // The real address is a build setting, never source: -PapiBaseUrl=https://api.apartmentcare.<domain>/api/v1
+   // (or apiBaseUrl= in an uncommitted gradle.properties). The placeholder keeps an unconfigured build harmless.
+   buildConfigField 'String','API_BASE_URL','"' + (project.findProperty('apiBaseUrl') ?: 'https://api.example.invalid/api/v1') + '"'
    // This increment is intentionally not release-ready. Do not ship a local/dev build.
   }
  }
