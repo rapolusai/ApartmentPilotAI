@@ -4,7 +4,7 @@ This folder holds everything needed to run the backend on one small server with 
 database and no secret in git. It follows the hosting plan of 11 October 2026 (AWS Mumbai, about $30–35 a month).
 Nothing here runs by itself: every step below is done by a person, on purpose.
 
-`<domain>` stands for the domain you buy. The API lives at `https://api.apartmentcare.<domain>`; the Android
+The API lives at `https://api.apartmentcare.rapolu.in`; the Android
 release build is pointed at it with a Gradle property (see step 7).
 
 ## What you get
@@ -17,7 +17,7 @@ release build is pointed at it with a Gradle property (see step 7).
 | Image | `ghcr.io/rapolusai/apartmentpilotai-backend:<tag>`, built by GitHub Actions after the tests pass |
 | Monitoring | CloudWatch alarms (instance status, CPU, disk, RDS storage) to your email |
 
-Staging is the same recipe with `/apartmentcare/staging/` parameters, its own database and `api-staging.apartmentcare.<domain>`.
+Staging is the same recipe with `/apartmentcare/staging/` parameters, its own database and `api-staging.apartmentcare.rapolu.in`.
 
 ## 1. AWS account
 1. Create the account, turn on MFA for the root user, and create an IAM user for yourself with MFA.
@@ -59,13 +59,13 @@ Back up `APP_INVITE_DISPLAY_KEY` somewhere safe (a password manager): if it is l
 4. Write the non-secret settings:
    ```bash
    sudo install -d -m 700 /etc/apartmentcare
-   printf 'APP_DOMAIN=api.apartmentcare.<domain>\nACME_EMAIL=<your email>\n' | sudo tee /etc/apartmentcare/caddy.env >/dev/null
+   printf 'APP_DOMAIN=api.apartmentcare.rapolu.in\nACME_EMAIL=<your email>\n' | sudo tee /etc/apartmentcare/caddy.env >/dev/null
    sudo chmod 600 /etc/apartmentcare/caddy.env
    ```
 5. Pull the secrets: `sudo AWS_REGION=ap-south-1 ./fetch-secrets.sh prod` (writes `/etc/apartmentcare/app.env`, mode 600).
 
 ## 5. DNS
-Route 53 → hosted zone for `<domain>` (or your registrar's DNS): an `A` record `api.apartmentcare` → the Elastic IP. Caddy obtains the certificate on first start, so DNS must resolve before step 6.
+Route 53 → hosted zone for `rapolu.in` (or your registrar's DNS): an `A` record `api.apartmentcare` → the Elastic IP. Caddy obtains the certificate on first start, so DNS must resolve before step 6.
 
 ## 6. First start
 ```bash
@@ -74,8 +74,8 @@ echo "ghcr.io token for pulls: create a classic PAT with read:packages, or make 
 docker login ghcr.io
 IMAGE_TAG=<tag from the Actions run> docker compose -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.prod.yml logs -f app   # wait for "Started ApartmentPilotAiApplication"
-curl -s https://api.apartmentcare.<domain>/actuator/health   # {"status":"UP"}
-curl -s https://api.apartmentcare.<domain>/api/v1/status
+curl -s https://api.apartmentcare.rapolu.in/actuator/health   # {"status":"UP"}
+curl -s https://api.apartmentcare.rapolu.in/api/v1/status
 ```
 The database starts **empty**: Flyway applies V1 → V13 and no apartment exists yet. Registration on a public server
 is disabled until phone verification is configured (`app.local-registration-enabled` stays `false`; the app says so),
@@ -85,7 +85,7 @@ which is a separate, later piece of work. Until then the first apartment is crea
 The release API address is no longer hard-coded. Build with the property set, for example in `android/gradle.properties`
 on your PC (not committed) or on the command line:
 ```
-gradlew :app:assembleRelease -PapiBaseUrl=https://api.apartmentcare.<domain>/api/v1
+gradlew :app:assembleRelease -PapiBaseUrl=https://api.apartmentcare.rapolu.in/api/v1
 ```
 The release guard in `android/app/build.gradle` still blocks release builds until the Play steps are done; that is
 intentional and is lifted in its own change.

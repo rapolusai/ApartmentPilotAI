@@ -1,4 +1,11 @@
 plugins { id 'com.android.application' }
+// Release signing: the upload keystore and its passwords live in android/keystore.properties (git-ignored) or in the
+// environment (APT_KEYSTORE_FILE, APT_KEYSTORE_PASSWORD, APT_KEY_ALIAS, APT_KEY_PASSWORD). Never in this file.
+def keystoreProperties = new Properties()
+def keystoreFile = rootProject.file('keystore.properties')
+if (keystoreFile.exists()) keystoreFile.withInputStream { keystoreProperties.load(it) }
+def signing = { String key, String env -> keystoreProperties.getProperty(key) ?: System.getenv(env) }
+def releaseApiBaseUrl = project.findProperty('apiBaseUrl') ?: System.getenv('APT_API_BASE_URL')
 android {
  namespace 'com.rapolus.apartmentpilotai'
  compileSdk 36
@@ -6,12 +13,23 @@ android {
   applicationId 'com.rapolus.apartmentpilotai'
   minSdk 26
   targetSdk 36
-  versionCode 2
-  versionName '0.2.0-local'
+  versionCode 3
+  versionName '0.3.0'
   testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
  }
  buildFeatures { buildConfig true }
  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+ signingConfigs {
+  release {
+   def file = signing('storeFile', 'APT_KEYSTORE_FILE')
+   if (file != null) {
+    storeFile rootProject.file(file)
+    storePassword signing('storePassword', 'APT_KEYSTORE_PASSWORD')
+    keyAlias signing('keyAlias', 'APT_KEY_ALIAS')
+    keyPassword signing('keyPassword', 'APT_KEY_PASSWORD')
+   }
+  }
+ }
  buildTypes {
   debug {
    applicationIdSuffix '.debug'
@@ -20,16 +38,23 @@ android {
   }
   release {
    minifyEnabled false
-   // The real address is a build setting, never source: -PapiBaseUrl=https://api.apartmentcare.<domain>/api/v1
-   // (or apiBaseUrl= in an uncommitted gradle.properties). The placeholder keeps an unconfigured build harmless.
-   buildConfigField 'String','API_BASE_URL','"' + (project.findProperty('apiBaseUrl') ?: 'https://api.example.invalid/api/v1') + '"'
-   // This increment is intentionally not release-ready. Do not ship a local/dev build.
+   // The real address is a build setting, never source: -PapiBaseUrl=https://api.apartmentcare.rapolu.in/api/v1,
+   // APT_API_BASE_URL, or apiBaseUrl= in an uncommitted gradle.properties. The placeholder keeps a stray build harmless.
+   buildConfigField 'String','API_BASE_URL','"' + (releaseApiBaseUrl ?: 'https://api.example.invalid/api/v1') + '"'
+   signingConfig signingConfigs.release
   }
  }
 }
+// A release build must point at a real HTTPS server and be signed with the upload key; anything else is refused
+// here rather than discovered on the Play Console. Debug builds are unaffected.
 tasks.configureEach { t ->
  if (t.name == 'preReleaseBuild') {
-  t.doFirst { throw new GradleException('Increment 02 is for local testing only. See docs/IMPLEMENTATION_STATUS.md before enabling release builds.') }
+  t.doFirst {
+   if (releaseApiBaseUrl == null || !releaseApiBaseUrl.startsWith('https://') || releaseApiBaseUrl.contains('example.invalid'))
+    throw new GradleException('Release build needs the live API address: -PapiBaseUrl=https://api.apartmentcare.rapolu.in/api/v1 (or APT_API_BASE_URL).')
+   if (signing('storeFile', 'APT_KEYSTORE_FILE') == null)
+    throw new GradleException('Release build needs the upload keystore: android/keystore.properties or APT_KEYSTORE_* variables. See docs/RELEASE.md.')
+  }
  }
 }
 dependencies {

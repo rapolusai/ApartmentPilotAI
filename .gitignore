@@ -23,3 +23,4 @@ backups/
 test-results/
 **/secure-session*
 **/*provider-key*
+**/keystore.properties
