@@ -5,6 +5,8 @@ import android.graphics.Typeface;
 import android.view.*;
 import android.widget.*;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -65,8 +67,18 @@ import java.util.*;
     }
     public void heading(LinearLayout l,String title) {
         gap(l,18);
-        l.addView(text(title,15,true,R.color.ap_ink));
+        TextView t=text(title,15,true,R.color.ap_ink);
+        // TalkBack lets people jump between headings.
+        ViewCompat.setAccessibilityHeading(t,true);
+        l.addView(t);
         gap(l,10);
+    }
+    /** A clickable row reads as one item ("…, double-tap to open") instead of icon, title and detail separately. */
+    private void speakAsOne(ViewGroup row,String description) {
+        row.setFocusable(true);
+        row.setContentDescription(description);
+        for(int i=0; i<row.getChildCount(); i++)row.getChildAt(i).setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
+        ViewCompat.replaceAccessibilityAction(row,AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_CLICK,"open",null);
     }
     public LinearLayout card(LinearLayout parent) {
         MaterialCardView card=new MaterialCardView(c);
@@ -99,6 +111,10 @@ import java.util.*;
         TextView d=text(detail,11,false,R.color.ap_sub);
         d.setTextColor(0xffd3e0d4);
         box.addView(d);
+        // Read as "Balance, ₹12,000. detail", not three unrelated lines; the 36sp figure alone has no meaning.
+        box.setContentDescription(label+", "+amount+". "+(detail==null?"":detail));
+        box.setFocusable(true);
+        for(int i=0; i<box.getChildCount(); i++)box.getChildAt(i).setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         parent.addView(box);
         gap(parent,14);
         return box;
@@ -157,9 +173,8 @@ import java.util.*;
             chevron.setImageTintList(ColorStateList.valueOf(color(R.color.ap_muted)));
             r.addView(chevron,new LinearLayout.LayoutParams(dp(iconSize>28?20:18),dp(iconSize>28?20:18)));
             r.setOnClickListener(v->action.run());
-            r.setFocusable(true);
-            r.setContentDescription(com.rapolus.apartmentpilotai.data.DateText.humanize(title+". "+detail));
-        }
+            speakAsOne(r,com.rapolus.apartmentpilotai.data.DateText.humanize(title+(detail==null||detail.isEmpty()?"":". "+detail)));
+        } else image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         parent.addView(r);
     }
     public void statusIconRow(LinearLayout parent,String title,String status,String detail,int icon,Runnable action) {
@@ -206,9 +221,8 @@ import java.util.*;
             chevron.setImageTintList(ColorStateList.valueOf(color(R.color.ap_muted)));
             r.addView(chevron,new LinearLayout.LayoutParams(dp(20),dp(20)));
             r.setOnClickListener(v->action.run());
-            r.setFocusable(true);
-            r.setContentDescription(title+". "+status+" · "+detail);
-        }
+            speakAsOne(r,com.rapolus.apartmentpilotai.data.DateText.humanize(title+". "+status+(detail==null||detail.isEmpty()?"":", "+detail)));
+        } else image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         parent.addView(r);
     }
     public void kv(LinearLayout l,String key,String value) {

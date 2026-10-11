@@ -319,6 +319,9 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     }
     private void header(String s) {
         title.setText(s);
+        // Screen changes are announced by TalkBack, and the title is a heading it can jump to.
+        androidx.core.view.ViewCompat.setAccessibilityHeading(title,true);
+        androidx.core.view.ViewCompat.setAccessibilityLiveRegion(title,androidx.core.view.ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE);
     }
     private void render() {
         android.util.Log.d("ApartmentPilotAI.Activity","screen="+page);
