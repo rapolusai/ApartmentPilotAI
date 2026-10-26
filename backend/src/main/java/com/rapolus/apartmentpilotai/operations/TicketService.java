@@ -76,7 +76,9 @@ import java.time.*;
         event(a,id,next,note);
         UUID event=UUID.randomUUID();
         var users=db.rows("select id from ap_user where tenant_id=? and status='ACTIVE' and (?=true or id=? or role in ('ADMIN','TREASURER') or id in(select user_id from ap_ticket_follow where ticket_id=?))",a.tenantId(),broadcast,t.get("createdBy"),id);
-        for(var u:users)db.notify(a.tenantId(),(UUID)u.get("id"),"TICKET-UPDATE:"+event,"Issue updated",next+" · "+t.get("title"),"ticket:"+id);
+        // "In progress", not the stored IN_PROGRESS code: this text is shown to people as is.
+        String label=next.charAt(0)+next.substring(1).toLowerCase(java.util.Locale.ROOT).replace('_',' ');
+        for(var u:users)db.notify(a.tenantId(),(UUID)u.get("id"),"TICKET-UPDATE:"+event,"Issue updated",label+" · "+t.get("title"),"ticket:"+id);
         c.remember(a,"TICKET_UPDATE",p,id);
         c.audit(a,"TICKET_STATUS",id,t.get("status").toString(),next);
         return Map.of("id",id);

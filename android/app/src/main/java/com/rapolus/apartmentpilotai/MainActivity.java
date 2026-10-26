@@ -503,7 +503,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 }
                 HttpFailurePolicy.Destination destination=HttpFailurePolicy.destination(error.status,authenticatedRequest);
                 if(destination!=HttpFailurePolicy.Destination.INLINE) {
-                    showFailureState(destination,originPage,originId,originRole,originFields,originAccount);
+                    showFailureState(destination,originPage,originId,originRole,originFields,originAccount,!"GET".equals(method));
                     return;
                 }
                 showError(error.message,error.status>=500||error.status==0);
@@ -560,7 +560,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         privateKeys.forEach(values::remove);
         return values;
     }
-    private void showFailureState(HttpFailurePolicy.Destination destination,String originPage,String originId,String originRole,JSONObject originFields,String originAccount) {
+    private void showFailureState(HttpFailurePolicy.Destination destination,String originPage,String originId,String originRole,JSONObject originFields,String originAccount,boolean write) {
         resumePage=originPage;
         resumeId=originId;
         resumeFields=originFields;
@@ -570,7 +570,9 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             history.clear();
             page="session-expired";
         } else if(destination==HttpFailurePolicy.Destination.OFFLINE) {
-            offlineDetail="The connection dropped. Your previous action may have reached the server; check its result before submitting again.";
+            // Only a write can have half-happened; a failed read or server check simply did not connect.
+            offlineDetail=write?"The connection dropped. Your previous action may have reached the server; check its result before submitting again."
+                :"The server could not be reached. Check the connection and try again.";
             page="offline";
         }
         else if(destination==HttpFailurePolicy.Destination.ACCESS_DENIED)page="access-denied";
@@ -930,29 +932,36 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         for(int i=0; i<labels.length; i++)labels[i]=flats.optJSONObject(i).optString("label");
         ui.state(content,R.drawable.ic_home,"Make yourself at home.","One resident account per flat.",R.color.ap_green,R.color.ap_mint);
         String selectedFlat=pageDraft("registration-flat").optString("flatLabel");
-        android.widget.GridLayout grid=new android.widget.GridLayout(this);
-        grid.setColumnCount(3);
-        for(String label:labels) {
+        // Weighted rows of three, not a GridLayout: GridLayout re-measures an icon button with TEXT_START gravity until the
+        // first column fills the screen on tablets, pushing the other two flats off screen.
+        LinearLayout row=null;
+        for(int i=0; i<labels.length; i++) {
+            String label=labels[i];
+            if(i%3==0) {row=ui.row();content.addView(row);}
             LinearLayout holder=ui.column();
             MaterialButton choice=ui.button(holder,label,R.drawable.ic_home,label.equals(selectedFlat),()-> {
                 savePageDraft("registration-flat",json("flatLabel",label));render();
             });
             choice.setContentDescription("Choose flat "+label);
-            android.widget.GridLayout.LayoutParams params=new android.widget.GridLayout.LayoutParams();
-            params.width=0;params.height=ui.dp(64);
-            params.columnSpec=android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED,1f);
+            LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(0,ui.dp(64),1f);
             params.setMargins(ui.dp(3),ui.dp(3),ui.dp(3),ui.dp(3));
             holder.removeView(choice);
-            grid.addView(choice,params);
+            row.addView(choice,params);
         }
-        content.addView(grid,new LinearLayout.LayoutParams(-1,-2));
+        // Keep the last row's buttons the same width as the rows above.
+        for(int i=labels.length%3; i>0&&i<3; i++) {
+            LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(0,ui.dp(64),1f);
+            params.setMargins(ui.dp(3),ui.dp(3),ui.dp(3),ui.dp(3));
+            row.addView(new android.widget.Space(this),params);
+        }
         ui.button(content,"Request to join",R.drawable.ic_users,true,()-> {
             if(selectedFlat.isEmpty()||!Arrays.asList(labels).contains(selectedFlat)) {showError("Choose a flat.");return;}
             request("POST","/auth/join",json("invite",inviteCode,"name",signupDraft.optString("name"),"mobile",signupDraft.optString("mobile"),"pin",signupDraft.optString("pin"),"residentType",signupDraft.optString("residentType"),"flatLabel",selectedFlat),r-> {
             api.pendingJoin((JSONObject)r);
             signupDraft=new JSONObject();
             ((PilotApplication)getApplication()).transientSignup=signupDraft;
-            go("signup-pending");
+            // The join form is finished and its PIN cleared: Back from the receipt goes to sign-in, not to an emptied form.
+            openPageWithBackTarget("signup-pending","","welcome");
         });});
         ui.note(content,"Access begins only after the apartment admin approves this flat claim.");
     }
