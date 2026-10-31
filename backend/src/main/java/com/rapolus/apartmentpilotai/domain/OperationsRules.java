@@ -57,8 +57,8 @@ import java.util.*;
         if(!allowed.contains(to)||!staff&&!(from.equals("RESOLVED")&&(to.equals("CLOSED")||to.equals("OPEN"))))throw new IllegalArgumentException("That issue status change is not permitted.");
     }
     public static int planPrice(int units) {
-        if(units<5||units>50)throw new IllegalArgumentException("This release supports 5–50 flats.");
-        return units<=10?99:units<=30?149:249;
+        if(units<5||units>200)throw new IllegalArgumentException("This release supports 5–200 flats.");
+        return units<=10?99:units<=30?149:units<=50?249:units<=100?349:499;
     }
     public static boolean withinFirstMonth(LocalDate start,LocalDate end,LocalDate today) {
         return !today.isBefore(start)&&today.isBefore(end);

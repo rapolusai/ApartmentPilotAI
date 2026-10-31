@@ -1,6 +1,8 @@
 package com.rapolus.apartmentpilotai.security;
 import com.rapolus.apartmentpilotai.store.Db;
 import com.rapolus.apartmentpilotai.operations.SubscriptionService;
+import com.rapolus.apartmentpilotai.operations.SetupService;
+import org.springframework.beans.factory.annotation.Value;
 import java.io.IOException;
 import java.util.*;
 import jakarta.servlet.*;
@@ -23,8 +25,8 @@ import org.slf4j.LoggerFactory;
     @Bean PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
     }
-    @Bean SecurityFilterChain security(HttpSecurity http,Db db,SubscriptionService subscriptions) throws Exception {
-        http.csrf(c->c.disable()).sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) .authorizeHttpRequests(a->a.requestMatchers("/actuator/health","/api/v1/status","/api/v1/auth/**","/api/v1/provider/**").permitAll().anyRequest().authenticated()) .exceptionHandling(e->e.authenticationEntryPoint((req,res,ex)->json401(res))) .addFilterBefore(new ActivityLoggingFilter(),UsernamePasswordAuthenticationFilter.class).addFilterBefore(new BearerFilter(db,subscriptions),UsernamePasswordAuthenticationFilter.class);
+    @Bean SecurityFilterChain security(HttpSecurity http,Db db,SubscriptionService subscriptions,SetupService setup,@Value("${app.setup-enforced:true}") boolean setupEnforced) throws Exception {
+        http.csrf(c->c.disable()).sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) .authorizeHttpRequests(a->a.requestMatchers("/actuator/health","/api/v1/status","/api/v1/auth/**","/api/v1/provider/**").permitAll().anyRequest().authenticated()) .exceptionHandling(e->e.authenticationEntryPoint((req,res,ex)->json401(res))) .addFilterBefore(new ActivityLoggingFilter(),UsernamePasswordAuthenticationFilter.class).addFilterBefore(new BearerFilter(db,subscriptions,setup,setupEnforced),UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
     static void json401(HttpServletResponse r) throws IOException {
@@ -61,9 +63,13 @@ import org.slf4j.LoggerFactory;
     static final class BearerFilter extends OncePerRequestFilter {
         private final Db db;
         private final SubscriptionService subscriptions;
-        BearerFilter(Db db,SubscriptionService subscriptions) {
+        private final SetupService setup;
+        private final boolean setupEnforced;
+        BearerFilter(Db db,SubscriptionService subscriptions,SetupService setup,boolean setupEnforced) {
             this.db=db;
             this.subscriptions=subscriptions;
+            this.setup=setup;
+            this.setupEnforced=setupEnforced;
         }
         @Override protected void doFilterInternal(HttpServletRequest req,HttpServletResponse res,FilterChain chain)throws ServletException,IOException {
             String header=req.getHeader("Authorization");
@@ -84,6 +90,15 @@ import org.slf4j.LoggerFactory;
                     res.setCharacterEncoding("UTF-8");
                     res.setHeader("Cache-Control","no-store");
                     res.getWriter().write("{\"code\":\"SUBSCRIPTION_REQUIRED\",\"message\":\"Subscription required. Your apartment trial has ended. Ask the apartment Admin to subscribe to restore access.\"}");
+                    return;
+                }
+                // Guided setup: until the required steps are done, only the wizard's own endpoints are reachable.
+                if(setupEnforced&&!SetupService.allowedDuringSetup(a.role(),req.getMethod(),req.getRequestURI())&&setup.requiredOpen(a)) {
+                    res.setStatus(428);
+                    res.setContentType("application/json");
+                    res.setCharacterEncoding("UTF-8");
+                    res.setHeader("Cache-Control","no-store");
+                    res.getWriter().write("{\"code\":\"SETUP_REQUIRED\",\"message\":\"Finish your setup steps first.\"}");
                     return;
                 }
             }

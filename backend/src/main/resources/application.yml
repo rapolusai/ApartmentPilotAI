@@ -36,3 +36,5 @@ app:
   session-hours: 12
   billing-job-enabled: false
   invite-display-key: ${APP_INVITE_DISPLAY_KEY:}
+  # Guided setup lock (HTTP 428 until required steps are done). Set APP_SETUP_ENFORCED=false to switch it off at once.
+  setup-enforced: ${APP_SETUP_ENFORCED:true}

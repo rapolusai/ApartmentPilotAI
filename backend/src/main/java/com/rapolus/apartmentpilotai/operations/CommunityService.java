@@ -62,6 +62,79 @@ import java.time.*;
         a.requireAdmin();
         return db.one("select f.id,f.label,f.block,f.floor,f.active,f.occupied,u.id as member_id,u.name,u.role,u.status from ap_flat f left join ap_user u on u.tenant_id=f.tenant_id and u.flat_id=f.id and u.status in ('ACTIVE','PENDING') where f.tenant_id=? and f.id=?",a.tenantId(),id);
     }
+    /**
+     * Saves the whole flat list from the setup grid in one transaction. Flats keep their internal id when their
+     * label stays, so members, bills and payments stay attached. A flat left out of the list is deleted only when
+     * nothing refers to it; otherwise it is marked inactive. A flat with a member can never be dropped.
+     */
+    @Transactional public Object saveFlats(Account a,Map<String,Object> p) {
+        a.requireAdmin();
+        db.lockTenant(a.tenantId());
+        var prev=commands.previous(a,"FLATS_BULK",p);
+        if(prev.isPresent())return Map.of("ok",true);
+        var items=V.items(p,"flats",200);
+        if(items.size()<5)throw new IllegalArgumentException("An apartment needs at least 5 flats.");
+        Map<String,Map<String,Object>> wanted=new LinkedHashMap<>();
+        for(var it:items) {
+            String label=V.text(it,"label",20).toUpperCase(Locale.ROOT);
+            if(!label.matches("[A-Z0-9][A-Z0-9 /-]{0,19}"))throw new IllegalArgumentException("Flat "+label+": use letters, numbers, - or /.");
+            if(wanted.put(label,it)!=null)throw new IllegalArgumentException("Flat "+label+" appears twice.");
+        }
+        Set<String> blocks=new HashSet<>();
+        for(var b:db.rows("select name from ap_block where tenant_id=?",a.tenantId()))blocks.add(b.get("name").toString());
+        Map<String,Map<String,Object>> existing=new HashMap<>();
+        for(var f:db.rows("select id,label from ap_flat where tenant_id=?",a.tenantId()))existing.put(f.get("label").toString(),f);
+        // Leftovers first, so a removed label never collides with a new one.
+        List<String> refs=flatReferences();
+        int removed=0,deactivated=0;
+        for(var e:existing.entrySet()) {
+            if(wanted.containsKey(e.getKey()))continue;
+            UUID id=UUID.fromString(e.getValue().get("id").toString());
+            if(db.count("select count(*) from ap_user where tenant_id=? and flat_id=? and status in ('ACTIVE','PENDING')",a.tenantId(),id)>0)throw ApiError.conflict("Flat "+e.getKey()+" has a member. Keep it in the list.");
+            boolean used=false;
+            for(String r:refs)if(db.count(r,id)>0) {
+                used=true;
+                break;
+            }
+            if(used) {
+                db.update("update ap_flat set active=false where id=? and tenant_id=?",id,a.tenantId());
+                deactivated++;
+            } else {
+                db.update("delete from ap_flat where id=? and tenant_id=?",id,a.tenantId());
+                removed++;
+            }
+        }
+        int added=0,updated=0;
+        for(var e:wanted.entrySet()) {
+            var it=e.getValue();
+            String block=V.text(it,"block",20).toUpperCase(Locale.ROOT);
+            if(blocks.add(block))db.update("insert into ap_block(id,tenant_id,name) values(?,?,?)",UUID.randomUUID(),a.tenantId(),block);
+            int floor=V.num(it,"floor",-5,150);
+            boolean occupied=V.bool(it,"occupied",true);
+            var old=existing.get(e.getKey());
+            if(old==null) {
+                db.update("insert into ap_flat(id,tenant_id,label,block,floor,active,occupied) values(?,?,?,?,?,true,?)",UUID.randomUUID(),a.tenantId(),e.getKey(),block,floor,occupied);
+                added++;
+            } else {
+                db.update("update ap_flat set block=?,floor=?,occupied=?,active=true where id=? and tenant_id=?",block,floor,occupied,old.get("id"),a.tenantId());
+                updated++;
+            }
+        }
+        if(db.count("select count(*) from ap_flat where tenant_id=?",a.tenantId())>200)throw ApiError.conflict("This release supports up to 200 flats. Remove unused flats first.");
+        commands.remember(a,"FLATS_BULK",p,a.tenantId());
+        commands.audit(a,"FLATS_BULK_SAVED",a.tenantId(),null,"added "+added+", kept "+updated+", removed "+removed+", inactive "+deactivated);
+        return Map.of("ok",true,"added",added,"kept",updated,"removed",removed,"inactive",deactivated);
+    }
+    /** Every table that points at a flat, read from the database catalog so new tables are never missed. */
+    private List<String> flatReferences() {
+        List<String> out=new ArrayList<>();
+        for(var r:db.rows("select c.conrelid::regclass::text as tbl,a.attname as col from pg_constraint c cross join lateral unnest(c.conkey,c.confkey) as k(src,dst) join pg_attribute a on a.attrelid=c.conrelid and a.attnum=k.src join pg_attribute d on d.attrelid=c.confrelid and d.attnum=k.dst where c.contype='f' and c.confrelid='ap_flat'::regclass and d.attname='id'")) {
+            String t=r.get("tbl").toString(),col=r.get("col").toString();
+            if(!t.matches("[a-z_][a-z0-9_.]*")||!col.matches("[a-z_][a-z0-9_]*"))continue;
+            out.add("select count(*) from "+t+" where "+col+"=?");
+        }
+        return out;
+    }
     @Transactional public Object saveFlat(Account a,UUID id,Map<String,Object> p) {
         a.requireAdmin();
         db.lockTenant(a.tenantId());
@@ -73,7 +146,7 @@ import java.time.*;
         int floor=V.num(p,"floor",-5,150);
         long count=db.count("select count(*) from ap_flat where tenant_id=?",a.tenantId());
         if(id==null) {
-            if(count>=50)throw ApiError.conflict("This release supports up to 50 flats.");
+            if(count>=200)throw ApiError.conflict("This release supports up to 200 flats.");
             id=UUID.randomUUID();
             db.update("insert into ap_flat(id,tenant_id,label,block,floor,active,occupied) values(?,?,?,?,?,?,?)",id,a.tenantId(),label,block,floor,active,occupied);
         } else {
