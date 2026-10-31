@@ -19,6 +19,10 @@ import java.util.*;
         this.notices=notices;
     }
     @Transactional public Map<String,Object> run(Account a) {
+        return run(a,false);
+    }
+    // Scheduled runs audit only when they changed records, so routine ticks do not bury human actions in the audit list.
+    @Transactional public Map<String,Object> run(Account a,boolean scheduled) {
         a.requireStaff();
         db.lockTenant(a.tenantId());
         LocalDate today=V.today();
@@ -61,7 +65,7 @@ import java.util.*;
             completed++;
         }
         var result=Map.<String,Object>of("billsCreated",bills,"expenseDraftsCreated",drafts,"lateFeesApplied",fees,"reminderRecipientsConsidered",reminded,"noticesPublished",published,"bookingsCompleted",completed);
-        c.audit(a,"AUTOMATION_RUN",a.tenantId(),null,result.toString());
+        if(!scheduled||bills+drafts+fees+published+completed>0)c.audit(a,"AUTOMATION_RUN",a.tenantId(),null,result.toString());
         return result;
     }
 }

@@ -1,0 +1,36 @@
+name: Backend tests
+on:
+  push:
+    paths: ['backend/**', '.github/workflows/backend-tests.yml']
+  pull_request:
+    paths: ['backend/**', '.github/workflows/backend-tests.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      # Disposable database for ApiIntegrationTest; Flyway migrates it from empty on every run.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci-only-throwaway
+          POSTGRES_DB: apt_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Unit and database integration tests
+        working-directory: backend
+        env:
+          APT_TEST_DB_URL: jdbc:postgresql://localhost:5432/apt_ci
+          APT_TEST_DB_USER: postgres
+          APT_TEST_DB_PASSWORD: ci-only-throwaway
+        run: mvn -B test

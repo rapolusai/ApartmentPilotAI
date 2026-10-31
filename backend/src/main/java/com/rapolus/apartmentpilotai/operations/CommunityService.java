@@ -138,6 +138,7 @@ import java.time.*;
         return out;
     }
     @Transactional public Object saveFlat(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireAdmin();
         db.lockTenant(a.tenantId());
         var prev=commands.previous(a,"FLAT_SAVE",p);
@@ -166,6 +167,7 @@ import java.time.*;
         return rows;
     }
     @Transactional public Object memberRecord(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireAdmin();
         db.lockTenant(a.tenantId());
         var old=commands.previous(a,"MEMBER_RECORD",p);
@@ -185,6 +187,13 @@ import java.time.*;
         commands.audit(a,"MEMBER_RECORD_SAVED",id,null,"Directory record only; no account access");
         return Map.of("id",id);
     }
+    private static final Set<String> EMERGENCY_NUMBERS=Set.of("100","101","102","108","112","1091","1098","1930");
+    /** Mobile/landline/toll-free numbers have 8-15 digits; short codes are limited to public emergency lines. */
+    static boolean validPhone(String phone) {
+        if(!phone.matches("[+0-9 ()-]{3,20}"))return false;
+        String digits=phone.replaceAll("[^0-9]","");
+        return digits.length()>=8&&digits.length()<=15||EMERGENCY_NUMBERS.contains(digits);
+    }
     @Transactional public Object changeRole(Account a,UUID id,Map<String,Object> p) {
         a.requireAdmin();
         db.lockTenant(a.tenantId());
@@ -192,10 +201,15 @@ import java.time.*;
         String role=V.choice(p,"role","ADMIN","TREASURER","RESIDENT");
         var u=db.one("select role,flat_id from ap_user where tenant_id=? and id=? and status='ACTIVE'",a.tenantId(),id);
         if(role.equals("RESIDENT")&&u.get("flatId")==null)throw ApiError.conflict("A resident must have an assigned flat.");
+        if(!role.equals("ADMIN"))keepAnAdmin(a,id,u);
         db.update("update ap_user set role=? where tenant_id=? and id=?",role,a.tenantId(),id);
         db.update("delete from ap_session where user_id=?",id);
         commands.audit(a,"ROLE_CHANGED",id,u.get("role").toString(),role);
         return Map.of("ok",true);
+    }
+    // Checked under the tenant lock: two Admins demoting each other at once must not leave the apartment with none.
+    private void keepAnAdmin(Account a,UUID target,Map<String,Object> u) {
+        if("ADMIN".equals(u.get("role"))&&db.count("select count(*) from ap_user where tenant_id=? and role='ADMIN' and status='ACTIVE' and id<>?",a.tenantId(),target)==0)throw ApiError.conflict("This is the last active Admin of the apartment. Make another member Admin first.");
     }
     @Transactional public Object endAccess(Account a,UUID id,Map<String,Object> p) {
         a.requireAdmin();
@@ -203,6 +217,7 @@ import java.time.*;
         if(a.id().equals(id))throw ApiError.conflict("You cannot end your own Admin access.");
         String reason=V.text(p,"reason",300);
         var u=db.one("select role,flat_id from ap_user where tenant_id=? and id=? and status='ACTIVE'",a.tenantId(),id);
+        keepAnAdmin(a,id,u);
         db.update("update ap_user set status='DISABLED',rejection_reason=? where tenant_id=? and id=?",reason,a.tenantId(),id);
         db.update("delete from ap_session where user_id=?",id);
         commands.audit(a,"ACCESS_ENDED",id,"Active",reason);
@@ -217,7 +232,7 @@ import java.time.*;
     }
     @Transactional public Object changePin(Account a,Map<String,Object> p) {
         String current=V.text(p,"currentPin",6),next=V.text(p,"newPin",6);
-        if(!next.matches("[0-9]{6}"))throw new IllegalArgumentException("Use a six-digit PIN.");
+        PinPolicy.requireNew(next);
         var u=db.one("select pin_hash from ap_user where id=? and tenant_id=? for update",a.id(),a.tenantId());
         if(!encoder.matches(current,u.get("pinHash").toString()))throw new ApiError(org.springframework.http.HttpStatus.BAD_REQUEST,"Current PIN is incorrect.");
         db.update("update ap_user set pin_hash=? where id=?",encoder.encode(next),a.id());
@@ -229,6 +244,7 @@ import java.time.*;
         return db.rows("select c.*,f.label as flat_label from ap_committee c left join ap_flat f on f.id=c.flat_id where c.tenant_id=?"+(a.staff()?"":" and c.public=true and c.active=true")+" order by c.title",a.tenantId());
     }
     @Transactional public Object saveCommittee(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireAdmin();
         db.lockTenant(a.tenantId());
         var old=commands.previous(a,"COMMITTEE",p);
@@ -254,19 +270,20 @@ import java.time.*;
         return db.rows("select * from ap_contact where tenant_id=? and kind=?"+(a.staff()?"":" and public=true and active=true")+" order by name",a.tenantId(),kind);
     }
     @Transactional public Object saveContact(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireStaff();
         db.lockTenant(a.tenantId());
         var old=commands.previous(a,"CONTACT",p);
         if(old.isPresent())return Map.of("id",old.get());
         String kind=V.choice(p,"kind","VENDOR","CONTACT"),name=V.text(p,"name",100),category=V.text(p,"category",40),phone=V.opt(p,"phone",20),notes=V.opt(p,"notes",500);
-        if(!phone.isBlank()&&!phone.matches("[+0-9 ()-]{3,20}"))throw new IllegalArgumentException("Invalid contact number.");
+        if(!phone.isBlank()&&!validPhone(phone))throw new IllegalArgumentException("Enter a valid phone number (8 to 15 digits, or an emergency number such as 100, 101, 108 or 112).");
         LocalDate amc=V.optionalDate(p,"amcEnd");
         if(id==null) {
             id=UUID.randomUUID();
             db.update("insert into ap_contact(id,tenant_id,kind,name,category,phone,notes,public,active,amc_end) values(?,?,?,?,?,?,?,?,?,?)",id,a.tenantId(),kind,name,category,phone,notes,V.bool(p,"public",true),V.bool(p,"active",true),V.sql(amc));
         } else {
             db.one("select id from ap_contact where tenant_id=? and id=?",a.tenantId(),id);
-            db.update("update ap_contact set name=?,category=?,phone=?,notes=?,public=?,active=?,amc_end=? where id=? and tenant_id=?",name,category,phone,notes,V.bool(p,"public",true),V.bool(p,"active",true),V.sql(amc),id,a.tenantId());
+            db.update("update ap_contact set kind=?,name=?,category=?,phone=?,notes=?,public=?,active=?,amc_end=? where id=? and tenant_id=?",kind,name,category,phone,notes,V.bool(p,"public",true),V.bool(p,"active",true),V.sql(amc),id,a.tenantId());
         }
         commands.remember(a,"CONTACT",p,id);
         commands.audit(a,"CONTACT_SAVED",id,null,name);

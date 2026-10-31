@@ -29,6 +29,7 @@ import java.security.MessageDigest;
         return d;
     }
     @Transactional public Object saveDocument(Account a,UUID id,Map<String,Object> p) {
+        p=Commands.scoped(p,id);
         a.requireStaff();
         db.lockTenant(a.tenantId());
         var old=c.previous(a,"DOCUMENT",p);

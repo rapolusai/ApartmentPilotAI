@@ -14,7 +14,7 @@ final class AuthRegistrationTest {
     private final Db db=mock(Db.class);
     private final PasswordEncoder encoder=mock(PasswordEncoder.class);
     private final AuthService service=new AuthService(db,encoder,new InviteCipher(""),true,12);
-    private Requests.Register details() {return new Requests.Register("Owner","9876543210","123456","Community","Hyderabad",5,"Street 1","500001");}
+    private Requests.Register details() {return new Requests.Register("Owner","9876543210","482915","Community","Hyderabad",5,"Street 1","500001");}
     @Test void productionRegistrationRemainsDisabledWithoutVerification() {
         var disabled=new AuthService(db,encoder,new InviteCipher(""),false,12);
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE,assertThrows(ApiError.class,()->disabled.register(details())).status());
@@ -27,7 +27,7 @@ final class AuthRegistrationTest {
         verifyNoInteractions(encoder);
     }
     @Test void registrationStoresAddressAndHashesPin() {
-        when(encoder.encode("123456")).thenReturn("hashed-pin");
+        when(encoder.encode("482915")).thenReturn("hashed-pin");
         when(db.one(anyString(),any())).thenReturn(Map.of("role","ADMIN"));
         var result=service.register(details());
         verify(db).update(startsWith("insert into ap_tenant"),any(UUID.class),eq("Community"),eq("Hyderabad"),eq("Street 1"),eq("500001"));

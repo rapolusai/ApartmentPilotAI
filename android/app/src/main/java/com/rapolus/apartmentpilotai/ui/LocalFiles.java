@@ -83,61 +83,39 @@ import java.util.*;
             out.write(bytes);out.flush();
         }
     }
+    /** "Monthly summary · 2026-10" -> "Monthly-summary-2026-10_20261009-0215.csv", so shared files say what they are. */
+    static String readableName(String title,String extension) {
+        String base=title==null?"":title.replaceAll("[^A-Za-z0-9]+","-").replaceAll("^-+|-+$","");
+        if(base.isEmpty())base="ApartmentCare";
+        if(base.length()>60)base=base.substring(0,60);
+        String stamp=java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")).format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss",java.util.Locale.ROOT));
+        return base+"_"+stamp+extension;
+    }
     public void exportCsv(String title,List<List<String>> rows)throws Exception {
-        File file=new File(folder(),"report-"+UUID.randomUUID()+".csv");
+        File file=new File(folder(),readableName(title,".csv"));
         try(Writer writer=new OutputStreamWriter(new FileOutputStream(file),java.nio.charset.StandardCharsets.UTF_8)) {
             writer.write('\uFEFF');
             writer.write(com.rapolus.apartmentpilotai.data.CsvReport.encode(rows));
         }
         launch(file,"text/csv",true);
     }
+    /** Any other record: its readable fields as a details list in the standard report layout. */
     public void exportPdf(String heading,JSONObject data)throws Exception {
         List<String> lines=new ArrayList<>();
         flatten(data,"",lines);
-        if(lines.isEmpty())lines.add("No entries");
-        Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
-        paint.setTextSize(11);
-        List<String> wrapped=new ArrayList<>();
-        for(String line:lines)for(String paragraph:line.split("\\n",-1)) {
-            String remaining=paragraph;
-            while(!remaining.isEmpty()) {
-                int count=paint.breakText(remaining,true,510,null);
-                if(count==0)count=1;
-                wrapped.add(remaining.substring(0,count));
-                remaining=remaining.substring(count);
-            }
-            wrapped.add("");
+        List<String[]> rows=new ArrayList<>();
+        for(String line:lines) {
+            int split=line.indexOf(": ");
+            rows.add(split<0?new String[]{line,""}:new String[]{line.substring(0,split),com.rapolus.apartmentpilotai.data.DateText.humanize(line.substring(split+2))});
         }
-        File target=new File(folder(),"ApartmentPilotAI-"+System.currentTimeMillis()+".pdf");
-        PdfDocument pdf=new PdfDocument();
-        try {
-            int index=0,pageNo=0;
-            while(index<wrapped.size()) {
-                PdfDocument.Page page=pdf.startPage(new PdfDocument.PageInfo.Builder(595,842,++pageNo).create());
-                Canvas canvas=page.getCanvas();
-                paint.setColor(Color.BLACK);
-                paint.setTextSize(17);
-                paint.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.BOLD));
-                canvas.drawText(heading.length()>58?heading.substring(0,58):heading,40,48,paint);
-                paint.setTypeface(Typeface.DEFAULT);
-                paint.setTextSize(9);
-                canvas.drawText("Generated "+java.time.LocalDate.now()+" · Page "+pageNo,40,70,paint);
-                paint.setTextSize(11);
-                int y=101;
-                while(index<wrapped.size()&&y<770) {
-                    canvas.drawText(wrapped.get(index++),40,y,paint);
-                    y+=15;
-                }
-                paint.setTextSize(9);
-                canvas.drawText("Powered By @Rapolu`s",40,812,paint);
-                pdf.finishPage(page);
-            }
-            try(OutputStream out=new FileOutputStream(target)) {
-                pdf.writeTo(out);
-            }
-        } finally {
-            pdf.close();
-        }
+        if(rows.isEmpty())rows.add(new String[]{"Entries","None"});
+        String apartment=data.optString("apartmentName","");
+        exportReport(new ReportPdf.Doc(apartment,heading,"","").details(rows));
+    }
+    /** Draws a report in the standard layout and opens the Android share sheet. */
+    public void exportReport(ReportPdf.Doc doc)throws Exception {
+        File target=new File(folder(),readableName(doc.fileTitle(),".pdf"));
+        ReportPdf.write(doc,com.rapolus.apartmentpilotai.data.DateText.format(java.time.Instant.now()),target);
         launch(target,"application/pdf",true);
     }
     private void flatten(Object value,String prefix,List<String> lines)throws JSONException {
@@ -147,7 +125,7 @@ import java.util.*;
             while(keys.hasNext()) {
                 String k=keys.next();
                 String lower=k.toLowerCase(Locale.ROOT);
-                if(lower.contains("token")||lower.contains("password")||lower.contains("hash")||lower.equals("content"))continue;
+                if(lower.contains("token")||lower.contains("password")||lower.contains("hash")||lower.equals("content")||lower.equals("id")||lower.endsWith("id")&&!lower.equals("paid"))continue;
                 flatten(o.get(k),prefix.isEmpty()?label(k):prefix+" / "+label(k),lines);
             }
         } else if(value instanceof JSONArray) {

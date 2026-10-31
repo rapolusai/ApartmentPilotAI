@@ -29,6 +29,7 @@ public interface FeatureHost {
     void clearPageDraft(String key);
     void chooseAttachment(String kind,String id);
     void exportPdf(String title,JSONObject record);
+    void exportReport(ReportPdf.Doc doc);
     void exportCsv(String title,java.util.List<java.util.List<String>> rows);
     void openSharedFile(JSONObject file);
     void previewAttachment(JSONObject file,LinearLayout target);

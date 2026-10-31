@@ -8,21 +8,25 @@ import com.rapolus.apartmentpilotai.domain.Rules;
     }
     public static String text(Map<String,Object> m,String k,int max) {
         String s=opt(m,k,max);
-        if(s.isBlank())throw new IllegalArgumentException(k+" is required.");
+        if(s.isBlank())throw new IllegalArgumentException(label(k)+" is required.");
         return s;
+    }
+    /** User-facing field name: "dueDay" -> "Due day". */
+    static String label(String k) {
+        return com.rapolus.apartmentpilotai.api.ErrorHandler.label(k);
     }
     public static String opt(Map<String,Object> m,String k,int max) {
         Object value=m.get(k);
         if(value==null)return "";
-        if(!(value instanceof String))throw new IllegalArgumentException(k+" must be text.");
+        if(!(value instanceof String))throw new IllegalArgumentException(label(k)+" must be text.");
         String s=((String)value).trim();
-        if(s.length()>max)throw new IllegalArgumentException(k+" is too long.");
+        if(s.length()>max)throw new IllegalArgumentException(label(k)+" is too long (maximum "+max+" characters).");
         return s;
     }
     public static boolean bool(Map<String,Object> m,String k,boolean fallback) {
         Object v=m.get(k);
         if(v==null)return fallback;
-        if(!(v instanceof Boolean))throw new IllegalArgumentException(k+" must be true or false.");
+        if(!(v instanceof Boolean))throw new IllegalArgumentException(label(k)+" must be true or false.");
         return (Boolean)v;
     }
     public static int num(Map<String,Object> m,String k,int min,int max) {
@@ -31,7 +35,7 @@ import com.rapolus.apartmentpilotai.domain.Rules;
             if(n<min||n>max)throw new ArithmeticException();
             return n;
         } catch(RuntimeException e) {
-            throw new IllegalArgumentException(k+" must be between "+min+" and "+max+".");
+            throw new IllegalArgumentException(label(k)+" must be between "+min+" and "+max+".");
         }
     }
     public static UUID id(Map<String,Object> m,String k) {
@@ -48,7 +52,7 @@ import com.rapolus.apartmentpilotai.domain.Rules;
         try {
             return Rules.money(new BigDecimal(String.valueOf(m.get(k))));
         } catch(RuntimeException e) {
-            throw new IllegalArgumentException(k+" must be a positive amount with at most two decimals.");
+            throw new IllegalArgumentException(label(k)+" must be a positive amount with at most two decimals.");
         }
     }
     public static BigDecimal zeroMoney(Map<String,Object> m,String k) {
@@ -64,7 +68,7 @@ import com.rapolus.apartmentpilotai.domain.Rules;
         try {
             return LocalDate.parse(text(m,k,10));
         } catch(RuntimeException e) {
-            throw new IllegalArgumentException(k+" must be a valid date (YYYY-MM-DD).");
+            throw new IllegalArgumentException(label(k)+" must be a valid date (YYYY-MM-DD).");
         }
     }
     public static LocalDate optionalDate(Map<String,Object> m,String k) {
@@ -74,7 +78,7 @@ import com.rapolus.apartmentpilotai.domain.Rules;
         try {
             return Instant.parse(text(m,k,40));
         } catch(RuntimeException e) {
-            throw new IllegalArgumentException(k+" must include its timezone (ISO instant).");
+            throw new IllegalArgumentException(label(k)+" must include its timezone (ISO instant).");
         }
     }
     public static Instant optionalTime(Map<String,Object> m,String k) {
@@ -105,6 +109,10 @@ import com.rapolus.apartmentpilotai.domain.Rules;
     }
     public static LocalDate today() {
         return LocalDate.now(ZoneId.of("Asia/Kolkata"));
+    }
+    /** UPI virtual payment address: name@handle. */
+    public static boolean upi(String s) {
+        return s.matches("[a-zA-Z0-9._-]{2,256}@[a-zA-Z]{2,64}");
     }
     public static UUID uid(Object o) {
         return UUID.fromString(String.valueOf(o));

@@ -1,6 +1,8 @@
 server:
   address: ${SERVER_ADDRESS:127.0.0.1}
   port: ${SERVER_PORT:8080}
+  # Behind AWS ALB/nginx use the client IP from X-Forwarded-For (Tomcat trusts only internal proxy addresses).
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:native}
   error:
     include-stacktrace: never
     include-message: never
@@ -35,6 +37,18 @@ app:
   local-registration-enabled: false
   session-hours: 12
   billing-job-enabled: false
+  # Shown on the public privacy and account-deletion pages. Empty = the pages point at the Play listing's contact.
+  support-email: ${SUPPORT_EMAIL:}
   invite-display-key: ${APP_INVITE_DISPLAY_KEY:}
+  # PIN login protection (LoginGuard). Only failed attempts count; a correct PIN clears them.
+  # enabled=false falls back to the old per-mobile limit of 10 attempts per 15 minutes.
+  login-guard:
+    enabled: true
+    device-free-failures: 5      # tier A: same mobile + client IP
+    device-cap-minutes: 60
+    account-free-failures: 20    # tier B: same mobile from any IP
+    account-cap-minutes: 15
+    ip-failures-per-15-minutes: 30
+    decay-hours: 24
   # Guided setup lock (HTTP 428 until required steps are done). Set APP_SETUP_ENFORCED=false to switch it off at once.
   setup-enforced: ${APP_SETUP_ENFORCED:true}

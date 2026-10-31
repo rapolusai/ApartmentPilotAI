@@ -14,11 +14,13 @@ public class RegistrationPolicyTest {
         assertFalse(RegistrationPolicy.apartmentDetails("Community","Pune",new String(new char[301]).replace('\0','x'),"500001").isEmpty());
     }
     @Test public void personRequiresConsentAndValidDetails() {
-        assertEquals("",RegistrationPolicy.person("Resident","9876543210","1234",true,false));
-        assertFalse(RegistrationPolicy.person("Resident","9876543210","1234",false,false).isEmpty());
-        assertFalse(RegistrationPolicy.person(" ","9876543210","1234",true,true).isEmpty());
-        assertFalse(RegistrationPolicy.person("Resident","1234567890","1234",true,false).isEmpty());
+        assertEquals("",RegistrationPolicy.person("Resident","9876543210","123456",true,false));
+        assertFalse(RegistrationPolicy.person("Resident","9876543210","123456",false,false).isEmpty());
+        assertFalse(RegistrationPolicy.person(" ","9876543210","123456",true,true).isEmpty());
+        assertFalse(RegistrationPolicy.person("Resident","1234567890","123456",true,false).isEmpty());
         assertFalse(RegistrationPolicy.person("Resident","9876543210","123",true,false).isEmpty());
+        // New accounts use the six-digit rule shared with Change PIN.
+        for(String pin:new String[]{"1234","12345"})assertFalse(RegistrationPolicy.person("Resident","9876543210",pin,true,false).isEmpty());
     }
     @Test public void apartmentRequiresReferenceDetails() {
         assertEquals("",RegistrationPolicy.apartment("Community","Street 1","500001","5"));

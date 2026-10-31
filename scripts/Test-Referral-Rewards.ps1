@@ -55,12 +55,13 @@ function VerifyApartment($apartment,[string]$label){
  $verify=Api 'POST' "/provider/apartments/$($apartment.Tenant)/verify" @{verifiedBy='LOCAL_SYNTHETIC_QA';identityAndApartmentVerified=$true} '' $true
  Check ($verify.Status -eq 200 -and $verify.Body.verified) "$label activation independently verified by local test provider"
 }
-function InvoiceCredit($apartment){
+# Month one is the free trial for every apartment, so its invoice is always WAIVED. The referral reward is the first
+# paid month after it; returns the trial invoice and that next invoice (null when none has been raised yet).
+function Invoices($apartment){
  $sub=Api 'GET' '/ops/subscription' $null $apartment.Admin
  if($sub.Status -ne 200){return $null}
- $invoice=@($sub.Body.invoices|Where-Object {$_.startsOn -eq (Get-Date).ToString('yyyy-MM-dd')})|Select-Object -First 1
- if(!$invoice){$invoice=@($sub.Body.invoices|Sort-Object startsOn|Select-Object -First 1)}
- return $invoice
+ $sorted=@($sub.Body.invoices|Sort-Object startsOn)
+ return [pscustomobject]@{Trial=($sorted|Select-Object -First 1);Paid=($sorted|Select-Object -Skip 1 -First 1)}
 }
 $completed=$false
 try{
@@ -88,13 +89,17 @@ try{
  }
  foreach($apartment in @($noConsentRoot,$noConsentOne,$noConsentTwo)){VerifyApartment $apartment 'no-consent group'}
 
+ foreach($apartment in @($root,$childOne,$childTwo,$noConsentRoot,$noConsentOne,$noConsentTwo)){
+  $invoices=Invoices $apartment
+  Check ($invoices -and $invoices.Trial -and $invoices.Trial.status -eq 'WAIVED') 'free trial month is waived for every apartment'
+ }
  foreach($apartment in @($root,$childOne,$childTwo)){
-  $invoice=InvoiceCredit $apartment
-  Check ($invoice -and [decimal]$invoice.credit -eq [decimal]$invoice.amount -and $invoice.status -eq 'WAIVED') 'qualified offer waives only each participant first invoice'
+  $paid=(Invoices $apartment).Paid
+  Check ($paid -and [decimal]$paid.credit -eq [decimal]$paid.amount -and $paid.status -eq 'WAIVED') 'qualified offer waives each participant first paid month'
  }
  foreach($apartment in @($noConsentRoot,$noConsentOne,$noConsentTwo)){
-  $invoice=InvoiceCredit $apartment
-  Check ($invoice -and [decimal]$invoice.credit -eq 0 -and $invoice.status -eq 'DUE') 'two activations without referrer consent award no subscription credit'
+  $paid=(Invoices $apartment).Paid
+  Check (!$paid -or ([decimal]$paid.credit -eq 0 -and $paid.status -ne 'WAIVED')) 'two activations without referrer consent award no subscription credit'
  }
  $graph=Api 'GET' '/ops/subscription' $null $root.Admin
  Check (@($graph.Body.referrals|Where-Object {$_.rewarded}).Count -eq 2) 'exactly two qualifying referrals are marked rewarded'

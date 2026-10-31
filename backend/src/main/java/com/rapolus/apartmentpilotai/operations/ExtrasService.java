@@ -60,15 +60,17 @@ import java.time.*;
     @Transactional public Object close(Account a,UUID id) {
         a.requireAdmin();
         db.lockTenant(a.tenantId());
-        poll(a,id);
+        var p=db.one("select closed from ap_poll where tenant_id=? and id=? for update",a.tenantId(),id);
+        if(Boolean.TRUE.equals(p.get("closed")))return Map.of("ok",true,"closed",true,"alreadyClosed",true);
         db.update("update ap_poll set closed=true where tenant_id=? and id=?",a.tenantId(),id);
         c.audit(a,"POLL_CLOSED",id,null,"Closed");
-        return Map.of("ok",true);
+        return Map.of("ok",true,"closed",true,"alreadyClosed",false);
     }
     public List<Map<String,Object>> vehicles(Account a) {
-        return db.rows("select v.id,v.registration,v.kind,v.parking_label,v.active,v.flat_id,f.label as flat_label from ap_vehicle v join ap_flat f on f.id=v.flat_id where v.tenant_id=? and (v.active=true or ?=true) order by v.registration",a.tenantId(),a.role().equals("ADMIN"));
+        return db.rows("select v.id,v.registration,v.kind,v.parking_label,v.active,v.flat_id,f.label as flat_label from ap_vehicle v join ap_flat f on f.id=v.flat_id where v.tenant_id=? and (v.active=true or ?=true or v.flat_id=?) order by v.registration",a.tenantId(),a.role().equals("ADMIN"),a.flatId());
     }
     @Transactional public Object saveVehicle(Account a,UUID id,Map<String,Object> body) {
+        body=Commands.scoped(body,id);
         db.lockTenant(a.tenantId());
         var old=c.previous(a,"VEHICLE_SAVE",body);
         if(old.isPresent())return Map.of("id",old.get());
@@ -92,6 +94,7 @@ import java.time.*;
         return Map.of("id",id);
     }
     @Transactional public Object contactOwner(Account a,UUID id,Map<String,Object> body) {
+        body=Commands.scoped(body,id);
         db.lockTenant(a.tenantId());
         var old=c.previous(a,"VEHICLE_CONTACT",body);
         if(old.isPresent())return Map.of("id",old.get());

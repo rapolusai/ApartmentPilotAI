@@ -223,6 +223,8 @@ import java.util.*;
         String p=path.startsWith("/api/v1")?path.substring(7):path;
         if(p.equals("/me")||p.equals("/logout")||p.startsWith("/setup")||p.equals("/status"))return true;
         if(p.equals("/ops/profile")||p.equals("/ops/change-pin"))return true;
+        // Account deletion must always be reachable (Play policy), even before setup is finished.
+        if(p.equals("/account/deletion")||p.equals("/account/delete"))return true;
         boolean get="GET".equals(method);
         if(get&&(p.equals("/ops/settings")||p.equals("/ops/apartment")||p.startsWith("/notifications")))return true;
         return switch(role) {

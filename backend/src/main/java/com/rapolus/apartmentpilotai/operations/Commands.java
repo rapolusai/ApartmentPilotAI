@@ -36,6 +36,14 @@ import java.util.*;
         if(!operation.equals(old.get().get("operation"))||!hash(body).equals(old.get().get("fingerprint")))throw ApiError.conflict("Request key was already used for different details.");
         return Optional.of((UUID)old.get().get("resultId"));
     }
+    /** Binds an edit command to the record in its URL, so a request key replayed against a different record is a 409
+     * conflict instead of silently returning the first record's result. Create commands (no target) are unchanged. */
+    public static Map<String,Object> scoped(Map<String,Object> body,UUID target) {
+        if(target==null)return body;
+        Map<String,Object> command=new LinkedHashMap<>(body);
+        command.put("_targetId",target.toString());
+        return command;
+    }
     public UUID remember(Account a,String operation,Map<String,Object> body,UUID result) {
         db.update("insert into ap_command(tenant_id,actor_id,request_key,operation,fingerprint,result_id) values(?,?,?,?,?,?)",a.tenantId(),a.id(),V.id(body,"requestKey"),operation,hash(body),result);
         return result;
@@ -51,6 +59,6 @@ import java.util.*;
         return db.one("select * from ap_settings where tenant_id=?",a.tenantId());
     }
     public void audit(Account a,String action,UUID id,String before,String after) {
-        db.audit(a.tenantId(),a.id(),action,id,before,after);
+        db.audit(a.tenantId(),a.actorId(),action,id,before,after);
     }
 }
