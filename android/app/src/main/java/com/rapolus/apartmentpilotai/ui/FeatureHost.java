@@ -35,4 +35,6 @@ public interface FeatureHost {
     void saveAttachment(JSONObject file);
     void exitSession();
     void monthControl();
+    /** Opens route and highlights the button labelled target with a short tip (setup guidance only). */
+    void spotlight(String route,String target,String tip,String tipKey);
 }

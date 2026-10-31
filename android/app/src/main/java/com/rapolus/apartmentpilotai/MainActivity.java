@@ -31,6 +31,10 @@ import java.util.*;
 */
 public final class MainActivity extends AppCompatActivity implements FeatureHost {
     private FeatureScreens featureScreens;
+    private com.rapolus.apartmentpilotai.ui.SetupScreens setupScreens;
+    /** Latest guided-setup state from the server; null when unknown. Only drives the Home card while setup is unfinished. */
+    private JSONObject setupState;
+    private int spotlightRun=0;
     private LocalFiles localFiles;
     private String operationKey=UUID.randomUUID().toString(),attachmentKind="",attachmentParent="";
     private String saveAttachmentId="",saveAttachmentAccount="";
@@ -71,6 +75,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         subtitle=findViewById(R.id.subtitle);
         progress=findViewById(R.id.progress);
         featureScreens=new FeatureScreens(this);
+        setupScreens=new com.rapolus.apartmentpilotai.ui.SetupScreens(this);
         localFiles=new LocalFiles(this);
         View root=findViewById(R.id.root);
         ViewCompat.setOnApplyWindowInsetsListener(root,(v,insets)-> {
@@ -195,7 +200,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     }
     private void back() {
         if(busy)return;
-        if(page.equals("subscription-required"))return;
+        if(page.equals("subscription-required")||page.equals("setup"))return;
         if(history.isEmpty()) {
             if(api.signedIn()&&!page.equals("home")) {
                 page="home";
@@ -227,7 +232,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             id="";
         }
         if(api.signedIn()&&!staff()&&page.equals("payment"))page="payment-status";
-        nav.setVisibility(api.signedIn()&&!page.equals("subscription-required")?View.VISIBLE:View.GONE);
+        nav.setVisibility(api.signedIn()&&!page.equals("subscription-required")&&!page.equals("setup")?View.VISIBLE:View.GONE);
         nav.getMenu().findItem(R.id.nav_money).setTitle(staff()?R.string.money:R.string.dues);
         if(api.signedIn()) {
             NavigationPolicy.Group group=NavigationPolicy.group(page,id);
@@ -239,6 +244,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         subtitle.setText(api.signedIn()?api.account().optString("apartmentName","ApartmentCare"):"ApartmentCare");
         subtitle.setVisibility(homeShell?View.VISIBLE:View.GONE);
         header(page.substring(0,1).toUpperCase(Locale.ROOT)+page.substring(1).replace('-',' '));
+        if(api.signedIn()&&setupScreens.render(page))return;
         if(featureScreens.render(page,id)) {
             if(fields!=null&&restoreFields!=null) {
                 fields.restore(restoreFields);
@@ -453,6 +459,11 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         else if(destination==HttpFailurePolicy.Destination.SUBSCRIPTION_REQUIRED) {
             history.clear();
             page="subscription-required";
+        }
+        else if(destination==HttpFailurePolicy.Destination.SETUP_REQUIRED) {
+            // The server holds the setup lock: go back to the wizard, which resumes at the open step.
+            history.clear();
+            page="setup";
         }
         else if(destination==HttpFailurePolicy.Destination.NOT_FOUND)page="not-found";
         else page="error-state";
@@ -701,9 +712,9 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         );
         fields.field("address","Address","",TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         fields.field("pinCode","PIN code","",NUMBER);
-        fields.field("flats","Number of flats · 5–50","10",NUMBER);
-        fields.limit("apartmentName",80);fields.limit("address",300);fields.limit("pinCode",6);fields.limit("flats",2);
-        ui.note(content,"Flats start at A-101. You can rename them after setup.");
+        fields.field("flats","Number of flats · 5–200","10",NUMBER);
+        fields.limit("apartmentName",80);fields.limit("address",300);fields.limit("pinCode",6);fields.limit("flats",3);
+        ui.note(content,"Next, a short guided setup builds your real flat numbers in a few taps.");
         ui.button(content,"Create apartment",R.drawable.ic_building,true,()->safe(()-> {
             String validation=RegistrationPolicy.apartment(fields.get("apartmentName"),fields.get("address"),fields.get("pinCode"),fields.get("flats"));
             if(!validation.isEmpty()) {showError(validation);return;}
@@ -718,7 +729,8 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                     api.session((JSONObject)r);
                     signupDraft=new JSONObject();
                     ((PilotApplication)getApplication()).transientSignup=new JSONObject();
-                    go("setup-done");
+                    history.clear();
+                    go("setup");
                 }
                 );
             }
@@ -863,12 +875,32 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         );
         ui.gap(content,12);
     }
+    /** Home first asks the server about guided setup: open required steps go to the wizard, otherwise Home shows. */
     private void home() {
         header("Home");
+        final int version=generation;
+        api.call("GET","/setup",null,(result,error)-> {
+            if(isFinishing()||isDestroyed()||version!=generation||!page.equals("home"))return;
+            if(error==null&&result instanceof JSONObject) {
+                JSONObject state=(JSONObject)result;
+                if(!state.optBoolean("requiredComplete",true)) {
+                    history.clear();
+                    page="setup";
+                    id="";
+                    render();
+                    return;
+                }
+                setupState=state;
+            } else setupState=null;
+            homeMain();
+        });
+    }
+    private void homeMain() {
         content.addView(ui.text(LocalDate.now(ZoneId.of("Asia/Kolkata")).format(DateTimeFormatter.ofPattern("EEEE, d MMMM",Locale.ENGLISH)),11,false,R.color.ap_muted));
         ui.gap(content,5);
         content.addView(ui.text("Hello, "+api.account().optString("name").split(" ")[0]+" ✦",26,true,R.color.ap_ink));
         ui.gap(content,16);
+        setupCard();
         if(!staff()) {
             request("GET","/bills?month="+month,null,r->{
                 JSONArray bills=(JSONArray)r;
@@ -1876,6 +1908,68 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     }
     @Override public void monthControl() {
         monthSelector();
+    }
+    /** Until setup is 100% complete: the next step banner and the progress card. Gone for good afterwards. */
+    private void setupCard() {
+        JSONObject s=setupState;
+        if(s==null||s.optBoolean("setupComplete",true))return;
+        JSONObject next=s.optJSONObject("next");
+        if(next!=null) {
+            LinearLayout banner=ui.column();
+            banner.setPadding(ui.dp(16),ui.dp(14),ui.dp(16),ui.dp(10));
+            android.graphics.drawable.GradientDrawable bg=new android.graphics.drawable.GradientDrawable();
+            bg.setColor(ui.color(R.color.ap_lime));
+            bg.setCornerRadius(ui.dp(18));
+            banner.setBackground(bg);
+            banner.addView(ui.text("YOUR NEXT STEP",10,true,R.color.ap_onlime));
+            ui.gap(banner,4);
+            banner.addView(ui.text(next.optString("title"),16,true,R.color.ap_onlime));
+            if(!next.optString("detail").isEmpty())banner.addView(ui.text(next.optString("detail"),12,false,R.color.ap_onlime));
+            ui.button(banner,"Do it now",R.drawable.ic_arrow_right,true,()->spotlight(next.optString("route"),next.optString("target"),next.optString("tip"),"next-"+next.optString("key")));
+            content.addView(banner);
+            ui.gap(content,12);
+        }
+        LinearLayout card=ui.card(content);
+        int percent=s.optInt("overallPercent");
+        card.addView(ui.text("Setup "+percent+"% complete",15,true,R.color.ap_ink));
+        ui.gap(card,8);
+        ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);
+        bar.setMax(100);
+        bar.setProgress(Math.max(4,percent));
+        bar.setProgressTintList(android.content.res.ColorStateList.valueOf(ui.color(R.color.ap_pine)));
+        bar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(ui.color(R.color.ap_line)));
+        bar.setContentDescription("Setup "+percent+" percent complete");
+        card.addView(bar,new LinearLayout.LayoutParams(-1,ui.dp(8)));
+        ui.gap(card,6);
+        JSONArray items=s.optJSONArray("readiness");
+        if(items!=null)for(int i=0; i<items.length(); i++) {
+            JSONObject item=items.optJSONObject(i);
+            boolean done=item.optBoolean("done");
+            ui.statusIconRow(card,item.optString("title"),done?"Done":"To do",item.optString("detail"),done?R.drawable.ic_check:R.drawable.ic_clock,done?null:()->spotlight(item.optString("route"),item.optString("target"),item.optString("tip"),"next-"+item.optString("key")));
+        }
+        if(admin())ui.iconRow(card,"Members setup","See which flats have joined",R.drawable.ic_users,()->go("setup-members"));
+    }
+    /** Opens a screen and lights up the button to tap (or shows the tip alone when there is no button). */
+    @Override public void spotlight(String route,String target,String tip,String tipKey) {
+        if(route==null||route.isEmpty())return;
+        go(route);
+        if(tip==null||tip.isEmpty())return;
+        JSONArray seen=setupState==null?null:setupState.optJSONArray("tipsSeen");
+        if(seen!=null)for(int i=0; i<seen.length(); i++)if(tipKey.equals(seen.optString(i)))return;
+        final int run=++spotlightRun,screen=generation;
+        final long until=System.currentTimeMillis()+4000;
+        Runnable[] look=new Runnable[1];
+        look[0]=()-> {
+            if(isFinishing()||isDestroyed()||run!=spotlightRun||screen!=generation)return;
+            View found=com.rapolus.apartmentpilotai.ui.Spotlight.findByText(content,target);
+            if(found==null&&target!=null&&!target.isEmpty()&&System.currentTimeMillis()<until) {
+                content.postDelayed(look[0],250);
+                return;
+            }
+            com.rapolus.apartmentpilotai.ui.Spotlight.show(this,found,tip,null);
+            if(tipKey.matches("[a-z0-9_-]{1,30}"))api.call("POST","/setup/tips/"+tipKey+"/seen",new JSONObject(),(r,e)-> { });
+        };
+        content.postDelayed(look[0],500);
     }
     @Override public void requestApi(String method,String path,JSONObject payload,FeatureHost.Reply reply) {
         request(method,path,payload,reply::done);

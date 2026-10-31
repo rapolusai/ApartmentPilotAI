@@ -120,6 +120,8 @@ import java.time.*;
                 updated++;
             }
         }
+        // Blocks left with no flats at all (for example the default "A" after renaming) are tidied away.
+        db.update("delete from ap_block b where b.tenant_id=? and not exists(select 1 from ap_flat f where f.tenant_id=b.tenant_id and f.block=b.name)",a.tenantId());
         if(db.count("select count(*) from ap_flat where tenant_id=?",a.tenantId())>200)throw ApiError.conflict("This release supports up to 200 flats. Remove unused flats first.");
         commands.remember(a,"FLATS_BULK",p,a.tenantId());
         commands.audit(a,"FLATS_BULK_SAVED",a.tenantId(),null,"added "+added+", kept "+updated+", removed "+removed+", inactive "+deactivated);
