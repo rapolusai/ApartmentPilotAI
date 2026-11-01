@@ -26,6 +26,8 @@ import org.springframework.test.context.DynamicPropertySource;
 class ApiIntegrationTest {
     @DynamicPropertySource static void database(DynamicPropertyRegistry r) {
         r.add("spring.datasource.url",()->System.getenv("APT_TEST_DB_URL"));
+        // These suites check existing features on freshly registered apartments; the guided setup lock is covered by Test-Guided-Setup.ps1.
+        r.add("app.setup-enforced",()->"false");
         r.add("spring.datasource.username",()->Optional.ofNullable(System.getenv("APT_TEST_DB_USER")).orElse("postgres"));
         r.add("spring.datasource.password",()->Optional.ofNullable(System.getenv("APT_TEST_DB_PASSWORD")).orElse(""));
         // Throwaway per-run key so invite codes can be issued; never a real deployment key.
@@ -74,7 +76,7 @@ class ApiIntegrationTest {
         return login.body().get("token").asText();
     }
     @Test void freshDatabaseMigratesThroughV13() {
-        assertEquals("13",db.one("select max(version::int)::text as v from flyway_schema_history where success").get("v"));
+        assertEquals("14",db.one("select max(version::int)::text as v from flyway_schema_history where success").get("v"));
     }
     @Test void staleTokenDoesNotBlockPublicRoutesButStillExpiresProtectedOnes() throws Exception {
         String stale="not-a-real-session-token";

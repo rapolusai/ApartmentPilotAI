@@ -25,6 +25,8 @@ class AccountDeletionIntegrationTest {
     private static final String PROVIDER_KEY=UUID.randomUUID()+"-"+UUID.randomUUID();
     @DynamicPropertySource static void database(DynamicPropertyRegistry r) {
         r.add("spring.datasource.url",()->System.getenv("APT_TEST_DB_URL"));
+        // These suites check existing features on freshly registered apartments; the guided setup lock is covered by Test-Guided-Setup.ps1.
+        r.add("app.setup-enforced",()->"false");
         r.add("spring.datasource.username",()->Optional.ofNullable(System.getenv("APT_TEST_DB_USER")).orElse("postgres"));
         r.add("spring.datasource.password",()->Optional.ofNullable(System.getenv("APT_TEST_DB_PASSWORD")).orElse(""));
         byte[] inviteKey=new byte[32];
@@ -103,7 +105,7 @@ class AccountDeletionIntegrationTest {
     }
 
     @Test void migrationV13AddsDeletionColumnsWithoutTouchingExistingRows() {
-        assertEquals("13",db.one("select max(version::int)::text as v from flyway_schema_history where success").get("v"));
+        assertEquals("14",db.one("select max(version::int)::text as v from flyway_schema_history where success").get("v"));
         assertEquals(1,db.count("select count(*) from information_schema.columns where table_name='ap_user' and column_name='deleted_at'"));
         assertEquals(1,db.count("select count(*) from information_schema.tables where table_name='ap_deletion_request'"));
     }
@@ -205,7 +207,7 @@ class AccountDeletionIntegrationTest {
             assertEquals(200,r.statusCode(),path);
             assertTrue(r.headers().firstValue("Content-Type").orElse("").startsWith("text/html"),path);
             assertTrue(r.body().contains("privacy@example.test"),path+" shows the configured contact");
-            assertTrue(r.body().contains("Powered By @Rapolu`s"),path);
+            assertTrue(r.body().contains("Powered By @Rapolus"),path);
             assertFalse(r.body().contains("{{CONTACT}}"),path);
         }
     }

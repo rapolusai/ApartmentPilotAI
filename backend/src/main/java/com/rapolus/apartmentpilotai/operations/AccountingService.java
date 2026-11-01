@@ -168,7 +168,7 @@ import java.math.*;
             }
             if(selected.isEmpty()||selected.size()>50)throw new IllegalArgumentException("Select between 1 and 50 active flats.");
             for(String label:selected)flats.add(db.find("select id,label from ap_flat where tenant_id=? and upper(label)=? and active=true",a.tenantId(),label).orElseThrow(()->new IllegalArgumentException("Choose valid active flats.")));
-        } else if(!"SELECTED".equals(V.opt(p,"scope",20)))flats.addAll(db.rows("select id,label from ap_flat where tenant_id=? and active=true order by label",a.tenantId()));
+        } else if(!"SELECTED".equals(V.opt(p,"scope",20)))flats.addAll(db.rows("select id,label from ap_flat where tenant_id=? and active=true order by regexp_replace(label,'[0-9]+$',''),coalesce(substring(label from '([0-9]+)$')::numeric,0),label",a.tenantId()));
         if(flats.isEmpty())throw new IllegalArgumentException("No active flats selected.");
         if(kind.equals("OPENING_DUE")&&flats.size()!=1)throw new IllegalArgumentException("Opening dues must identify one flat.");
         return flats;

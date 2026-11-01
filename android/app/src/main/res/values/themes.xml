@@ -5,5 +5,31 @@
   <item name="colorSurface">@color/ap_surface</item><item name="colorOnSurface">@color/ap_ink</item>
   <item name="android:windowLightStatusBar">true</item><item name="android:windowActionModeOverlay">true</item>
   <item name="android:windowBackground">@color/ap_bg</item><item name="android:fontFamily">sans</item>
+  <item name="materialAlertDialogTheme">@style/ThemeOverlay.Ap.Dialog</item>
+ </style>
+ <!-- Pop-ups: clear white card, bold pine title, filled pine action and a darker backdrop so they stand out. -->
+ <style name="ThemeOverlay.Ap.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+  <item name="colorSurface">@color/ap_surface</item>
+  <item name="colorSurfaceContainerHigh">@color/ap_surface</item>
+  <item name="android:backgroundDimAmount">0.62</item>
+  <item name="shapeAppearanceOverlay">@style/Ap.Dialog.Shape</item>
+  <item name="materialAlertDialogTitleTextStyle">@style/Ap.Dialog.Title</item>
+  <item name="materialAlertDialogBodyTextStyle">@style/Ap.Dialog.Body</item>
+  <item name="buttonBarPositiveButtonStyle">@style/Ap.Dialog.Positive</item>
+  <item name="buttonBarNegativeButtonStyle">@style/Ap.Dialog.Negative</item>
+  <item name="buttonBarNeutralButtonStyle">@style/Ap.Dialog.Negative</item>
+ </style>
+ <style name="Ap.Dialog.Shape" parent=""><item name="cornerFamily">rounded</item><item name="cornerSize">24dp</item></style>
+ <style name="Ap.Dialog.Title" parent="MaterialAlertDialog.Material3.Title.Text">
+  <item name="android:textColor">@color/ap_pine</item><item name="android:textStyle">bold</item><item name="android:textSize">20sp</item>
+ </style>
+ <style name="Ap.Dialog.Body" parent="MaterialAlertDialog.Material3.Body.Text">
+  <item name="android:textColor">@color/ap_ink</item><item name="android:textSize">15sp</item>
+ </style>
+ <style name="Ap.Dialog.Positive" parent="Widget.Material3.Button">
+  <item name="backgroundTint">@color/ap_pine</item><item name="android:textColor">@color/ap_bg</item><item name="android:textStyle">bold</item>
+ </style>
+ <style name="Ap.Dialog.Negative" parent="Widget.Material3.Button.TextButton.Dialog">
+  <item name="android:textColor">@color/ap_pine</item><item name="android:textStyle">bold</item>
  </style>
 </resources>

@@ -75,7 +75,7 @@ import org.springframework.transaction.annotation.Transactional;
     }
     @GetMapping("/flats") Object flats(@AuthenticationPrincipal Account a) {
         a.requireStaff();
-        return db.rows("select f.id,f.label,f.active,f.occupied,u.name,u.status from ap_flat f left join ap_user u on u.tenant_id=f.tenant_id and u.flat_id=f.id and u.status in ('ACTIVE','PENDING') where f.tenant_id=? order by f.label",a.tenantId());
+        return db.rows("select f.id,f.label,f.active,f.occupied,u.name,u.status from ap_flat f left join ap_user u on u.tenant_id=f.tenant_id and u.flat_id=f.id and u.status in ('ACTIVE','PENDING') where f.tenant_id=? order by regexp_replace(f.label,'[0-9]+$',''),coalesce(substring(f.label from '([0-9]+)$')::numeric,0),f.label",a.tenantId());
     }
     @GetMapping("/members") Object members(@AuthenticationPrincipal Account a) {
         a.requireAdmin();

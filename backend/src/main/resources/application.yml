@@ -50,3 +50,5 @@ app:
     account-cap-minutes: 15
     ip-failures-per-15-minutes: 30
     decay-hours: 24
+  # Guided setup lock (HTTP 428 until required steps are done). Set APP_SETUP_ENFORCED=false to switch it off at once.
+  setup-enforced: ${APP_SETUP_ENFORCED:true}

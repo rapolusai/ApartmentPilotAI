@@ -16,8 +16,8 @@ public final class RegistrationPolicy {
         if(name==null||name.trim().isEmpty()||name.trim().length()>80)return "Enter an apartment name (up to 80 characters).";
         if(address==null||address.trim().isEmpty()||address.trim().length()>300)return "Enter the address (up to 300 characters).";
         if(pinCode==null||!pinCode.matches("[0-9]{6}"))return "Enter a 6-digit PIN code.";
-        try {int count=Integer.parseInt(flats);if(count<5||count>50)return "Enter between 5 and 50 flats.";}
-        catch(Exception invalid) {return "Enter between 5 and 50 flats.";}
+        try {int count=Integer.parseInt(flats);if(count<5||count>200)return "Enter between 5 and 200 flats.";}
+        catch(Exception invalid) {return "Enter between 5 and 200 flats.";}
         return "";
     }
     public static String apartmentDetails(String name,String city,String address,String pinCode) {

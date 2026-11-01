@@ -32,6 +32,8 @@ class AuthAuditIntegrationTest {
     private static final String PROVIDER_KEY=UUID.randomUUID()+"-"+UUID.randomUUID();
     @DynamicPropertySource static void database(DynamicPropertyRegistry r) {
         r.add("spring.datasource.url",()->System.getenv("APT_TEST_DB_URL"));
+        // These suites check existing features on freshly registered apartments; the guided setup lock is covered by Test-Guided-Setup.ps1.
+        r.add("app.setup-enforced",()->"false");
         r.add("spring.datasource.username",()->Optional.ofNullable(System.getenv("APT_TEST_DB_USER")).orElse("postgres"));
         r.add("spring.datasource.password",()->Optional.ofNullable(System.getenv("APT_TEST_DB_PASSWORD")).orElse(""));
         byte[] inviteKey=new byte[32];
@@ -118,14 +120,14 @@ class AuthAuditIntegrationTest {
 
     // ---- Migration ----
     @Test void freshDatabaseMigratesThroughV13AndAV10SchemaUpgrades() {
-        assertEquals("13",db.one("select max(version::int)::text as v from flyway_schema_history where success").get("v"));
+        assertEquals("14",db.one("select max(version::int)::text as v from flyway_schema_history where success").get("v"));
         String schema="apai5_upgrade_"+key().substring(0,8).replace("-","");
         String url=System.getenv("APT_TEST_DB_URL"),user=Optional.ofNullable(System.getenv("APT_TEST_DB_USER")).orElse("postgres"),password=Optional.ofNullable(System.getenv("APT_TEST_DB_PASSWORD")).orElse("");
         try {
             Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).createSchemas(true).target("10").load().migrate();
             assertEquals("10",Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).load().info().current().getVersion().getVersion());
             Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).load().migrate();
-            assertEquals("13",Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).load().info().current().getVersion().getVersion());
+            assertEquals("14",Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).load().info().current().getVersion().getVersion());
         } finally {
             db.update("drop schema if exists "+schema+" cascade");
         }

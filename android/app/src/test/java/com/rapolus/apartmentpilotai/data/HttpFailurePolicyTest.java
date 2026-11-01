@@ -8,6 +8,8 @@ public final class HttpFailurePolicyTest {
         assertEquals(HttpFailurePolicy.Destination.SESSION_EXPIRED,HttpFailurePolicy.destination(401,true));
         assertEquals(HttpFailurePolicy.Destination.ACCESS_DENIED,HttpFailurePolicy.destination(403,true));
         assertEquals(HttpFailurePolicy.Destination.SUBSCRIPTION_REQUIRED,HttpFailurePolicy.destination(402,true));
+        assertEquals(HttpFailurePolicy.Destination.SETUP_REQUIRED,HttpFailurePolicy.destination(428,true));
+        assertEquals(HttpFailurePolicy.Destination.INLINE,HttpFailurePolicy.destination(428,false));
         assertEquals(HttpFailurePolicy.Destination.NOT_FOUND,HttpFailurePolicy.destination(404,true));
         assertEquals(HttpFailurePolicy.Destination.ERROR,HttpFailurePolicy.destination(503,true));
         assertEquals(HttpFailurePolicy.Destination.OFFLINE,HttpFailurePolicy.destination(0,true));

@@ -77,7 +77,7 @@ import java.security.MessageDigest;
         Map<String,Object> out=new LinkedHashMap<>(s);
         out.put("flats",count);
         out.put("price",price(a.tenantId()));
-        out.put("category",count<=10?"A":count<=30?"B":"C");
+        out.put("category",count<=10?"A":count<=30?"B":count<=50?"C":count<=100?"D":"E");
         out.put("invoices",invoices);
         Entitlement access=entitlement(a.tenantId());
         out.put("status",access.state());

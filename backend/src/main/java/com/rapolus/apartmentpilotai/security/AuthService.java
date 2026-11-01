@@ -156,7 +156,7 @@ import org.springframework.transaction.annotation.Transactional;
     public Map<String,Object> previewInvite(String raw) {
         var invite=db.one("select i.tenant_id,t.name,t.city from ap_invite i join ap_tenant t on t.id=i.tenant_id where i.code_hash=? and i.active=true and i.expires_at>now()",Tokens.digest(raw.trim().toUpperCase(Locale.ROOT)));
         UUID tenant=(UUID)invite.get("tenantId");
-        var flats=db.rows("select f.label from ap_flat f where f.tenant_id=? and f.active=true and not exists(select 1 from ap_user u where u.tenant_id=f.tenant_id and u.flat_id=f.id and u.status in ('ACTIVE','PENDING')) order by f.label",tenant);
+        var flats=db.rows("select f.label from ap_flat f where f.tenant_id=? and f.active=true and not exists(select 1 from ap_user u where u.tenant_id=f.tenant_id and u.flat_id=f.id and u.status in ('ACTIVE','PENDING')) order by regexp_replace(f.label,'[0-9]+$',''),coalesce(substring(f.label from '([0-9]+)$')::numeric,0),f.label",tenant);
         return Map.of("apartmentName",invite.get("name"),"city",invite.get("city"),"flats",flats);
     }
     @Transactional public Map<String,Object> join(Requests.Join r) {
