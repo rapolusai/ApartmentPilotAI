@@ -389,6 +389,20 @@ public final class SetupScreens {
         get("/ops/settings",r-> {
             JSONObject s=(JSONObject)r;
             boolean ready=!text(s,"payee").isEmpty()&&(!text(s,"upi").isEmpty()||(!text(s,"account").isEmpty()&&!text(s,"ifsc").isEmpty()));
+            boolean cashOnly=text(s,"upi").isEmpty()&&text(s,"account").isEmpty();
+            String key=check?"payment_check":"payment";
+            if(check&&cashOnly&&!h.pageDraft("setup-payment").optBoolean("edit")) {
+                LinearLayout c=u.card(b);
+                c.addView(u.text("Residents pay in cash",15,true,R.color.ap_ink));
+                u.gap(c,4);
+                c.addView(u.text("No UPI ID or bank account has been added yet. Residents pay the Admin or Treasurer in cash, and it is recorded in the app.",12,false,R.color.ap_sub));
+                primary(b,"That's right",()->complete(key));
+                secondary(b,"Add UPI or bank details",R.drawable.ic_settings,()-> {
+                    h.savePageDraft("setup-payment",obj("edit",true));
+                    h.refreshPage();
+                });
+                return;
+            }
             if(check&&ready&&!h.pageDraft("setup-payment").optBoolean("edit")) {
                 LinearLayout c=u.card(b);
                 c.addView(u.text("Residents send money to:",12,true,R.color.ap_sub));
@@ -403,8 +417,16 @@ public final class SetupScreens {
                 });
                 return;
             }
+            LinearLayout cash=u.card(b);
+            cash.addView(u.text("Collecting cash?",15,true,R.color.ap_ink));
+            u.gap(cash,4);
+            cash.addView(u.text("Cash works without any details. Add UPI or a bank account now or later in Settings, and residents will see them.",12,false,R.color.ap_sub));
+            secondary(b,"Cash only for now · add UPI or bank later",R.drawable.ic_wallet,()-> {
+                h.savePageDraft("setup-payment",new JSONObject());
+                complete(key);
+            });
             LinearLayout c=u.card(b);
-            c.addView(u.text("Where should residents send money?",15,true,R.color.ap_ink));
+            c.addView(u.text("UPI or bank (optional)",15,true,R.color.ap_ink));
             u.gap(c,10);
             Ui.Fields f=new Ui.Fields(u,c);
             f.field("payee","Account name (association)",text(s,"payee"),TEXT);
@@ -419,16 +441,21 @@ public final class SetupScreens {
             f.limit("bank",100);
             f.limit("account",30);
             f.limit("ifsc",11);
-            u.note(b,"Fill the UPI ID, or the bank account with IFSC, or both.");
+            u.note(b,"Fill the UPI ID, or the bank account with IFSC, or both. Leave everything empty for cash only.");
             primary(b,"Save & continue",()-> {
                 String upi=f.get("upi"),account=f.get("account"),ifsc=f.get("ifsc").toUpperCase(Locale.ROOT);
-                if(f.get("payee").isEmpty())throw new IllegalArgumentException("Enter the account name.");
+                if(f.get("payee").isEmpty()&&upi.isEmpty()&&account.isEmpty()&&ifsc.isEmpty()&&f.get("bank").isEmpty()) {
+                    h.savePageDraft("setup-payment",new JSONObject());
+                    complete(key);
+                    return;
+                }
+                if(f.get("payee").isEmpty())throw new IllegalArgumentException("Enter the account name for the UPI or bank details.");
                 if(upi.isEmpty()&&(account.isEmpty()||ifsc.isEmpty()))throw new IllegalArgumentException("Add a UPI ID, or a bank account with IFSC.");
                 if(!upi.isEmpty()&&!upi.matches("[A-Za-z0-9._-]{2,}@[A-Za-z0-9.-]{2,}"))throw new IllegalArgumentException("Check the UPI ID, for example name@okbank.");
                 if(!ifsc.isEmpty()&&!ifsc.matches("[A-Z]{4}0[A-Z0-9]{6}"))throw new IllegalArgumentException("Check the IFSC, for example HDFC0001234.");
                 post("/ops/settings/payment",command(obj("payee",f.get("payee"),"upi",upi,"bank",f.get("bank"),"account",account,"ifsc",ifsc)),x-> {
                     h.savePageDraft("setup-payment",new JSONObject());
-                    complete(check?"payment_check":"payment");
+                    complete(key);
                 });
             });
         });
@@ -698,7 +725,7 @@ public final class SetupScreens {
             JSONObject s=(JSONObject)r;
             String[][] steps= {
                 {"1  See your bill","Open Dues at the bottom. Each month's bill shows the amount and due date."},
-                {"2  Pay the association","Use your UPI or bank app to pay the details below. The app never takes money."},
+                {"2  Pay the association","Pay in cash to your Admin or Treasurer, or use the UPI or bank details below. The app never takes money."},
                 {"3  Tap \"I've paid\"","Enter the amount and reference. You get a receipt once the Treasurer confirms it."}
             };
             for(String[] st:steps) {
@@ -710,7 +737,7 @@ public final class SetupScreens {
             LinearLayout pay=u.card(b);
             pay.addView(u.text("Association payment details",12,true,R.color.ap_sub));
             u.gap(pay,6);
-            if(text(s,"payee").isEmpty())pay.addView(u.text("Your Admin has not added them yet.",12,false,R.color.ap_muted));
+            if(text(s,"upi").isEmpty()&&text(s,"account").isEmpty())pay.addView(u.text("Cash only for now. Pay your Admin or Treasurer, then tap \"I've paid\" and choose Cash.",12,false,R.color.ap_muted));
             else {
                 u.kv(pay,"Payee",text(s,"payee"));
                 if(!text(s,"upi").isEmpty())u.kv(pay,"UPI ID",text(s,"upi"));

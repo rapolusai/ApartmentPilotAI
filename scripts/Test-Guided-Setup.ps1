@@ -31,9 +31,9 @@ Check ((Done 'blocks' $t).Body.current -eq 'flats') 'Blocks step done'
 $flats=@();foreach($f in 1..10){foreach($n in 1..10){$flats+=@{label=('T1-{0}' -f ($f*100+$n));block='T1';floor=$f;occupied=$true}}}
 $bulk=Api 'POST' '/ops/flats/bulk' @{flats=$flats;requestKey=(Key)} $t;Check ($bulk.Status -eq 200 -and $bulk.Body.added -eq 100) 'Flat generator saves 10 floors x 10 flats in one call'
 Check ((Done 'flats' $t).Body.current -eq 'payment') 'Flats step done'
-Check ((Done 'payment' $t).Status -eq 400) 'Payment step refuses empty payment details'
-Check ((Api 'POST' '/ops/settings/payment' @{payee='TEST Assoc';upi='test@upi';bank='';account='';ifsc='';requestKey=(Key)} $t).Status -eq 200) 'Save payment details'
-Check ((Done 'payment' $t).Body.current -eq 'maintenance') 'Payment step done'
+Check ((Api 'POST' '/ops/settings/payment' @{payee='TEST Assoc';upi='not-a-upi';bank='';account='';ifsc='';requestKey=(Key)} $t).Status -eq 400) 'Wrong UPI ID is refused'
+Check ((Done 'payment' $t).Body.current -eq 'maintenance') 'Cash only: payment step needs no UPI or bank'
+Check ((Api 'POST' '/ops/settings/payment' @{payee='TEST Assoc';upi='test@upi';bank='';account='';ifsc='';requestKey=(Key)} $t).Status -eq 200) 'UPI can still be added afterwards'
 $month=(Get-Date).ToUniversalTime().AddHours(5.5).AddMonths(1).ToString('yyyy-MM')
 Check ((Api 'POST' '/billing/rules' @{amount=2500;effective=$month;billingDay=1;dueDay=10} $t).Status -eq 200) 'Save maintenance amount'
 Check ((Done 'maintenance' $t).Body.current -eq 'late_fee') 'Maintenance step done'

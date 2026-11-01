@@ -35,7 +35,9 @@ import java.util.*;
         new Step("vehicles","Your vehicles","Helps with parking and lets neighbours reach you about a vehicle.",false),
         new Step("how_to_pay","How to pay","See your dues and how to tell the association you have paid.",false),
         new Step("stay_informed","Stay informed","Notices and building issues, all in one place.",false));
-    static final Set<String> CONFIRM_ONLY=Set.of("late_fee","old_dues","terms","treasurer_rules","late_fee_check","recurring","vehicles","how_to_pay","stay_informed");
+    // Payment details are optional: many apartments collect cash and add UPI or a bank account later.
+    // Any details that are entered are validated by /ops/settings/payment itself.
+    static final Set<String> CONFIRM_ONLY=Set.of("payment","payment_check","late_fee","old_dues","terms","treasurer_rules","late_fee_check","recurring","vehicles","how_to_pay","stay_informed");
     private final Db db;
     public SetupService(Db db) {
         this.db=db;
@@ -171,11 +173,6 @@ import java.util.*;
             case "flats" -> {
                 long n=db.count("select count(*) from ap_flat where tenant_id=? and active=true",t);
                 if(n<5||n>200)throw new IllegalArgumentException("An apartment needs between 5 and 200 flats.");
-            }
-            case "payment","payment_check" -> {
-                db.update("insert into ap_settings(tenant_id) values(?) on conflict do nothing",t);
-                var s=db.one("select payee,upi,account,ifsc from ap_settings where tenant_id=?",t);
-                if(!paymentReady(s))throw new IllegalArgumentException("Add the payee name and a UPI ID or a bank account with IFSC.");
             }
             case "maintenance" -> {
                 if(db.count("select count(*) from ap_billing_rule where tenant_id=?",t)<1)throw new IllegalArgumentException("Save the monthly maintenance amount first.");
