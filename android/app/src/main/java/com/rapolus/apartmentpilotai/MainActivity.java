@@ -355,7 +355,8 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         boolean homeShell=api.signedIn()&&page.equals("home");
         // Root pages (signed-in Home, the sign-in chooser) have nowhere to go back to.
         findViewById(R.id.back).setVisibility(homeShell&&history.isEmpty()||!api.signedIn()&&page.equals("welcome")?View.INVISIBLE:View.VISIBLE);
-        findViewById(R.id.notifications).setVisibility(homeShell?View.VISIBLE:View.GONE);
+        findViewById(R.id.notificationsBox).setVisibility(homeShell?View.VISIBLE:View.GONE);
+        if(homeShell)refreshBellBadge();
         subtitle.setText(api.signedIn()?api.account().optString("apartmentName","ApartmentCare"):"ApartmentCare");
         subtitle.setVisibility(homeShell?View.VISIBLE:View.GONE);
         header(page.substring(0,1).toUpperCase(Locale.ROOT)+page.substring(1).replace('-',' '));
@@ -484,6 +485,30 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             fields.restore(restoreFields);
             restoreFields=null;
         }
+    }
+    /** Red number on the bell: unread notifications for this login (9+ when more). */
+    private void refreshBellBadge() {
+        TextView badge=findViewById(R.id.notificationBadge);
+        quietGet("/notifications",r->{
+            JSONArray arr=(JSONArray)r;
+            int unread=0;
+            for(int i=0;i<arr.length();i++)if(arr.getJSONObject(i).isNull("readAt"))unread++;
+            badge.setText(unread>9?"9+":String.valueOf(unread));
+            badge.setVisibility(unread>0?View.VISIBLE:View.GONE);
+            findViewById(R.id.notifications).setContentDescription(unread>0?"Notifications, "+unread+" unread":"Notifications");
+        });
+    }
+    /** Extra Home fetch that runs beside the main request: no spinner, no busy lock, errors ignored. */
+    private void quietGet(String path,Success onSuccess) {
+        if(!api.signedIn())return;
+        final int version=generation;
+        api.call("GET",path,null,(result,error)-> {
+            if(isFinishing()||isDestroyed()||version!=generation||error!=null)return;
+            try {
+                onSuccess.accept(result);
+            } catch(Exception ignored) {
+            }
+        });
     }
     private void request(String method,String path,JSONObject data,Success onSuccess) {
         if(busy)return;
@@ -1162,7 +1187,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         LinearLayout issues=ui.column();content.addView(issues);
         // Open polls for everyone, in green, so residents see them and vote without hunting in Community.
         LinearLayout polls=ui.column();content.addView(polls);
-        request("GET","/ops/polls",null,p->{
+        quietGet("/ops/polls",p->{
             JSONArray list=(JSONArray)p;
             java.time.Instant now=java.time.Instant.now();
             int shown=0;
@@ -1199,7 +1224,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 // Common building issues (water, lift, power) are a separate list; show them in red too when open.
                 LinearLayout building=ui.column();
                 issues.addView(building);
-                request("GET","/ops/tickets?kind=ISSUE",null,b->{
+                quietGet("/ops/tickets?kind=ISSUE",b->{
                     JSONArray list=(JSONArray)b;
                     int open=0,urgent=0;
                     for(int i=0;i<list.length();i++) {
