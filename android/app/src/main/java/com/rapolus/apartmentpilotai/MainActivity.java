@@ -1162,16 +1162,23 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         LinearLayout issues=ui.column();content.addView(issues);
         String kind=admin()?"COMPLAINT":"ISSUE";
         request("GET","/ops/tickets?kind="+kind,null,r->{
-            JSONArray rows=(JSONArray)r;JSONObject current=null;int activeCount=0;
+            JSONArray rows=(JSONArray)r;JSONObject current=null;int activeCount=0,urgentCount=0;
             for(int i=0;i<rows.length();i++) {
                 JSONObject issue=rows.getJSONObject(i);
                 if(!Arrays.asList("RESOLVED","CLOSED").contains(issue.optString("status"))) {
                     activeCount++;
-                    if(current==null)current=issue;
+                    boolean urgent="URGENT".equals(issue.optString("priority"));
+                    if(urgent)urgentCount++;
+                    // Show an urgent issue first when there is one.
+                    if(current==null||urgent&&!"URGENT".equals(current.optString("priority")))current=issue;
                 }
             }
+            String urgentNote=urgentCount>0?" · "+urgentCount+" urgent":"";
             if(admin()) {
-                ui.iconRow(ui.card(issues),"Active complaints",activeCount+" open · View all",R.drawable.ic_tools,()->go("complaints"));
+                LinearLayout complaints=ui.card(issues);
+                ui.iconRow(complaints,"Active complaints",activeCount+" open"+urgentNote+" · View all",R.drawable.ic_tools,()->go("complaints"));
+                // Open complaints show in red so they get attention first.
+                if(activeCount>0)ui.urgent(complaints);
                 // Pending flat claims block residents from using the app, so surface them on Home.
                 LinearLayout joins=ui.column();
                 issues.addView(joins);
@@ -1183,7 +1190,12 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 });
             }
             else if(current==null)ui.empty(issues,R.drawable.ic_check,"All caught up","No open common issues.");
-            else {JSONObject issue=current;ui.iconRow(ui.card(issues),issue.optString("title"),pretty(issue.optString("status")),R.drawable.ic_tools,()->go("issue",issue.optString("id")));}
+            else {
+                JSONObject issue=current;
+                LinearLayout open=ui.card(issues);
+                ui.iconRow(open,issue.optString("title"),pretty(issue.optString("status"))+("URGENT".equals(issue.optString("priority"))?" · Urgent":"")+(activeCount>1?" · "+activeCount+" open issues":""),R.drawable.ic_tools,()->go("issue",issue.optString("id")));
+                ui.urgent(open);
+            }
             if(!staff()) {
                 ui.heading(content,"Community update");
                 LinearLayout notices=ui.column();content.addView(notices);

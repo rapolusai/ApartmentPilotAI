@@ -80,6 +80,25 @@ import java.util.*;
         for(int i=0; i<row.getChildCount(); i++)row.getChildAt(i).setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
         ViewCompat.replaceAccessibilityAction(row,AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_CLICK,"open",null);
     }
+    /** Turns a card red so open issues on Home stand out: red tint, red border, red icon and title. */
+    public void urgent(LinearLayout body) {
+        if(body.getParent() instanceof MaterialCardView) {
+            MaterialCardView card=(MaterialCardView)body.getParent();
+            card.setCardBackgroundColor(color(R.color.ap_redbg));
+            card.setStrokeColor(color(R.color.ap_red));
+            card.setStrokeWidth(dp(2));
+        }
+        tintRed(body);
+    }
+    private void tintRed(ViewGroup group) {
+        boolean titleDone=false;
+        for(int i=0; i<group.getChildCount(); i++) {
+            View v=group.getChildAt(i);
+            if(v instanceof ImageView)((ImageView)v).setImageTintList(ColorStateList.valueOf(color(R.color.ap_red)));
+            else if(v instanceof TextView&&!titleDone){((TextView)v).setTextColor(color(R.color.ap_red));titleDone=true;}
+            else if(v instanceof ViewGroup)tintRed((ViewGroup)v);
+        }
+    }
     public LinearLayout card(LinearLayout parent) {
         MaterialCardView card=new MaterialCardView(c);
         card.setRadius(dp(21));
