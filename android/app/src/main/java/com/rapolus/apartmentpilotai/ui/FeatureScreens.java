@@ -803,10 +803,12 @@ import java.util.*;
             button.setMinimumWidth(0);
             button.setPadding(u.dp(4),0,u.dp(4),0);
             LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(0,-2,1);
-            params.setMarginEnd(u.dp(6));
+            if(!option.equals("REJECTED"))params.setMarginEnd(u.dp(6));
             button.setLayoutParams(params);
         }
         b.addView(filters);
+        // Space between the filter buttons and the first request card, so they never touch.
+        u.gap(b,12);
         get("/members",value-> {
             JSONArray rows=(JSONArray)value;
             int requestCount=0;
@@ -852,7 +854,7 @@ import java.util.*;
                     button.setMinimumWidth(0);
                     button.setPadding(u.dp(4),0,u.dp(4),0);
                     LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(0,-2,1);
-                    params.setMarginEnd(u.dp(6));
+                    if(button==reject)params.setMarginEnd(u.dp(6));
                     button.setLayoutParams(params);
                 }
                 b.addView(actions);
