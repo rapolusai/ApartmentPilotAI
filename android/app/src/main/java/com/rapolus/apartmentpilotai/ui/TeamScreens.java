@@ -305,7 +305,7 @@ public final class TeamScreens {
         ui.kv(c,"Joined",com.rapolus.apartmentpilotai.data.DateText.day(str(a,"joinedOn")));
     }
     private static final String[] HEADERS={"Apartment","City","Admin","Contact","Flats","Status","Valid till","Received","Expected","Last sign-in","Joined"};
-    private static final int[] WIDTHS={170,100,130,120,60,100,140,100,100,110,100};
+    private static final int[] WIDTHS={170,100,130,120,60,110,200,110,110,120,110};
     private void table(LinearLayout list,List<JSONObject> rows) {
         HorizontalScrollView scroll=new HorizontalScrollView(activity);
         LinearLayout grid=ui.column();
