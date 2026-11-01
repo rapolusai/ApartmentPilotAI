@@ -476,12 +476,51 @@ public final class SetupScreens {
                 });
                 return;
             }
-            LinearLayout c=u.card(b);
-            c.addView(u.text("How much does each flat pay every month?",15,true,R.color.ap_ink));
-            u.gap(c,10);
-            Ui.Fields f=new Ui.Fields(u,c);
-            f.field("amount","Amount per flat (₹)","",MONEY);
-            f.limit("amount",9);
+            get("/ops/flats",fr->maintenanceForm(fr instanceof JSONArray?(JSONArray)fr:new JSONArray()));
+        });
+    }
+    /** Step 5 form: one amount for every flat (the default), or optionally different amounts by flat size. */
+    private void maintenanceForm(JSONArray flatRows) {
+        List<JSONObject> flats=new ArrayList<>();
+        for(int i=0; i<flatRows.length(); i++) {
+            JSONObject x=flatRows.optJSONObject(i);
+            if(x!=null&&x.optBoolean("active",true))flats.add(x);
+        }
+        flats.sort(Comparator.comparing((JSONObject x)->x.optString("block")).thenComparingInt(x->x.optInt("floor")).thenComparing(x->x.optString("label")));
+        int[] sizeOf=new int[flats.size()];
+        int[] sizes= {
+            2
+        };
+        String[][] names= {
+            {"2BHK","3BHK","4BHK","Size 4","Size 5"}
+        };
+        String[][] amounts= {
+            {"","","","",""}
+        };
+        LinearLayout c=u.card(b);
+        c.addView(u.text("How much does each flat pay every month?",15,true,R.color.ap_ink));
+        u.gap(c,10);
+        LinearLayout same=u.column(),bySize=u.column();
+        Ui.Fields f=new Ui.Fields(u,same);
+        f.field("amount","Amount per flat (₹)","",MONEY);
+        f.limit("amount",9);
+        Runnable[] redraw=new Runnable[1];
+        String[] mode=chips(c,"Do all flats pay the same?",new String[] {
+            "Yes, same for all","No, it depends on size"
+        }
+        ,new String[] {
+            "same","size"
+        }
+        ,"same",()->redraw[0].run());
+        c.addView(same);
+        c.addView(bySize);
+        redraw[0]=()-> {
+            same.setVisibility("same".equals(mode[0])?View.VISIBLE:View.GONE);
+            bySize.setVisibility("size".equals(mode[0])?View.VISIBLE:View.GONE);
+            if("size".equals(mode[0]))sizeEditor(bySize,flats,sizeOf,sizes,names[0],amounts[0]);
+        };
+        redraw[0].run();
+        {
             String[] due=chips(c,"Pay by which day of the month?",new String[] {
                 "5th","10th","15th","20th"
             }
@@ -497,21 +536,193 @@ public final class SetupScreens {
                 now.toString(),now.plusMonths(1).toString()
             }
             ,now.toString(),null);
-            u.note(b,"Bills already sent are never changed later. You can set different amounts for single flats from Money later.");
+            u.note(b,"Bills already sent are never changed later. You can change single flats any time in Money → Flat-specific rates.");
             primary(b,"Save & continue",()-> {
-                java.math.BigDecimal amount;
-                try {
-                    amount=new java.math.BigDecimal(f.get("amount"));
-                } catch(Exception e) {
-                    throw new IllegalArgumentException("Enter the monthly amount, for example 2500.");
+                if("same".equals(mode[0])) {
+                    java.math.BigDecimal amount=money(f.get("amount"));
+                    post("/billing/rules",obj("amount",amount,"effective",month[0],"billingDay",1,"dueDay",Integer.parseInt(due[0])),x-> {
+                        h.savePageDraft("setup-maintenance",new JSONObject());
+                        complete("maintenance");
+                    });
+                    return;
                 }
-                if(amount.signum()<=0)throw new IllegalArgumentException("Enter an amount greater than zero.");
-                post("/billing/rules",obj("amount",amount,"effective",month[0],"billingDay",1,"dueDay",Integer.parseInt(due[0])),x-> {
-                    h.savePageDraft("setup-maintenance",new JSONObject());
-                    complete("maintenance");
-                });
+                java.math.BigDecimal[] perSize=new java.math.BigDecimal[sizes[0]];
+                for(int i=0; i<sizes[0]; i++) {
+                    if(names[0][i].trim().isEmpty())throw new IllegalArgumentException("Give size "+(i+1)+" a name, for example 2BHK.");
+                    try {
+                        perSize[i]=money(amounts[0][i]);
+                    } catch(IllegalArgumentException e) {
+                        throw new IllegalArgumentException("Enter the monthly amount for "+names[0][i].trim()+".");
+                    }
+                }
+                if(flats.isEmpty())throw new IllegalArgumentException("Add your flats first.");
+                int base=MaintenancePlan.baseSize(sizeOf,sizes[0]);
+                List<Integer> special=MaintenancePlan.overrides(sizeOf,perSize,base);
+                String batch=h.commandKey();
+                post("/billing/rules",obj("amount",perSize[base],"effective",month[0],"billingDay",1,"dueDay",Integer.parseInt(due[0])),x->saveSizeRates(flats,sizeOf,perSize,names[0],special,0,month[0],batch));
             });
-        });
+        }
+    }
+    private java.math.BigDecimal money(String text) {
+        java.math.BigDecimal amount;
+        try {
+            amount=new java.math.BigDecimal(text.trim());
+        } catch(Exception e) {
+            throw new IllegalArgumentException("Enter the monthly amount, for example 2500.");
+        }
+        if(amount.signum()<=0)throw new IllegalArgumentException("Enter an amount greater than zero.");
+        return amount;
+    }
+    /** Saves one flat-specific rate at a time; each request key is derived from the batch, so a retry never duplicates. */
+    private void saveSizeRates(List<JSONObject> flats,int[] sizeOf,java.math.BigDecimal[] perSize,String[] names,List<Integer> special,int next,String month,String batch) {
+        if(next>=special.size()) {
+            h.savePageDraft("setup-maintenance",new JSONObject());
+            complete("maintenance");
+            return;
+        }
+        int i=special.get(next);
+        JSONObject flat=flats.get(i);
+        String key=UUID.nameUUIDFromBytes((batch+flat.optString("id")).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+        post("/ops/rate-overrides",obj("flatId",flat.optString("id"),"effective",month,"amount",perSize[sizeOf[i]],"reason","Size: "+names[sizeOf[i]].trim(),"requestKey",key),
+            x->saveSizeRates(flats,sizeOf,perSize,names,special,next+1,month,batch));
+    }
+    /** Sizes with a name and amount each, a quick "same position on every floor" assignment, then tap a flat to change it. */
+    private void sizeEditor(LinearLayout box,List<JSONObject> flats,int[] sizeOf,int[] sizes,String[] names,String[] amounts) {
+        box.removeAllViews();
+        Runnable[] again= {
+            ()->sizeEditor(box,flats,sizeOf,sizes,names,amounts)
+        };
+        u.gap(box,6);
+        String[] count=chips(box,"How many flat sizes?",new String[] {
+            "2","3","4","5"
+        }
+        ,new String[] {
+            "2","3","4","5"
+        }
+        ,String.valueOf(sizes[0]),null);
+        LinearLayout list=u.column();
+        box.addView(list);
+        Runnable[] drawSizes=new Runnable[1];
+        drawSizes[0]=()-> {
+            list.removeAllViews();
+            for(int i=0; i<sizes[0]; i++) {
+                final int k=i;
+                LinearLayout row=u.row();
+                EditText name=new EditText(u.c);
+                name.setText(names[k]);
+                name.setHint("Size name");
+                name.setSingleLine(true);
+                name.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1.2f));
+                EditText amount=new EditText(u.c);
+                amount.setText(amounts[k]);
+                amount.setHint("₹ per month");
+                amount.setInputType(MONEY);
+                amount.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
+                name.addTextChangedListener(watcher(t->names[k]=t));
+                amount.addTextChangedListener(watcher(t->amounts[k]=t));
+                row.addView(name);
+                row.addView(amount);
+                list.addView(row);
+            }
+        };
+        drawSizes[0].run();
+        // The count chips are wired after the list exists so a change can redraw it.
+        LinearLayout chipRow=findChipRow(box);
+        if(chipRow!=null)for(int i=0; i<chipRow.getChildCount(); i++) {
+            final int n=i+2;
+            View chip=chipRow.getChildAt(i);
+            chip.setOnClickListener(v-> {
+                sizes[0]=n;
+                for(int f=0; f<sizeOf.length; f++)if(sizeOf[f]>=n)sizeOf[f]=0;
+                again[0].run();
+            });
+        }
+        if(flats.isEmpty())return;
+        u.gap(box,10);
+        box.addView(u.text("Same position on every floor",12,true,R.color.ap_sub));
+        box.addView(u.text("Pick the size once for each flat position. You can change single flats below.",11,false,R.color.ap_muted));
+        Map<String,List<Integer>> byPosition=new TreeMap<>();
+        for(int i=0; i<flats.size(); i++)byPosition.computeIfAbsent(MaintenancePlan.position(flats.get(i).optString("label")),x->new ArrayList<>()).add(i);
+        if(byPosition.size()<=12)for(Map.Entry<String,List<Integer>> e:byPosition.entrySet()) {
+            String[] labels=new String[sizes[0]],values=new String[sizes[0]];
+            for(int i=0; i<sizes[0]; i++) {
+                labels[i]=names[i].trim().isEmpty()?"Size "+(i+1):names[i].trim();
+                values[i]=String.valueOf(i);
+            }
+            int current=sizeOf[e.getValue().get(0)];
+            String[][] holder=new String[1][];
+            holder[0]=chips(box,"Flats ending "+e.getKey()+" ("+e.getValue().size()+")",labels,values,String.valueOf(current),()-> {
+                for(int f:e.getValue())sizeOf[f]=Integer.parseInt(holder[0][0]);
+                again[0].run();
+            });
+        }
+        u.gap(box,10);
+        box.addView(u.text("Tap a flat to change its size",12,true,R.color.ap_sub));
+        LinearLayout row=null;
+        for(int i=0; i<flats.size(); i++) {
+            if(i%5==0) {
+                row=u.row();
+                box.addView(row);
+            }
+            final int k=i;
+            String size=names[sizeOf[k]].trim().isEmpty()?"Size "+(sizeOf[k]+1):names[sizeOf[k]].trim();
+            TextView cell=u.text(flats.get(k).optString("label")+"\n"+size,11,true,sizeOf[k]==0?R.color.ap_ink:R.color.ap_bg);
+            cell.setGravity(Gravity.CENTER);
+            cell.setPadding(u.dp(4),u.dp(8),u.dp(4),u.dp(8));
+            cell.setBackground(round(sizeOf[k]==0?R.color.ap_soft:R.color.ap_pine,10));
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,1);
+            lp.setMargins(u.dp(2),u.dp(2),u.dp(2),u.dp(2));
+            cell.setLayoutParams(lp);
+            cell.setContentDescription("Flat "+flats.get(k).optString("label")+", "+size+". Tap to change.");
+            cell.setOnClickListener(v-> {
+                sizeOf[k]=(sizeOf[k]+1)%sizes[0];
+                again[0].run();
+            });
+            row.addView(cell);
+        }
+        if(row!=null)while(row.getChildCount()<5) {
+            View pad=new View(u.c);
+            pad.setLayoutParams(new LinearLayout.LayoutParams(0,1,1));
+            row.addView(pad);
+        }
+        u.gap(box,8);
+        int[] perSizeCount=new int[sizes[0]];
+        for(int x:sizeOf)perSizeCount[x]++;
+        StringBuilder summary=new StringBuilder();
+        java.math.BigDecimal total=java.math.BigDecimal.ZERO;
+        boolean allPriced=true;
+        for(int i=0; i<sizes[0]; i++) {
+            if(summary.length()>0)summary.append(" · ");
+            summary.append(names[i].trim().isEmpty()?"Size "+(i+1):names[i].trim()).append(": ").append(perSizeCount[i]);
+            try {
+                total=total.add(new java.math.BigDecimal(amounts[i].trim()).multiply(java.math.BigDecimal.valueOf(perSizeCount[i])));
+            } catch(Exception e) {
+                if(perSizeCount[i]>0)allPriced=false;
+            }
+        }
+        box.addView(u.text(summary.toString(),12,false,R.color.ap_sub));
+        if(allPriced)box.addView(u.text("Total every month: "+Ui.money(total),13,true,R.color.ap_ink));
+    }
+    private static LinearLayout findChipRow(LinearLayout box) {
+        for(int i=0; i<box.getChildCount(); i++)if(box.getChildAt(i) instanceof HorizontalScrollView) {
+            View inner=((HorizontalScrollView)box.getChildAt(i)).getChildAt(0);
+            if(inner instanceof LinearLayout)return (LinearLayout)inner;
+        }
+        return null;
+    }
+    private interface TextSink {
+        void set(String text);
+    }
+    private static android.text.TextWatcher watcher(TextSink sink) {
+        return new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s,int a,int b,int c) {
+            }
+            @Override public void onTextChanged(CharSequence s,int a,int b,int c) {
+            }
+            @Override public void afterTextChanged(android.text.Editable e) {
+                sink.set(e.toString());
+            }
+        };
     }
     private void lateFee(String key,boolean check) {
         get("/ops/settings",r-> {

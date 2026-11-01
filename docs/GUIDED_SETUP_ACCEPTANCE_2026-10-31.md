@@ -6,7 +6,7 @@
 - **Existing data.** V14 marks every step done for apartments that already exist and for ACTIVE accounts. The one exception is the one-time Terms & privacy step for existing Treasurers and residents.
 
 ## Steps
-- **Admin (9, shared per apartment):** apartment details, blocks, flat numbers, payment details (optional: cash only is fine), monthly maintenance, late fee & reminders (fee optional), existing balance, old dues, invite.
+- **Admin (9, shared per apartment):** apartment details, blocks, flat numbers, payment details (optional: cash only is fine), monthly maintenance (one amount, or optionally different amounts by flat size), late fee & reminders (fee optional), existing balance, old dues, invite.
 - **Treasurer (5):** terms, role rules, payment details check, late fee & reminders check, regular expenses.
 - **Resident, owner or tenant (5):** terms, details, vehicles, how to pay, stay informed.
 - **Admin readiness (does not block):** approve join requests, choose a Treasurer, add a second Admin, publish a welcome notice, check the subscription.
@@ -16,7 +16,7 @@
 |---|---|
 | `mvn test` (backend unit tests, including new `SetupServiceTest`) | Pass |
 | V14 on a database created by the previous build (existing Admin, active resident, pending resident) | Existing Admin: setup complete, features open. Existing resident: only Terms remains, then unlocked. |
-| `scripts/Test-Guided-Setup.ps1` (lock on, PowerShell 7.4) | 31/31 PASS |
+| `scripts/Test-Guided-Setup.ps1` (lock on, PowerShell 7.4) | 32/32 PASS |
 | `Test-Local-Api.ps1`, `Test-Operations.ps1` on the **previous** build | Both fail at "maintenance amount": the container runs in UTC, the server uses IST, and the run was near midnight |
 | The same two scripts on this build with `APP_SETUP_ENFORCED=false` | Same results as the previous build: no new failures |
 | Android: all main sources compiled with `javac` against the Android 14 framework jar, with stubs for androidx/material | Compiles |

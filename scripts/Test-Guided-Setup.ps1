@@ -36,6 +36,8 @@ Check ((Done 'payment' $t).Body.current -eq 'maintenance') 'Cash only: payment s
 Check ((Api 'POST' '/ops/settings/payment' @{payee='TEST Assoc';upi='test@upi';bank='';account='';ifsc='';requestKey=(Key)} $t).Status -eq 200) 'UPI can still be added afterwards'
 $month=(Get-Date).ToUniversalTime().AddHours(5.5).AddMonths(1).ToString('yyyy-MM')
 Check ((Api 'POST' '/billing/rules' @{amount=2500;effective=$month;billingDay=1;dueDay=10} $t).Status -eq 200) 'Save maintenance amount'
+$f1=(Api 'GET' '/ops/flats' $null $t).Body|Where-Object {$_.label -eq 'T1-1001'}
+Check ((Api 'POST' '/ops/rate-overrides' @{flatId=$f1.id;effective=$month;amount=3200;reason='Size: 3BHK';requestKey=(Key)} $t).Status -eq 200) 'Different amount by flat size during setup'
 Check ((Done 'maintenance' $t).Body.current -eq 'late_fee') 'Maintenance step done'
 Check ((Done 'late_fee' $t).Body.current -eq 'opening_balance') 'Late fee is optional'
 $first=(Get-Date).ToUniversalTime().AddHours(5.5).ToString('yyyy-MM-01')
