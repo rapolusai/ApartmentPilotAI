@@ -1615,7 +1615,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             getLayoutInflater().inflate(R.layout.view_brand_footer,c,true);
             ui.button(content,"Share PDF",R.drawable.ic_receipt,true,()->exportReport(receiptReport(p)));
             ui.button(content,"Share text",R.drawable.ic_receipt,false,()-> {
-                String text=p.optString("apartmentName")+(p.optBoolean("reversed")?"\nREVERSED ":"\nPAID ")+Ui.money(p.opt("amount"))+"\nFlat "+p.optString("flatLabel")+"\nMonth "+p.optString("billingMonth")+"\nReceipt "+p.optString("receiptNumber")+"\nPowered By @Rapolu`s";
+                String text=p.optString("apartmentName")+(p.optBoolean("reversed")?"\nREVERSED ":"\nPAID ")+Ui.money(p.opt("amount"))+"\nFlat "+p.optString("flatLabel")+"\nMonth "+p.optString("billingMonth")+"\nReceipt "+p.optString("receiptNumber")+"\nPowered By @Rapolus";
                 startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,text),"Share receipt"));
             }
             );

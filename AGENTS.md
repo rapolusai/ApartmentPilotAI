@@ -1,7 +1,7 @@
 # ApartmentPilotAI development rules
 
 Work within this repository, never the unrelated ParkingPilotAI project. Root on the user's computer is D:\ApartmentPilotAI.
-- Preserve reference/ApartmentCare_Final_Clickable_UI_v2_1.html bytes and shared attribution "Powered By @Rapolu`s".
+- Preserve reference/ApartmentCare_Final_Clickable_UI_v2_1.html bytes (it keeps the old "Powered By @Rapolu`s" text as history). The app, reports and pages use the attribution "Powered By @Rapolus" (owner decision, 2026-11-01).
 - Native Android Java/XML; no HTML/WebView substitution and no fake successful API calls.
 - Backend Java21/SpringBoot/PostgreSQL. Derive tenant/role from server authentication, never from a client role selector or supplied tenantId.
 - Never store DB passwords, tokens, provider secrets or release keys in source. Never expose a development database publicly.

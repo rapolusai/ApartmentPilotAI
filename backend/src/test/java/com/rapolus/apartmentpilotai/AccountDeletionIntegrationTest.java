@@ -207,7 +207,7 @@ class AccountDeletionIntegrationTest {
             assertEquals(200,r.statusCode(),path);
             assertTrue(r.headers().firstValue("Content-Type").orElse("").startsWith("text/html"),path);
             assertTrue(r.body().contains("privacy@example.test"),path+" shows the configured contact");
-            assertTrue(r.body().contains("Powered By @Rapolu`s"),path);
+            assertTrue(r.body().contains("Powered By @Rapolus"),path);
             assertFalse(r.body().contains("{{CONTACT}}"),path);
         }
     }

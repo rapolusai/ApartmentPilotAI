@@ -36,8 +36,11 @@ public final class Spotlight extends FrameLayout {
         android.graphics.drawable.GradientDrawable bg=new android.graphics.drawable.GradientDrawable();
         bg.setColor(ui.color(R.color.ap_surface));
         bg.setCornerRadius(ui.dp(18));
+        bg.setStroke(ui.dp(4),ui.color(R.color.ap_lime));
         bubble.setBackground(bg);
-        TextView text=ui.text(tip,15,true,R.color.ap_ink);
+        bubble.addView(ui.text("YOUR NEXT STEP",11,true,R.color.ap_pine));
+        ui.gap(bubble,4);
+        TextView text=ui.text(tip,16,true,R.color.ap_ink);
         bubble.addView(text);
         LinearLayout actions=ui.row();
         ui.button(actions,"Got it",R.drawable.ic_check,true,this::dismiss).setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));

@@ -300,6 +300,10 @@ import java.util.*;
         TextView label=bar.getView().findViewById(com.google.android.material.R.id.snackbar_text);
         if(label!=null)label.setMaxLines(4);
         if(longer)bar.setAction("OK",v-> {});
+        // Strong pine bar with light text so messages are easy to notice and read.
+        bar.setBackgroundTint(color(R.color.ap_pine));
+        bar.setTextColor(color(R.color.ap_bg));
+        bar.setActionTextColor(color(R.color.ap_lime));
         bar.show();
     }
     public void note(LinearLayout l,String message) {
