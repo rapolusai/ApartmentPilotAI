@@ -1179,6 +1179,24 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 ui.iconRow(complaints,"Active complaints",activeCount+" open"+urgentNote+" · View all",R.drawable.ic_tools,()->go("complaints"));
                 // Open complaints show in red so they get attention first.
                 if(activeCount>0)ui.urgent(complaints);
+                // Common building issues (water, lift, power) are a separate list; show them in red too when open.
+                LinearLayout building=ui.column();
+                issues.addView(building);
+                request("GET","/ops/tickets?kind=ISSUE",null,b->{
+                    JSONArray list=(JSONArray)b;
+                    int open=0,urgent=0;
+                    for(int i=0;i<list.length();i++) {
+                        JSONObject t=list.getJSONObject(i);
+                        if(Arrays.asList("RESOLVED","CLOSED").contains(t.optString("status")))continue;
+                        open++;
+                        if("URGENT".equals(t.optString("priority")))urgent++;
+                    }
+                    if(open>0) {
+                        LinearLayout card=ui.card(building);
+                        ui.iconRow(card,"Building issues",open+" open"+(urgent>0?" · "+urgent+" urgent":"")+" · View all",R.drawable.ic_tools,()->go("issues"));
+                        ui.urgent(card);
+                    }
+                });
                 // Pending flat claims block residents from using the app, so surface them on Home.
                 LinearLayout joins=ui.column();
                 issues.addView(joins);
