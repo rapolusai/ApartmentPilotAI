@@ -2075,6 +2075,7 @@ import java.util.*;
     private void charge(String kind) {
         title(kind.equals("OPENING_DUE")?"Opening flat dues":"One-time collection");
         get("/ops/flats",r-> {
+            if(kind.equals("OPENING_DUE"))u.note(b,"Example: Before using this app, flat 302 still owed ₹6,000 (3 months of ₹2,000). Choose flat 302 and enter ₹6,000. It shows in that flat's dues and is paid and approved like maintenance.");
             if(kind.equals("CONTRIBUTION"))u.note(b,"Example: Water tank repair costs ₹30,000 and there are 30 flats. Enter \"Water tank repair\" with ₹1,000 per flat for all active flats. Each flat gets a one-time ₹1,000 due, separate from monthly maintenance. You can then record and approve payments the same way as maintenance.");
             Ui.Fields f=h.newFields();
             if(kind.equals("CONTRIBUTION")) {
@@ -2083,6 +2084,7 @@ import java.util.*;
             } else choices(f,"flatId","Flat",(JSONArray)r,"label",false,null);
             f.field("title","Charge description",kind.equals("OPENING_DUE")?"Opening maintenance due":"",TEXT);
             f.field("amount","Amount per selected flat","",MONEY);
+            if(kind.equals("OPENING_DUE"))f.placeholder("amount","e.g. 6000");
             if(kind.equals("CONTRIBUTION")) {
                 f.placeholder("title","e.g. Water tank repair");
                 f.placeholder("amount","e.g. 1000");
