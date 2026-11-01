@@ -1160,6 +1160,23 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     private void homeCommunity() {
         ui.heading(content,staff()?"Needs attention":"In your building");
         LinearLayout issues=ui.column();content.addView(issues);
+        // Open polls for everyone, in green, so residents see them and vote without hunting in Community.
+        LinearLayout polls=ui.column();content.addView(polls);
+        request("GET","/ops/polls",null,p->{
+            JSONArray list=(JSONArray)p;
+            java.time.Instant now=java.time.Instant.now();
+            int shown=0;
+            for(int i=0;i<list.length()&&shown<3;i++) {
+                JSONObject poll=list.getJSONObject(i);
+                if(poll.optBoolean("closed"))continue;
+                String closes=poll.optString("closesAt");
+                try{if(!closes.isEmpty()&&java.time.OffsetDateTime.parse(closes).toInstant().isBefore(now))continue;}catch(RuntimeException ignored){}
+                shown++;
+                LinearLayout card=ui.card(polls);
+                ui.iconRow(card,"Poll: "+poll.optString("title"),"Vote now · Ends "+com.rapolus.apartmentpilotai.data.DateText.humanize(closes),R.drawable.ic_check,()->go("poll",poll.optString("id")));
+                ui.calm(card);
+            }
+        });
         String kind=admin()?"COMPLAINT":"ISSUE";
         request("GET","/ops/tickets?kind="+kind,null,r->{
             JSONArray rows=(JSONArray)r;JSONObject current=null;int activeCount=0,urgentCount=0;
