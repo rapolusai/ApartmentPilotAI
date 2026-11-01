@@ -1327,6 +1327,7 @@ import java.util.*;
         EditText search=searchFields.field("search","Search events or spaces",h.pageDraft("booking-list").optString("search"),TEXT);
         LinearLayout filters=u.row();
         b.addView(filters);
+        u.gap(b,12);
         LinearLayout list=u.column();
         b.addView(list);
         get("/ops/bookings",r-> {
@@ -1641,6 +1642,7 @@ import java.util.*;
         EditText search=searchFields.field("search","Search notices","",TEXT);
         LinearLayout filters=u.row();
         b.addView(filters);
+        u.gap(b,12);
         LinearLayout list=u.column();
         b.addView(list);
         get("/notices",r-> {
@@ -1823,7 +1825,10 @@ import java.util.*;
         JSONObject draft=h.pageDraft("document-list");
         EditText search=h.newFields().field("search","Search documents",draft.optString("search"),TEXT);
         LinearLayout filters=u.row();
-        if(h.isStaff())b.addView(filters);
+        if(h.isStaff()) {
+            b.addView(filters);
+            u.gap(b,12);
+        }
         LinearLayout list=u.column();
         b.addView(list);
         get("/ops/documents",r-> {

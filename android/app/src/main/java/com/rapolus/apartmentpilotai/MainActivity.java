@@ -1655,6 +1655,8 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         EditText search=searchFields.field("search","Search spending","",TEXT);
         LinearLayout filters=ui.row();
         content.addView(filters);
+        // Space between the filter buttons and the first expense card, so they never touch.
+        ui.gap(content,12);
         LinearLayout list=ui.column();
         content.addView(list);
         String[] selected={"All"};

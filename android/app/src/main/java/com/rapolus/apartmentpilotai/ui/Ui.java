@@ -138,6 +138,8 @@ import java.util.*;
         }
         LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);
         p.topMargin=dp(8);
+        // A little space below too, so a card placed straight after a button never touches it.
+        p.bottomMargin=dp(6);
         b.setLayoutParams(p);
         b.setOnClickListener(v->action.run());
         l.addView(b);
