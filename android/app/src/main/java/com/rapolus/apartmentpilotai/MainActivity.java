@@ -1678,7 +1678,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 renderExpenseRows(expenses, list, search.getText().toString(), selected[0]);
             });
             filter.setSingleLine(true);
-            filter.setTextSize(11);
+            filter.setTextSize(14);
             filter.setPadding(ui.dp(4),0,ui.dp(4),0);
             LinearLayout.LayoutParams params=(LinearLayout.LayoutParams)filter.getLayoutParams();
             params.width=0;params.weight=1;params.setMarginEnd(ui.dp(6));filter.setLayoutParams(params);
