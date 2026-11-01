@@ -2217,7 +2217,7 @@ import java.util.*;
         u.button(b,"Add recurring expense",R.drawable.ic_plus,true,()->go("recurring-form"));
         get("/ops/recurring",r-> {
             JSONArray arr=(JSONArray)r;
-            if(arr.length()==0)u.empty(b,R.drawable.ic_expense,"No recurring templates","Recurring entries are drafts until payment is confirmed.");
+            if(arr.length()==0)u.empty(b,R.drawable.ic_expense,"No recurring expenses yet","For example watchman salary, electricity bill, lift maintenance or housekeeping. Each cycle becomes a draft until payment is confirmed.");
             for(int i=0; i<arr.length(); i++) {
                 JSONObject x=arr.getJSONObject(i);
                 row(card(),x.optString("title"),Ui.money(x.opt("amount"))+" · "+x.optString("nextOn")+" · "+(x.optBoolean("active")?"Active":"Paused"),R.drawable.ic_clock,"recurring-detail",x.optString("id"));
@@ -2254,10 +2254,16 @@ import java.util.*;
     }
     private void recurringFields(JSONObject x) {
         get("/ops/contacts?kind=VENDOR",r-> {
+            boolean fresh=id.isEmpty();
+            if(fresh)u.note(b,"Example: Watchman salary · Security · ₹12,000 · Monthly · next due on the 1st. Each month the app prepares a draft expense for it, and it's counted only after you confirm the payment.");
             Ui.Fields f=h.newFields();
             f.field("title","Description",val(x,"title"),TEXT);
             expenseCategory(f,x.optString("category","Security"));
             f.field("amount","Expected amount",val(x,"amount"),MONEY);
+            if(fresh) {
+                f.placeholder("title","e.g. Watchman salary");
+                f.placeholder("amount","e.g. 12000");
+            }
             pick(f,"frequency","Frequency",FREQUENCIES,x.optString("frequency","MONTHLY"));
             f.field("nextOn","Next due · YYYY-MM-DD",x.optString("nextOn",today()),TEXT);
             choices(f,"vendorId","Vendor · optional",(JSONArray)r,"name",true,val(x,"vendorId"));
