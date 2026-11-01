@@ -56,7 +56,7 @@ import java.time.*;
     }
     public List<Map<String,Object>> flats(Account a) {
         if(!a.staff())return db.rows("select id,label,block,floor,occupied,active from ap_flat where tenant_id=? and id=?",a.tenantId(),a.flatId());
-        return db.rows("select f.id,f.label,f.block,f.floor,f.active,f.occupied,u.id as member_id,u.name,u.role,u.status from ap_flat f left join ap_user u on u.tenant_id=f.tenant_id and u.flat_id=f.id and u.status in ('ACTIVE','PENDING') where f.tenant_id=? order by f.label",a.tenantId());
+        return db.rows("select f.id,f.label,f.block,f.floor,f.active,f.occupied,u.id as member_id,u.name,u.role,u.status from ap_flat f left join ap_user u on u.tenant_id=f.tenant_id and u.flat_id=f.id and u.status in ('ACTIVE','PENDING') where f.tenant_id=? order by regexp_replace(f.label,'[0-9]+$',''),coalesce(substring(f.label from '([0-9]+)$')::numeric,0),f.label",a.tenantId());
     }
     public Map<String,Object> flat(Account a,UUID id) {
         a.requireAdmin();

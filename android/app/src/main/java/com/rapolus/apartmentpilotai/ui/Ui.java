@@ -157,6 +157,13 @@ import java.util.*;
         b.setBackgroundTintList(ColorStateList.valueOf(color(primary?R.color.ap_pine:R.color.ap_soft)));
         b.setTextColor(color(primary?R.color.ap_bg:R.color.ap_ink));
         b.setIconTint(ColorStateList.valueOf(color(primary?R.color.ap_bg:R.color.ap_ink)));
+        if(risky(title)) {
+            // Delete, Reject, Sign out and similar actions are red so they are never tapped by habit.
+            int ink=color(primary?R.color.ap_bg:R.color.ap_red);
+            b.setBackgroundTintList(ColorStateList.valueOf(color(primary?R.color.ap_red:R.color.ap_redbg)));
+            b.setTextColor(ink);
+            b.setIconTint(ColorStateList.valueOf(ink));
+        }
         if(icon!=0) {
             b.setIconResource(icon);
             b.setIconSize(dp(19));
@@ -345,7 +352,23 @@ import java.util.*;
         body.addView(text(message,13,false,R.color.ap_sub));
         gap(body,15);
         LayoutInflater.from(c).inflate(R.layout.view_brand_footer,body,true);
-        new MaterialAlertDialogBuilder(c).setTitle(title).setView(body).setNegativeButton("Cancel",null).setPositiveButton(positive,(d,w)->action.run()).show();
+        androidx.appcompat.app.AlertDialog dialog=new MaterialAlertDialogBuilder(c).setTitle(title).setView(body).setNegativeButton("Cancel",null).setPositiveButton(positive,(d,w)->action.run()).show();
+        if(risky(positive)) {
+            Button ok=dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE);
+            if(ok!=null) {
+                ok.setBackgroundTintList(ColorStateList.valueOf(color(R.color.ap_red)));
+                ok.setTextColor(color(R.color.ap_bg));
+            }
+        }
+    }
+    private static final Set<String> RISKY_FIRST_WORDS=new HashSet<>(Arrays.asList("delete","reject","remove","revoke","disable","reverse","end","deactivate"));
+    /** True for labels that destroy, refuse or end something, e.g. "Delete my account", "Reject payment", "Sign out". */
+    public static boolean risky(String label) {
+        if(label==null)return false;
+        String l=label.trim().toLowerCase(Locale.ROOT);
+        if(l.startsWith("sign out")||l.startsWith("cancel booking"))return true;
+        String first=l.split("[^a-z]+",2)[0];
+        return RISKY_FIRST_WORDS.contains(first);
     }
     public static String money(Object n) {
         try {
