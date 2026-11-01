@@ -2068,13 +2068,14 @@ import java.util.*;
                 found++;
                 row(card(),x.optString("title"),x.optString("flatLabel")+" · "+Ui.money(Ui.decimal(x.opt("amount")).subtract(Ui.decimal(x.opt("paid")))),R.drawable.ic_receipt,"bill",x.optString("id"));
             }
-            if(found==0)u.empty(b,R.drawable.ic_expense,"No contributions for "+h.selectedMonth(),"Regular monthly maintenance remains separate.");
+            if(found==0)u.empty(b,R.drawable.ic_expense,"No contributions for "+h.selectedMonth(),"For example water tank repair, painting, festival celebration or a new CCTV camera. Monthly maintenance stays separate.");
         }
         );
     }
     private void charge(String kind) {
         title(kind.equals("OPENING_DUE")?"Opening flat dues":"One-time collection");
         get("/ops/flats",r-> {
+            if(kind.equals("CONTRIBUTION"))u.note(b,"Example: Water tank repair costs ₹30,000 and there are 30 flats. Enter \"Water tank repair\" with ₹1,000 per flat for all active flats. Each flat gets a one-time ₹1,000 due, separate from monthly maintenance. You can then record and approve payments the same way as maintenance.");
             Ui.Fields f=h.newFields();
             if(kind.equals("CONTRIBUTION")) {
                 f.select("scope","Charge to",new String[] {"All active flats","Selected flats"},new String[] {"ALL","SELECTED"});
@@ -2082,6 +2083,11 @@ import java.util.*;
             } else choices(f,"flatId","Flat",(JSONArray)r,"label",false,null);
             f.field("title","Charge description",kind.equals("OPENING_DUE")?"Opening maintenance due":"",TEXT);
             f.field("amount","Amount per selected flat","",MONEY);
+            if(kind.equals("CONTRIBUTION")) {
+                f.placeholder("title","e.g. Water tank repair");
+                f.placeholder("amount","e.g. 1000");
+                f.placeholder("flatLabels","e.g. 101, 102, 205");
+            }
             f.field("month","Bill month · YYYY-MM",h.selectedMonth(),TEXT);
             f.field("dueDate","Due date · YYYY-MM-DD",today(),TEXT);
             u.note(b,kind.equals("OPENING_DUE")?"One opening-due entry per flat. Enter verified outstanding only.":"This charge does not change monthly maintenance rates.");
