@@ -1186,7 +1186,11 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                     JSONArray list=(JSONArray)members;
                     int pending=0;
                     for(int i=0;i<list.length();i++)if("PENDING".equals(list.getJSONObject(i).optString("status")))pending++;
-                    if(pending>0)ui.iconRow(ui.card(joins),"Join requests",Ui.count(pending,"resident is","residents are")+" waiting for approval",R.drawable.ic_users,()->go("join-requests"));
+                    if(pending>0) {
+                        LinearLayout card=ui.card(joins);
+                        ui.iconRow(card,"Join requests",Ui.count(pending,"resident is","residents are")+" waiting for approval",R.drawable.ic_users,()->go("join-requests"));
+                        ui.calm(card);
+                    }
                 });
             }
             else if(current==null)ui.empty(issues,R.drawable.ic_check,"All caught up","No open common issues.");
@@ -1202,7 +1206,12 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 request("GET","/notices",null,n->{
                     JSONArray items=(JSONArray)n;
                     if(items.length()==0)ui.empty(notices,R.drawable.ic_notice,"No notices yet","");
-                    else {JSONObject notice=items.getJSONObject(0);ui.iconRow(ui.card(notices),notice.optString("title"),notice.optString("createdAt"),R.drawable.ic_notice,()->go("notice",notice.optString("id")));}
+                    else {
+                        JSONObject notice=items.getJSONObject(0);
+                        LinearLayout card=ui.card(notices);
+                        ui.iconRow(card,notice.optString("title"),notice.optString("createdAt"),R.drawable.ic_notice,()->go("notice",notice.optString("id")));
+                        ui.calm(card);
+                    }
                 });
             }
         });
@@ -1952,6 +1961,9 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                     go("notification",n.optString("id"));
                 }
                 ));
+                // Issue updates in red, every other notification in green.
+                if(n.optString("target").startsWith("ticket:"))ui.urgent(c);
+                else ui.calm(c);
             }
         }
         );

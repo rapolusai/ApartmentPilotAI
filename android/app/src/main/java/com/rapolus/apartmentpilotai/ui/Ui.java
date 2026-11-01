@@ -80,23 +80,30 @@ import java.util.*;
         for(int i=0; i<row.getChildCount(); i++)row.getChildAt(i).setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
         ViewCompat.replaceAccessibilityAction(row,AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_CLICK,"open",null);
     }
-    /** Turns a card red so open issues on Home stand out: red tint, red border, red icon and title. */
+    /** Turns a card red so open issues stand out: red tint, red border, red icon and title. */
     public void urgent(LinearLayout body) {
+        accent(body,R.color.ap_redbg,R.color.ap_red);
+    }
+    /** Turns a card green for ordinary updates (join requests, notices, payments), so red keeps meaning "issue". */
+    public void calm(LinearLayout body) {
+        accent(body,R.color.ap_mint,R.color.ap_green);
+    }
+    private void accent(LinearLayout body,int background,int ink) {
         if(body.getParent() instanceof MaterialCardView) {
             MaterialCardView card=(MaterialCardView)body.getParent();
-            card.setCardBackgroundColor(color(R.color.ap_redbg));
-            card.setStrokeColor(color(R.color.ap_red));
+            card.setCardBackgroundColor(color(background));
+            card.setStrokeColor(color(ink));
             card.setStrokeWidth(dp(2));
         }
-        tintRed(body);
+        tint(body,color(ink));
     }
-    private void tintRed(ViewGroup group) {
+    private void tint(ViewGroup group,int ink) {
         boolean titleDone=false;
         for(int i=0; i<group.getChildCount(); i++) {
             View v=group.getChildAt(i);
-            if(v instanceof ImageView)((ImageView)v).setImageTintList(ColorStateList.valueOf(color(R.color.ap_red)));
-            else if(v instanceof TextView&&!titleDone){((TextView)v).setTextColor(color(R.color.ap_red));titleDone=true;}
-            else if(v instanceof ViewGroup)tintRed((ViewGroup)v);
+            if(v instanceof ImageView)((ImageView)v).setImageTintList(ColorStateList.valueOf(ink));
+            else if(v instanceof TextView&&!titleDone){((TextView)v).setTextColor(ink);titleDone=true;}
+            else if(v instanceof ViewGroup)tint((ViewGroup)v,ink);
         }
     }
     public LinearLayout card(LinearLayout parent) {
