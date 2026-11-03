@@ -2451,41 +2451,62 @@ import java.util.*;
         title("Subscription & referrals");
         get("/ops/subscription",r-> {
             JSONObject s=(JSONObject)r;
+            // Google Play Billing status is Admin only; residents never reach this screen's purchase controls.
+            if(h.isAdmin())get("/ops/subscription/play",p->subscription(s,(JSONObject)p));
+            else subscription(s,null);
+        }
+        );
+    }
+    private void subscription(JSONObject s,JSONObject play) throws JSONException {
+        boolean viaPlay=play!=null&&play.optBoolean("enabled");
+        if(viaPlay)title("Subscription");
+        {
             String subscriptionStatus=s.optString("status");
             u.hero(b,"Category "+s.optString("category")+" · "+Ui.count(s.optInt("flats"),"flat","flats"),Ui.money(s.opt("price"))+" / month",friendly(subscriptionStatus));
             LinearLayout c=card();
             u.kv(c,"Resident access","One account per flat");
-            // The whole first month is the free trial; the first paid month follows it.
-            if(subscriptionStatus.equals("TRIAL")) {
-                u.kv(c,"Free trial (first month) ends",com.rapolus.apartmentpilotai.data.DateText.format(Instant.parse(s.optString("trialEndsAt"))));
-                u.kv(c,"First paid month starts",com.rapolus.apartmentpilotai.data.DateText.day(s.optString("firstEnd")));
+            if(viaPlay) {
+                // Google Play: a 5-day free trial run by the server, then a monthly subscription the Admin buys in Play.
+                if(subscriptionStatus.equals("TRIAL"))u.kv(c,"Free trial ends",com.rapolus.apartmentpilotai.data.DateText.format(Instant.parse(s.optString("trialEndsAt"))));
+                else if(subscriptionStatus.equals("PAYMENT_DUE"))u.note(c,"Subscription required. Normal apartment access is paused until the Admin subscribes through Google Play.");
+                u.kv(c,"Coverage","Admin, Treasurer & Residents");
+                playCard(play);
+            } else {
+                // Manual billing: the whole first month is the free trial; the first paid month follows it.
+                if(subscriptionStatus.equals("TRIAL")) {
+                    u.kv(c,"Free trial (first month) ends",com.rapolus.apartmentpilotai.data.DateText.format(Instant.parse(s.optString("trialEndsAt"))));
+                    u.kv(c,"First paid month starts",com.rapolus.apartmentpilotai.data.DateText.day(s.optString("firstEnd")));
+                }
+                else if(subscriptionStatus.equals("PAYMENT_DUE"))u.note(c,"Subscription required. Normal apartment access is paused until a verified subscription payment or earned referral credit is recorded.");
+                u.kv(c,"Coverage","Admin, Treasurer & Residents");
+                u.kv(c,"Automatic debit","Not enabled");
             }
-            else if(subscriptionStatus.equals("PAYMENT_DUE"))u.note(c,"Subscription required. Normal apartment access is paused until a verified subscription payment or earned referral credit is recorded.");
-            u.kv(c,"Coverage","Admin, Treasurer & Residents");
-            u.kv(c,"Automatic debit","Not enabled");
             u.button(b,"Application charges",R.drawable.ic_receipt,false,()->go("subscription-plans"));
-            u.button(b,"First-month offer",R.drawable.ic_users,false,()->go("referral-offer"));
-            u.button(b,"Referral rules",R.drawable.ic_shield,false,()->go("referral-rules"));
-            u.heading(b,"Refer two new apartments");
-            String code=s.optString("referralCode");
-            u.kv(card(),"Your referral code",code);
-            u.button(b,"Share referral",R.drawable.ic_users,true,()->h.activity().startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,"ApartmentPilotAI referral code: "+code+". Every apartment gets its first month free. If two new apartments join with this code and are verified within their first month, all three apartments also get their first paid month free. Terms apply."),"Share referral")));
-            if(s.optBoolean("referralApplied"))u.note(b,"✓ A referral code has been applied to this apartment.");
-            else u.button(b,"I was referred",R.drawable.ic_plus,false,()->go("referral-claim"));
-            if(s.isNull("installedAt"))u.button(b,"Register this installation",R.drawable.ic_check,false,()->h.requestApi("POST","/ops/subscription/install",obj(),x->{u.message("Installation reported. The service operator verifies it separately.",true);h.refreshPage();}));
-            else u.note(b,"✓ Installation reported on "+s.optString("installedAt")+". Awaiting independent verification.");
-            JSONArray referrals=s.optJSONArray("referrals");
-            if(referrals!=null) {
-                int count=0;
-                for(int i=0; i<referrals.length(); i++)if(referrals.getJSONObject(i).optBoolean("verified"))count++;
-                u.kv(card(),"Verified activations",count+" / 2");
-                for(int i=0; i<referrals.length(); i++) {
-                    JSONObject x=referrals.getJSONObject(i);
-                    u.kv(card(),x.optString("apartmentName"),x.optBoolean("rewarded")?"Reward recorded":x.optBoolean("verified")?"Verified":x.optBoolean("installed")?"Review pending":"Awaiting activation");
+            if(!viaPlay) {
+                u.button(b,"First-month offer",R.drawable.ic_users,false,()->go("referral-offer"));
+                u.button(b,"Referral rules",R.drawable.ic_shield,false,()->go("referral-rules"));
+                u.heading(b,"Refer two new apartments");
+                String code=s.optString("referralCode");
+                u.kv(card(),"Your referral code",code);
+                u.button(b,"Share referral",R.drawable.ic_users,true,()->h.activity().startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,"ApartmentPilotAI referral code: "+code+". Every apartment gets its first month free. If two new apartments join with this code and are verified within their first month, all three apartments also get their first paid month free. Terms apply."),"Share referral")));
+                if(s.optBoolean("referralApplied"))u.note(b,"✓ A referral code has been applied to this apartment.");
+                else u.button(b,"I was referred",R.drawable.ic_plus,false,()->go("referral-claim"));
+                if(s.isNull("installedAt"))u.button(b,"Register this installation",R.drawable.ic_check,false,()->h.requestApi("POST","/ops/subscription/install",obj(),x->{u.message("Installation reported. The service operator verifies it separately.",true);h.refreshPage();}));
+                else u.note(b,"✓ Installation reported on "+s.optString("installedAt")+". Awaiting independent verification.");
+                JSONArray referrals=s.optJSONArray("referrals");
+                if(referrals!=null) {
+                    int count=0;
+                    for(int i=0; i<referrals.length(); i++)if(referrals.getJSONObject(i).optBoolean("verified"))count++;
+                    u.kv(card(),"Verified activations",count+" / 2");
+                    for(int i=0; i<referrals.length(); i++) {
+                        JSONObject x=referrals.getJSONObject(i);
+                        u.kv(card(),x.optString("apartmentName"),x.optBoolean("rewarded")?"Reward recorded":x.optBoolean("verified")?"Verified":x.optBoolean("installed")?"Review pending":"Awaiting activation");
+                    }
                 }
             }
-            u.heading(b,"Application invoices");
             JSONArray invoices=s.optJSONArray("invoices");
+            // With Google Play, Google sends the receipts; earlier manual invoices stay visible if there are any.
+            if(!viaPlay||invoices!=null&&invoices.length()>0)u.heading(b,viaPlay?"Earlier invoices":"Application invoices");
             if(invoices!=null)for(int i=0; i<invoices.length(); i++) {
                 JSONObject x=invoices.getJSONObject(i);
                 LinearLayout invoice=card();
@@ -2496,10 +2517,59 @@ import java.util.*;
                 u.kv(invoice,"Verified paid",Ui.money(x.opt("paid")));
                 u.button(invoice,"Share invoice PDF",R.drawable.ic_receipt,false,()->h.exportReport(subscriptionReport(x,trialMonth)));
             }
-            u.note(b,"No checkout or automatic debit is connected. Only the service operator can independently verify activations and subscription payments. This is separate from residents' maintenance.");
+            if(viaPlay)u.note(b,"Paid monthly through Google Play. No GST is charged. Google sends the receipt to the Google account that pays. This is separate from residents' maintenance.");
+            else u.note(b,"No checkout or automatic debit is connected. Only the service operator can independently verify activations and subscription payments. This is separate from residents' maintenance.");
             if(s.optBoolean("accessAllowed"))u.button(b,"Continue to ApartmentCare",R.drawable.ic_home,true,()->h.openPage("home",""));
         }
-        );
+    }
+    /** Google Play subscription card: status, who pays, and Subscribe / Restore / Manage. */
+    private void playCard(JSONObject play) {
+        String productId=play.optString("productId"),basePlanId=play.optString("basePlanId"),accountId=play.optString("accountId");
+        LinearLayout c=card();
+        u.kv(c,"Paid through","Google Play");
+        u.kv(c,"Price",Ui.money(play.opt("price"))+" / month");
+        JSONObject purchase=play.optJSONObject("purchase");
+        PlayBilling.Listener listener=new PlayBilling.Listener() {
+            @Override public void purchased(String token) {
+                u.message("Checking the purchase with Google Play…",false);
+                h.requestApi("POST","/ops/subscription/play/verify",obj("purchaseToken",token),x->{
+                    u.message("Subscription active. Thank you.",true);
+                    h.refreshPage();
+                });
+            }
+            @Override public void pending() {
+                u.message("Payment pending. Access opens as soon as Google Play confirms the payment.",true);
+            }
+            @Override public void message(String text) {
+                h.problem(text);
+            }
+        };
+        PlayBilling billing=PlayBilling.get(h.activity(),listener);
+        if(purchase!=null) {
+            String state=purchase.optString("state");
+            String expiry=purchase.isNull("expiryAt")?"":purchase.optString("expiryAt");
+            u.kv(c,"Status",playState(state,purchase.optBoolean("autoRenewing")));
+            if(!expiry.isEmpty())u.kv(c,state.endsWith("CANCELED")?"Access until":"Paid until",com.rapolus.apartmentpilotai.data.DateText.format(Instant.parse(expiry)));
+            boolean mine=purchase.optBoolean("boughtByYou");
+            String buyer=purchase.optString("buyerName");
+            if(!mine)u.kv(c,"Billed to",buyer.isEmpty()||"null".equals(buyer)?"Previous Admin":"Previous Admin ("+buyer+")");
+            if(!mine)u.note(c,"The subscription belongs to the apartment, so it stays active after the Admin role changed hands and nobody is charged twice. Only the person who bought it can change or cancel it in Google Play. If it ends, you can subscribe from here.");
+            if(mine&&!purchase.optBoolean("planMatches"))u.note(c,"Your apartment has grown into a different price band. Change the plan so the next renewal matches.");
+            if(mine&&!purchase.optBoolean("planMatches")&&!state.endsWith("CANCELED"))u.button(b,"Change plan",R.drawable.ic_wallet,true,()->billing.subscribe(productId,basePlanId,accountId,true));
+            if(mine)u.button(b,"Manage in Google Play",R.drawable.ic_wallet,false,()->openWeb("https://play.google.com/store/account/subscriptions?sku="+productId+"&package="+play.optString("packageName")));
+        }
+        if(play.optBoolean("canSubscribe"))u.button(b,"Subscribe with Google Play",R.drawable.ic_wallet,true,()->billing.subscribe(productId,basePlanId,accountId,false));
+        u.button(b,"Restore purchase",R.drawable.ic_check,false,()->billing.restore(productId));
+    }
+    private static String playState(String state,boolean renewing) {
+        switch(state) {
+            case "SUBSCRIPTION_STATE_ACTIVE": return renewing?"Active · renews automatically":"Active";
+            case "SUBSCRIPTION_STATE_IN_GRACE_PERIOD": return "Payment problem · Google is retrying";
+            case "SUBSCRIPTION_STATE_CANCELED": return "Cancelled · active until the end of the paid month";
+            case "SUBSCRIPTION_STATE_ON_HOLD": return "On hold · update the payment method in Google Play";
+            case "SUBSCRIPTION_STATE_PAUSED": return "Paused";
+            default: return "Not active";
+        }
     }
     private void referralClaim() {
         title("Apply referral code");
@@ -2669,7 +2739,7 @@ import java.util.*;
                 c.addView(u.text("₹"+prices[i]+" / month",28,true,R.color.ap_ink));
                 u.note(c,ranges[i]);
             }
-            u.note(b,"Software subscription is separate from maintenance. Tax treatment and live billing configuration remain to be finalised.");
+            u.note(b,"Software subscription is separate from maintenance. No GST is charged.");
         });
     }
     private void referralOffer() {
