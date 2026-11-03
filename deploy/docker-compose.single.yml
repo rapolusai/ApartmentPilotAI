@@ -1,0 +1,98 @@
+# Cheap start: the ApartmentCare backend, its PostgreSQL database and Caddy (HTTPS) on ONE small server, for example
+# an AWS Lightsail 2 GB instance in Mumbai. See "Cheap start: one Lightsail server" in deploy/README.md.
+# Move to docker-compose.prod.yml + RDS when there are paying apartments.
+#
+# Secrets never live in this file. Files under /etc/apartmentcare (root-owned, mode 600, typed on the server):
+#   app.env   DB_URL=jdbc:postgresql://db:5432/apartmentcare, DB_USER=apartmentcare_app, DB_PASSWORD,
+#             APP_INVITE_DISPLAY_KEY, APP_PROVIDER_KEY, SUPPORT_EMAIL, and later the APP_PLAY_* settings
+#   db.env    POSTGRES_PASSWORD (the same value as DB_PASSWORD)
+#   caddy.env APP_DOMAIN=api.apartmentcare.rapolu.in, ACME_EMAIL
+#
+# IMAGE_TAG selects the release; rolling back is `IMAGE_TAG=<previous> docker compose -f docker-compose.single.yml up -d app`.
+
+services:
+  db:
+    image: postgres:16
+    container_name: apartmentcare-db
+    restart: unless-stopped
+    env_file:
+      - /etc/apartmentcare/db.env
+    environment:
+      POSTGRES_DB: apartmentcare
+      POSTGRES_USER: apartmentcare_app
+      TZ: Asia/Kolkata
+    # No published port: only the app (same Docker network) can reach the database.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apartmentcare_app -d apartmentcare"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    shm_size: 128m
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "5" }
+    deploy:
+      resources:
+        limits:
+          memory: 400m
+
+  app:
+    image: ghcr.io/rapolusai/apartmentpilotai-backend:${IMAGE_TAG:-latest}
+    container_name: apartmentcare-app
+    restart: unless-stopped
+    env_file:
+      - /etc/apartmentcare/app.env
+    environment:
+      SERVER_ADDRESS: 0.0.0.0
+      SERVER_PORT: "8080"
+      SERVER_FORWARD_HEADERS_STRATEGY: native
+      SPRING_PROFILES_ACTIVE: ""
+      TZ: Asia/Kolkata
+    volumes:
+      # Google Play service-account key (empty until Play Billing is switched on).
+      - /etc/apartmentcare/play:/run/play:ro
+    expose:
+      - "8080"
+    networks: [web, data]
+    depends_on:
+      db:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "5" }
+    deploy:
+      resources:
+        limits:
+          memory: 1000m
+
+  caddy:
+    image: caddy:2.8
+    container_name: apartmentcare-caddy
+    restart: unless-stopped
+    env_file:
+      - /etc/apartmentcare/caddy.env
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [web]
+    depends_on: [app]
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "5" }
+
+networks:
+  web:
+  data:
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
