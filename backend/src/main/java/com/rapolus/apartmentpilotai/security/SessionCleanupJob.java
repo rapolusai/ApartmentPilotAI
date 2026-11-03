@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
     }
     @Scheduled(initialDelay=60000,fixedDelay=3600000) public void purge() {
         try {
-            int sessions=db.update("delete from ap_session where expires_at<now()");
+            int sessions=db.update("delete from ap_session where expires_at<now()")+db.update("delete from ap_operator_session where expires_at<now()");
             int windows=db.update("delete from ap_rate_limit where window_start<?",Instant.now().getEpochSecond()/900-RETAINED_WINDOWS);
             // Login-guard rows with no failure for a day and no active lock can no longer affect a decision (LoginGuard decay).
             int guards=db.update("delete from ap_login_guard where last_failure_at<now()-interval '24 hours' and (locked_until is null or locked_until<now())");

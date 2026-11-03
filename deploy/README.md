@@ -19,6 +19,75 @@ release build is pointed at it with a Gradle property (see step 7).
 
 Staging is the same recipe with `/apartmentcare/staging/` parameters, its own database and `api-staging.apartmentcare.rapolu.in`.
 
+## Cheap start: one Lightsail server
+While there are no paying apartments, everything runs on **one AWS Lightsail instance in Mumbai** (Linux/Unix,
+Ubuntu 24.04, the 2 GB plan, about $12 a month), in the same AWS account as the other apps but sharing nothing with
+them: its own instance, static IP, firewall, secrets and DNS record. The app, PostgreSQL and Caddy run in Docker from
+`docker-compose.single.yml`; there is no RDS, Parameter Store or EC2 role. Move to the full setup below when it pays.
+
+### A. In the Lightsail console (lightsail.aws.amazon.com), region Mumbai
+1. **Create instance** → Linux/Unix → OS only → Ubuntu 24.04 LTS → the **2 GB RAM** plan (dual-stack, with a public
+   IPv4 address) → name `apartmentcare-prod` → Create.
+2. **Networking → Create static IP** → attach to `apartmentcare-prod` → name `apartmentcare-prod-ip`. Note the IP.
+3. Instance → **Networking → IPv4 firewall**: keep SSH (22) but tick *Restrict to IP addresses* and allow only
+   *Lightsail browser SSH/RDP* plus your own IP; keep HTTP (80); **add HTTPS (443)**. Do the same under IPv6.
+4. Instance → **Snapshots → Automatic snapshots: On** (about $1 a month for a small disk).
+5. AWS Billing → **Budgets**: a monthly cost budget of $20 with an email alert at 80 %, if the account has none yet.
+
+### B. DNS at GoDaddy
+Add **one** record: type `A`, name `api.apartmentcare`, value = the static IP, TTL 600. Nothing else in rapolu.in
+changes (website, Zoho mail and other apps' records stay as they are). Wait until
+`nslookup api.apartmentcare.rapolu.in` returns the static IP.
+
+### C. On the server (Lightsail → Connect using SSH, the browser terminal)
+```bash
+# 2 GB swap so the Java build and a busy day never run out of memory
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+sudo apt-get update && sudo apt-get install -y docker.io docker-compose-v2 git unattended-upgrades
+sudo usermod -aG docker ubuntu   # then close the SSH window and connect again
+sudo install -d -m 700 /etc/apartmentcare /etc/apartmentcare/play
+sudo git clone https://github.com/rapolusai/ApartmentPilotAI.git /opt/apartmentcare   # private repo: use a read-only token
+cd /opt/apartmentcare && sudo git checkout <the release branch or tag>
+```
+Write the settings. Generate each secret on the server and type it straight into the files, never into chat, git or a
+screenshot. Keep a copy of `APP_INVITE_DISPLAY_KEY` and the database password in a password manager.
+```bash
+DBPW=$(openssl rand -hex 24)
+sudo tee /etc/apartmentcare/app.env >/dev/null <<ENV
+DB_URL=jdbc:postgresql://db:5432/apartmentcare
+DB_USER=apartmentcare_app
+DB_PASSWORD=${DBPW}
+APP_INVITE_DISPLAY_KEY=$(openssl rand -base64 32)
+APP_PROVIDER_KEY=$(openssl rand -hex 32)
+SUPPORT_EMAIL=<support address>
+ENV
+echo "POSTGRES_PASSWORD=${DBPW}" | sudo tee /etc/apartmentcare/db.env >/dev/null
+printf 'APP_DOMAIN=api.apartmentcare.rapolu.in\nACME_EMAIL=<your email>\n' | sudo tee /etc/apartmentcare/caddy.env >/dev/null
+sudo chmod 600 /etc/apartmentcare/*.env; unset DBPW
+```
+Build the image on the server (until the GitHub image is published from `main`) and start:
+```bash
+cd /opt/apartmentcare && docker build -t ghcr.io/rapolusai/apartmentpilotai-backend:local backend
+cd deploy && IMAGE_TAG=local docker compose -f docker-compose.single.yml up -d
+docker compose -f docker-compose.single.yml logs -f app    # wait for "Started ApartmentPilotAiApplication"
+curl -s https://api.apartmentcare.rapolu.in/actuator/health  # {"status":"UP"}
+```
+Daily database backup (in addition to the Lightsail snapshots):
+```bash
+sudo install -m 700 /opt/apartmentcare/deploy/backup-db.sh /usr/local/sbin/apartmentcare-backup
+echo '30 2 * * * root /usr/local/sbin/apartmentcare-backup' | sudo tee /etc/cron.d/apartmentcare-backup
+sudo /usr/local/sbin/apartmentcare-backup    # first backup now
+```
+**Updating:** `git pull` (or check out the new tag), rebuild the `local` image, then
+`IMAGE_TAG=local docker compose -f docker-compose.single.yml up -d app`. Take a backup first.
+**Google Play Billing:** when the Play Console product and service account exist, copy the service-account JSON to
+`/etc/apartmentcare/play/service-account.json` (mode 600; the folder is mounted read-only into the app), add
+`APP_PLAY_BILLING_ENABLED=true`, `APP_PLAY_SERVICE_ACCOUNT_FILE=/run/play/service-account.json` and
+`APP_PLAY_NOTIFICATION_SECRET=<openssl rand -hex 24>` to `app.env`, and run `up -d app` again.
+
+## Full setup (EC2 + RDS)
+
 ## 1. AWS account
 1. Create the account, turn on MFA for the root user, and create an IAM user for yourself with MFA.
 2. Billing → Budgets: a monthly budget of $50 with an email alert at 80 %.

@@ -48,6 +48,7 @@ import org.springframework.transaction.annotation.Transactional;
         var u=opt.get();
         if(!u.get("status").equals("ACTIVE"))throw new ApiError(HttpStatus.FORBIDDEN,"Account awaiting approval or not active. Contact the apartment admin.");
         var session=issueSession(UUID.fromString(u.get("id").toString()));
+        db.update("update ap_user set last_login_at=now() where id=?",u.get("id"));
         // Additive: legacy 4-5 digit or weak PINs still sign in, and the app is told a change is due (Profile > Change PIN).
         session.put("pinChangeRequired",PinPolicy.changeRequired(r.pin()));
         return session;

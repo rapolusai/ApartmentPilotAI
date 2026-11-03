@@ -50,3 +50,10 @@ app:
     account-cap-minutes: 15
     ip-failures-per-15-minutes: 30
     decay-hours: 24
+  # Google Play Billing for the apartment subscription (off until Play Console products and the service account exist).
+  play:
+    enabled: ${APP_PLAY_BILLING_ENABLED:false}
+    package-name: ${APP_PLAY_PACKAGE_NAME:com.rapolus.apartmentpilotai}
+    product-id: ${APP_PLAY_PRODUCT_ID:apartmentcare_monthly}
+    service-account-file: ${APP_PLAY_SERVICE_ACCOUNT_FILE:}
+    notification-secret: ${APP_PLAY_NOTIFICATION_SECRET:}
