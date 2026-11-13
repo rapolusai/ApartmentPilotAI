@@ -1,0 +1,36 @@
+{
+  "metrics": {
+    "namespace": "ApartmentCare",
+    "append_dimensions": {
+      "InstanceId": "${aws:InstanceId}"
+    },
+    "metrics_collected": {
+      "mem": {
+        "measurement": [
+          "mem_used_percent"
+        ],
+        "metrics_collection_interval": 300
+      },
+      "swap": {
+        "measurement": [
+          "swap_used_percent"
+        ],
+        "metrics_collection_interval": 300
+      },
+      "disk": {
+        "measurement": [
+          "used_percent"
+        ],
+        "resources": [
+          "/"
+        ],
+        "metrics_collection_interval": 300
+      }
+    },
+    "aggregation_dimensions": [
+      [
+        "InstanceId"
+      ]
+    ]
+  }
+}

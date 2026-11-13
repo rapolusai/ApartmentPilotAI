@@ -1,61 +1,88 @@
-# ApartmentCare backend on one server: the app plus Caddy for HTTPS. See deploy/README.md.
-#
-# Secrets never live in this file. /etc/apartmentcare/app.env is written by deploy/fetch-secrets.sh from
-# AWS SSM Parameter Store (mode 600, owned by root) and holds:
-#   DB_URL, DB_USER, DB_PASSWORD, APP_INVITE_DISPLAY_KEY, APP_PROVIDER_KEY, SUPPORT_EMAIL
-# /etc/apartmentcare/caddy.env holds APP_DOMAIN (for example api.apartmentcare.example.in) and ACME_EMAIL.
-#
-# IMAGE_TAG selects the release (a git tag or short SHA published by .github/workflows/backend-image.yml).
-# Rolling back is re-running `IMAGE_TAG=<previous> docker compose up -d app`.
+# ApartmentCare production stack on ONE low-cost server: app + PostgreSQL 17 + Caddy (HTTPS).
+# Lives at /opt/apartmentcare on the server. Values come from /opt/apartmentcare/.env, which deploy.sh
+# writes from SSM Parameter Store (/apartmentcare/prod/*) - no secret is in git or in this file.
+# See deploy/README.md.
+name: apartmentcare
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "20m", max-file: "5" }
 
 services:
-  app:
-    image: ghcr.io/rapolusai/apartmentpilotai-backend:${IMAGE_TAG:-latest}
-    container_name: apartmentcare-app
+  db:
+    image: postgres:17-alpine
     restart: unless-stopped
-    env_file:
-      - /etc/apartmentcare/app.env
     environment:
+      POSTGRES_DB: apartmentcare
+      POSTGRES_USER: apartmentcare
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+    # Tuned for the 2 GB t4g.small shared with the app and Caddy.
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c effective_cache_size=384MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=32MB
+      -c max_connections=30
+      -c wal_compression=on
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [data]
+    mem_limit: 450m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apartmentcare -d apartmentcare"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  app:
+    image: ${BACKEND_IMAGE:?set BACKEND_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
       SERVER_ADDRESS: 0.0.0.0
       SERVER_PORT: "8080"
       # Caddy sets X-Forwarded-For; Tomcat trusts it only from private (Docker network) addresses.
       SERVER_FORWARD_HEADERS_STRATEGY: native
-      SPRING_PROFILES_ACTIVE: ""
+      DB_URL: jdbc:postgresql://db:5432/apartmentcare
+      DB_USER: apartmentcare
+      DB_PASSWORD: ${DB_PASSWORD}
+      APP_INVITE_DISPLAY_KEY: ${APP_INVITE_DISPLAY_KEY:?set APP_INVITE_DISPLAY_KEY}
+      APP_PROVIDER_KEY: ${APP_PROVIDER_KEY:-}
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-}
+      APP_BILLING_JOB_ENABLED: ${APP_BILLING_JOB_ENABLED:-true}
+      APP_LOCAL_REGISTRATION_ENABLED: ${APP_LOCAL_REGISTRATION_ENABLED:-false}
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65 -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError"
       TZ: Asia/Kolkata
-    expose:
-      - "8080"
-    networks: [web]
-    logging:
-      driver: json-file
-      options: { max-size: "20m", max-file: "5" }
-    deploy:
-      resources:
-        limits:
-          memory: 1200m
+    # Loopback only, for deploy.sh health checks. The security group never opens 8080.
+    ports: ["127.0.0.1:8080:8080"]
+    networks: [data, web]
+    mem_limit: 800m
+    logging: *logging
 
   caddy:
-    image: caddy:2.8
-    container_name: apartmentcare-caddy
+    image: caddy:2-alpine
     restart: unless-stopped
-    env_file:
-      - /etc/apartmentcare/caddy.env
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
+    depends_on: [app]
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN}
+    ports: ["80:80", "443:443"]
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     networks: [web]
-    depends_on: [app]
-    logging:
-      driver: json-file
-      options: { max-size: "20m", max-file: "5" }
+    mem_limit: 128m
+    logging: *logging
 
 networks:
-  web:
+  data: { internal: true }
+  web: {}
 
 volumes:
+  pgdata:
   caddy_data:
   caddy_config:

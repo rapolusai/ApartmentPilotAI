@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Sid": "EcrAuth", "Effect": "Allow", "Action": "ecr:GetAuthorizationToken", "Resource": "*" },
+    { "Sid": "EcrPullApartmentCareOnly", "Effect": "Allow",
+      "Action": ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer", "ecr:BatchCheckLayerAvailability"],
+      "Resource": "arn:aws:ecr:ap-south-1:446701321630:repository/apartmentcare-prod" },
+    { "Sid": "BackupsAndDeployFiles", "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject"],
+      "Resource": ["arn:aws:s3:::apartmentcare-prod-backups-446701321630/db/*",
+                   "arn:aws:s3:::apartmentcare-prod-backups-446701321630/deploy/*"] },
+    { "Sid": "ListBucket", "Effect": "Allow", "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::apartmentcare-prod-backups-446701321630" },
+    { "Sid": "ReadOwnSecrets", "Effect": "Allow", "Action": ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath"],
+      "Resource": ["arn:aws:ssm:ap-south-1:446701321630:parameter/apartmentcare/prod", "arn:aws:ssm:ap-south-1:446701321630:parameter/apartmentcare/prod/*"] }
+  ]
+}
