@@ -1630,7 +1630,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                     ((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("Apartment invite",code));
                     Toast.makeText(this,"Invite copied",Toast.LENGTH_SHORT).show();
                 });
-                Button share=ui.button(actions,"Share",R.drawable.ic_users,true,()->startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,"Join "+api.account().optString("apartmentName")+" in ApartmentCare. Invite: "+code+". Valid until "+day+". Flat access needs Admin approval."),"Share invite")));
+                Button share=ui.button(actions,"Share",R.drawable.ic_users,true,()->startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,com.rapolus.apartmentpilotai.data.ShareMessages.residentInvite(api.account().optString("apartmentName"),code,shownDate)),"Share invite")));
                 copy.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
                 LinearLayout.LayoutParams shareParams=new LinearLayout.LayoutParams(0,-2,1);
                 shareParams.setMarginStart(ui.dp(8));

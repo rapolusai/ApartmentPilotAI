@@ -2399,7 +2399,7 @@ import java.util.*;
             u.heading(b,"Refer two new apartments");
             String code=s.optString("referralCode");
             u.kv(card(),"Your referral code",code);
-            u.button(b,"Share referral",R.drawable.ic_users,true,()->h.activity().startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,"ApartmentPilotAI referral: "+code+". Two new independently verified apartment activations qualify the three apartments for their first month only. Terms apply."),"Share referral")));
+            u.button(b,"Share referral",R.drawable.ic_users,true,()->h.activity().startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,com.rapolus.apartmentpilotai.data.ShareMessages.apartmentReferral(code)),"Share referral")));
             u.button(b,"I was referred",R.drawable.ic_plus,false,()->go("referral-claim"));
             if(s.isNull("installedAt"))u.button(b,"Register this installation",R.drawable.ic_check,false,()->h.requestApi("POST","/ops/subscription/install",obj(),x->h.refreshPage()));
             JSONArray referrals=s.optJSONArray("referrals");
