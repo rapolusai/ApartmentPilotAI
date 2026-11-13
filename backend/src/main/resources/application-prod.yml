@@ -1,0 +1,16 @@
+# Production profile for the ApartmentCare server (Docker behind Caddy, see deploy/).
+# Secrets come only from environment variables; nothing secret lives here.
+server:
+  address: 0.0.0.0
+  shutdown: graceful
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+app:
+  # Stays off until real account verification (OTP) is configured.
+  # APP_LOCAL_REGISTRATION_ENABLED=true is ONLY for pre-launch testing on an empty
+  # database; wipe the test data and turn it off before real users arrive.
+  local-registration-enabled: ${APP_LOCAL_REGISTRATION_ENABLED:false}
+  # Monthly bill generation and recurring operations jobs.
+  billing-job-enabled: ${APP_BILLING_JOB_ENABLED:true}
+  provider-key: ${APP_PROVIDER_KEY:}

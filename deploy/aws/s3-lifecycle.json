@@ -1,0 +1,2 @@
+{ "Rules": [{ "ID": "expire-db-backups-30d", "Status": "Enabled", "Filter": { "Prefix": "db/" },
+  "Expiration": { "Days": 30 }, "NoncurrentVersionExpiration": { "NoncurrentDays": 7 } }] }

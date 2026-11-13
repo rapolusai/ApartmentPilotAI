@@ -1,9 +1,5 @@
 # HTTPS front door for the ApartmentCare backend. Certificates come from Let's Encrypt automatically and renew
-# themselves; nothing to install. APP_DOMAIN and ACME_EMAIL come from /etc/apartmentcare/caddy.env.
-{
-	email {$ACME_EMAIL}
-}
-
+# themselves; nothing to install. APP_DOMAIN comes from /opt/apartmentcare/.env (see deploy/docker-compose.prod.yml).
 {$APP_DOMAIN} {
 	encode gzip
 	header {
