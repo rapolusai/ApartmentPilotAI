@@ -1,0 +1,3 @@
+# Server scripts run on Linux: keep LF even in a Windows checkout (CRLF broke deploy.sh on 15 Nov 2026).
+deploy/** text eol=lf
+*.sh text eol=lf
