@@ -245,7 +245,7 @@ Click 'Admin login'
 Click 'Sign in'
 AssertScreen 'Enter a valid 10-digit mobile number.' 'Blank login is rejected immediately'
 Click 'Forgot PIN?'
-AssertScreen 'Reset PIN unavailable' 'Recovery is honestly labelled unconfigured'
+AssertScreen 'Forgot your PIN?' 'Forgot PIN opens SMS verification'
 Click 'Back to sign in'
 Credentials $mobileA $pin
 Click 'Sign in'

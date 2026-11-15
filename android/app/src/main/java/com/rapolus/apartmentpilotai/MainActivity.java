@@ -13,6 +13,7 @@ import com.google.android.material.button.MaterialButton;
 import com.rapolus.apartmentpilotai.data.ApiClient;
 import com.rapolus.apartmentpilotai.data.HttpFailurePolicy;
 import com.rapolus.apartmentpilotai.data.NavigationPolicy;
+import com.rapolus.apartmentpilotai.data.PhoneAuth;
 import com.rapolus.apartmentpilotai.data.LoginPolicy;
 import com.rapolus.apartmentpilotai.data.RegistrationPolicy;
 import com.rapolus.apartmentpilotai.ui.Ui;
@@ -352,7 +353,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         fields=null;
         // Only the ApartmentCare team dashboard blocks screenshots; it sets the flag again when it draws.
         getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
-        boolean authPage=Arrays.asList("welcome","login","admin-login","treasurer-login","resident-login","forgot-pin","verify-reset","reset-pin","invite-invalid","admin-signup","setup-apartment","setup-done","join","signup","choose-flat","signup-pending","connection","status","offline","session-expired","error-state","not-found","loading-state","team-login","team-dashboard").contains(page);
+        boolean authPage=Arrays.asList("welcome","login","admin-login","treasurer-login","resident-login","forgot-pin","verify-reset","reset-pin","verify-phone","invite-invalid","admin-signup","setup-apartment","setup-done","join","signup","choose-flat","signup-pending","connection","status","offline","session-expired","error-state","not-found","loading-state","team-login","team-dashboard").contains(page);
         if(!api.signedIn()&&!authPage) {
             page="welcome";
             id="";
@@ -397,7 +398,11 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             break;
             case "resident-login":loginRole="RESIDENT";login();
             break;
-            case "forgot-pin":case "verify-reset":case "reset-pin":recoveryUnavailable();
+            case "forgot-pin":forgotPin();
+            break;
+            case "verify-phone":case "verify-reset":verifyPhone();
+            break;
+            case "reset-pin":resetPin();
             break;
             case "invite-invalid":systemState("Check your invite","The code is invalid, expired or revoked.",R.drawable.ic_error,true,R.color.ap_amber,R.color.ap_ambg,()->go("join"),"Try another code");
             break;
@@ -678,6 +683,13 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         }
         return out;
     }
+    private static void put(JSONObject target,String key,Object value) {
+        try {
+            target.put(key,value);
+        } catch(JSONException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
     private void safe(Runnable action) {
         try {
             action.run();
@@ -813,6 +825,103 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         else if(loginRole.equals("RESIDENT"))ui.button(content,"New resident? Join",R.drawable.ic_users,false,()->go("join"));
         else ui.note(content,"Treasurer access is assigned by your apartment admin.");
     }
+    /**
+     * Sign-up, join and Forgot PIN first prove the mobile number by SMS code (Firebase). Only a local debug server that
+     * allows unverified registration skips this step.
+     */
+    private void verifyThen(String next) {
+        signupDraft.remove("verificationToken");
+        put(signupDraft,"verifyNext",next);
+        ((PilotApplication)getApplication()).transientSignup=signupDraft;
+        request("GET","/status",null,r-> {
+            JSONObject status=(JSONObject)r;
+            if(status.optBoolean("phoneVerification")&&PhoneAuth.configured())go("verify-phone");
+            else if(status.optBoolean("localRegistration"))go(next);
+            else showError("Mobile verification is not available yet. Your details have not been submitted; please try again later.");
+        });
+    }
+    private void verifyPhone() {
+        header("Verify mobile");
+        String mobile=signupDraft.optString("mobile"),next=signupDraft.optString("verifyNext");
+        if(mobile.isEmpty()||next.isEmpty()||!PhoneAuth.configured()) {
+            ui.empty(content,R.drawable.ic_key,"Start again","Your details were cleared when the app restarted.");
+            ui.button(content,"Back to start",R.drawable.ic_arrow_left,true,()->go("welcome"));
+            return;
+        }
+        if(!signupDraft.optString("verificationToken").isEmpty()) {
+            // Back from the next step: the number is already verified, so do not send another SMS.
+            ui.state(content,R.drawable.ic_check,"Mobile verified","+91 "+mobile,R.color.ap_green,R.color.ap_mint);
+            ui.button(content,"Continue",R.drawable.ic_arrow_right,true,()->go(next));
+            return;
+        }
+        ui.heading(content,"Enter the 6-digit code");
+        ui.note(content,"We send a code by SMS to +91 "+mobile+". It can take up to a minute to arrive.");
+        formStart();
+        fields.field("otp","SMS code","",NUMBER);
+        fields.limit("otp",6);
+        PhoneAuth phone=PhoneAuth.get(this);
+        final String shownPage=page;
+        PhoneAuth.Callback callback=new PhoneAuth.Callback() {
+            @Override public void codeSent() {}
+            @Override public void verified(String idToken) {
+                if(!page.equals(shownPage))return;
+                put(signupDraft,"verificationToken",idToken);
+                ((PilotApplication)getApplication()).transientSignup=signupDraft;
+                go(next);
+            }
+            @Override public void failed(String message) {
+                if(page.equals(shownPage))showError(message);
+            }
+        };
+        ui.button(content,"Verify",R.drawable.ic_check,true,()-> {
+            String code=fields.get("otp").trim();
+            if(!code.matches("[0-9]{6}")) {showError("Enter the 6-digit code from the SMS.");return;}
+            phone.confirm(code,callback);
+        });
+        ui.button(content,"Resend code",R.drawable.ic_clock,false,()->phone.send(this,mobile,true,callback));
+        ui.note(content,"Standard SMS rates may apply. Google verifies the number for ApartmentCare.");
+        if(!phone.sentTo(mobile))phone.send(this,mobile,false,callback);
+    }
+    private void forgotPin() {
+        header("Reset PIN");
+        ui.heading(content,"Forgot your PIN?");
+        ui.note(content,"Verify your registered mobile number by SMS, then choose a new 6-digit PIN.");
+        formStart();
+        fields.field("mobile","Registered mobile number","",InputType.TYPE_CLASS_PHONE);
+        fields.limit("mobile",10);
+        ui.button(content,"Send code",R.drawable.ic_arrow_right,true,()-> {
+            String mobile=fields.get("mobile").trim();
+            if(!mobile.matches("[6-9][0-9]{9}")) {showError("Enter your 10-digit mobile number.");return;}
+            signupDraft=json("mobile",mobile);
+            verifyThen("reset-pin");
+        });
+        ui.button(content,"Back to sign in",R.drawable.ic_arrow_left,false,()->go(LoginPolicy.routeForRole(loginRole)));
+    }
+    private void resetPin() {
+        header("New PIN");
+        String mobile=signupDraft.optString("mobile"),token=signupDraft.optString("verificationToken");
+        if(mobile.isEmpty()||token.isEmpty()) {
+            recoveryUnavailable();
+            return;
+        }
+        ui.note(content,"Mobile +91 "+mobile+" verified. Choose a new PIN. You will be signed out on other phones.");
+        formStart();
+        fields.field("pin","New 6-digit PIN","",NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        fields.field("pin2","Enter the new PIN again","",NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        fields.limit("pin",6);fields.limit("pin2",6);
+        ui.button(content,"Save new PIN",R.drawable.ic_key,true,()-> {
+            String pin=fields.get("pin");
+            if(!pin.matches("[0-9]{6}")) {showError("Create a 6-digit PIN.");return;}
+            if(!pin.equals(fields.get("pin2"))) {showError("The two PINs do not match.");return;}
+            request("POST","/auth/reset-pin",json("mobile",mobile,"pin",pin,"verificationToken",token),r-> {
+                signupDraft=new JSONObject();
+                ((PilotApplication)getApplication()).transientSignup=signupDraft;
+                Toast.makeText(this,"PIN changed. Sign in with your new PIN.",Toast.LENGTH_LONG).show();
+                history.clear();
+                go(LoginPolicy.routeForRole(loginRole));
+            });
+        });
+    }
     private void recoveryUnavailable() {
         header("Reset PIN");
         ui.state(content,R.drawable.ic_shield,"Reset PIN unavailable","Verified mobile recovery is not configured. Contact your apartment administrator; no test code can reset a release account.",R.color.ap_amber,R.color.ap_ambg);
@@ -833,7 +942,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             if(!validation.isEmpty()) {showError(validation);return;}
             signupDraft=fields.values();
             ((PilotApplication)getApplication()).transientSignup=signupDraft;
-            go("setup-apartment");
+            verifyThen("setup-apartment");
         }
         );
         if(BuildConfig.DEBUG)ui.note(content,"Local test accounts only. Do not use a real PIN.");
@@ -866,9 +975,10 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             String city=fields.get("city").equals("Other")?fields.get("otherCity").trim():fields.get("city");
             if(city.isEmpty()) {showError("Enter the city name.");return;}
             JSONObject body=json("name",signupDraft.optString("name"),"mobile",signupDraft.optString("mobile"),"pin",signupDraft.optString("pin"),"apartmentName",fields.get("apartmentName"),"city",city,"flats",Integer.parseInt(fields.get("flats")),"address",fields.get("address"),"pinCode",fields.get("pinCode"));
+            if(!signupDraft.optString("verificationToken").isEmpty())put(body,"verificationToken",signupDraft.optString("verificationToken"));
             request("GET","/status",null,statusResult-> {
                 JSONObject status=(JSONObject)statusResult;
-                if(!status.optBoolean("localRegistration")) {
+                if(!status.optBoolean("localRegistration")&&!status.optBoolean("phoneVerification")) {
                     showError("Apartment registration is not available on this server. Contact support; your details have not been submitted.");
                     return;
                 }
@@ -940,7 +1050,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             if(!validation.isEmpty()) {showError(validation);return;}
             signupDraft=fields.values();
             ((PilotApplication)getApplication()).transientSignup=signupDraft;
-            go("choose-flat");
+            verifyThen("choose-flat");
         }
         );
     }
@@ -985,7 +1095,9 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         }
         ui.button(content,"Request to join",R.drawable.ic_users,true,()-> {
             if(selectedFlat.isEmpty()||!Arrays.asList(labels).contains(selectedFlat)) {showError("Choose a flat.");return;}
-            request("POST","/auth/join",json("invite",inviteCode,"name",signupDraft.optString("name"),"mobile",signupDraft.optString("mobile"),"pin",signupDraft.optString("pin"),"residentType",signupDraft.optString("residentType"),"flatLabel",selectedFlat),r-> {
+            JSONObject joinBody=json("invite",inviteCode,"name",signupDraft.optString("name"),"mobile",signupDraft.optString("mobile"),"pin",signupDraft.optString("pin"),"residentType",signupDraft.optString("residentType"),"flatLabel",selectedFlat);
+            if(!signupDraft.optString("verificationToken").isEmpty())put(joinBody,"verificationToken",signupDraft.optString("verificationToken"));
+            request("POST","/auth/join",joinBody,r-> {
             api.pendingJoin((JSONObject)r);
             signupDraft=new JSONObject();
             ((PilotApplication)getApplication()).transientSignup=signupDraft;
