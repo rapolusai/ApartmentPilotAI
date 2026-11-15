@@ -24,7 +24,9 @@ final class PlayBilling {
     private Activity activity;
     private PlayBilling(Context app) {
         client=BillingClient.newBuilder(app).setListener(this::onPurchases)
-            .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build()).build();
+            .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
+            // Billing Library 8: reconnects by itself when Play drops the service connection.
+            .enableAutoServiceReconnection().build();
     }
     static synchronized PlayBilling get(Activity activity,Listener listener) {
         if(instance==null)instance=new PlayBilling(activity.getApplicationContext());
@@ -62,7 +64,9 @@ final class PlayBilling {
         connected(()->{
             QueryProductDetailsParams query=QueryProductDetailsParams.newBuilder().setProductList(Collections.singletonList(
                 QueryProductDetailsParams.Product.newBuilder().setProductId(productId).setProductType(BillingClient.ProductType.SUBS).build())).build();
-            client.queryProductDetailsAsync(query,(result,details)->{
+            client.queryProductDetailsAsync(query,(result,found)->{
+                // Billing Library 8 returns a result object; products Play could not fetch are listed separately.
+                List<ProductDetails> details=found==null?null:found.getProductDetailsList();
                 if(result.getResponseCode()!=BillingClient.BillingResponseCode.OK||details==null||details.isEmpty()) {
                     say("This plan is not available on Google Play yet. "+describe(result));
                     return;

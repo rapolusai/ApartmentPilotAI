@@ -50,6 +50,10 @@ app:
     account-cap-minutes: 15
     ip-failures-per-15-minutes: 30
     decay-hours: 24
+  version: 1.0.0
+  # Phone verification for sign-up, join and Forgot PIN (Firebase Authentication project id; public, not a secret).
+  firebase:
+    project-id: ${APP_FIREBASE_PROJECT_ID:}
   # Google Play Billing for the apartment subscription (off until Play Console products and the service account exist).
   play:
     enabled: ${APP_PLAY_BILLING_ENABLED:false}

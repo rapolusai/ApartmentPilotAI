@@ -19,7 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
     private final RateGate gate;
     private final LoginGuard guard;
     private final boolean local;
-    public ApiController(com.rapolus.apartmentpilotai.operations.NoticeService noticeService,AuthService auth,FinanceService finance,Db db,RateGate gate,LoginGuard guard,@Value("${app.local-registration-enabled:false}")boolean local) {
+    private final String version;
+    public ApiController(com.rapolus.apartmentpilotai.operations.NoticeService noticeService,AuthService auth,FinanceService finance,Db db,RateGate gate,LoginGuard guard,@Value("${app.local-registration-enabled:false}")boolean local,@Value("${app.version:1.0.0}")String version) {
+        this.version=version;
         this.noticeService=noticeService;
         this.auth=auth;
         this.finance=finance;
@@ -29,7 +31,9 @@ import org.springframework.transaction.annotation.Transactional;
         this.local=local;
     }
     @GetMapping("/status") Map<String,Object> status() {
-        return Map.of("application","ApartmentPilotAI","version","0.2.0","localRegistration",local,"releaseReady",false);
+        // Release ready = a production server (no local shortcut) where people can verify their phone and sign up.
+        boolean phone=auth.phoneVerificationEnabled();
+        return Map.of("application","ApartmentPilotAI","version",version,"localRegistration",local,"phoneVerification",phone,"releaseReady",!local&&phone);
     }
     @PostMapping("/auth/register") Object register(@Valid @RequestBody Requests.Register r,HttpServletRequest req) {
         RateGate.enforce(gate.count("register:"+req.getRemoteAddr()),10);
@@ -61,6 +65,14 @@ import org.springframework.transaction.annotation.Transactional;
     @PostMapping("/auth/join") Object join(@Valid @RequestBody Requests.Join r,HttpServletRequest req) {
         RateGate.enforce(gate.count("join:"+req.getRemoteAddr()),20);
         return auth.join(r);
+    }
+    @PostMapping("/auth/reset-pin") Object resetPin(@Valid @RequestBody Requests.ResetPin r,HttpServletRequest req) {
+        RateGate.enforce(gate.count("reset-pin:"+req.getRemoteAddr()),10);
+        RateGate.enforce(gate.count("reset-pin-mobile:"+r.mobile()),5);
+        auth.resetPin(r);
+        // A proven owner of the number gets a clean slate on the login lockout too.
+        if(guard.enabled())guard.succeeded(r.mobile(),req.getRemoteAddr());
+        return Map.of("status","PIN_RESET");
     }
     @PostMapping("/auth/join-status") Object joinStatus(@Valid @RequestBody Requests.JoinStatus r,HttpServletRequest req) {
         RateGate.enforce(gate.count("join-status:"+req.getRemoteAddr()),60);

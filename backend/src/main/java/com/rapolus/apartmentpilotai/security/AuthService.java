@@ -13,24 +13,50 @@ import org.springframework.transaction.annotation.Transactional;
     private final PasswordEncoder encoder;
     private final InviteCipher inviteCipher;
     private final boolean localRegistration;
+    private final PhoneVerifier phone;
     private final int hours;
     // Unknown mobiles are compared against this hash so they take as long as a wrong PIN and do not reveal registration.
     // Same cost as SecurityConfig's encoder; generated per process, it matches no PIN anyone can know.
     private static final class Dummy {
         static final String HASH=new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(12).encode(Tokens.create());
     }
-    public AuthService(Db db,PasswordEncoder encoder,InviteCipher inviteCipher,@Value("${app.local-registration-enabled:false}")boolean localRegistration,@Value("${app.session-hours:12}")int hours) {
+    public AuthService(Db db,PasswordEncoder encoder,InviteCipher inviteCipher,boolean localRegistration,int hours) {
+        this(db,encoder,inviteCipher,localRegistration,hours,PhoneVerifier.disabled());
+    }
+    @org.springframework.beans.factory.annotation.Autowired
+    public AuthService(Db db,PasswordEncoder encoder,InviteCipher inviteCipher,@Value("${app.local-registration-enabled:false}")boolean localRegistration,@Value("${app.session-hours:12}")int hours,PhoneVerifier phone) {
         this.db=db;
+        this.phone=phone;
         this.encoder=encoder;
         this.inviteCipher=inviteCipher;
         this.localRegistration=localRegistration;
         this.hours=hours;
     }
-    private void requireLocal() {
-        if(!localRegistration)throw new ApiError(HttpStatus.SERVICE_UNAVAILABLE,"Account verification has not been configured. Registration is disabled outside the local profile.");
+    /**
+     * Sign-up and join need proof that the caller holds the mobile number: a Firebase phone verification token. The
+     * local development profile skips this. With neither, registration stays off (the safe default).
+     */
+    private void requireVerifiedMobile(String mobile,String verificationToken) {
+        if(localRegistration&&(!phone.enabled()||verificationToken==null||verificationToken.isBlank()))return;
+        if(!phone.enabled())throw new ApiError(HttpStatus.SERVICE_UNAVAILABLE,"Account verification has not been configured. Registration is disabled outside the local profile.");
+        phone.requireSameMobile(mobile,verificationToken);
+    }
+    public boolean phoneVerificationEnabled() {
+        return phone.enabled();
+    }
+    /** Forgot PIN: sets a new PIN after phone verification and signs the account out everywhere. */
+    @Transactional public void resetPin(Requests.ResetPin r) {
+        requireVerifiedMobile(r.mobile(),r.verificationToken());
+        PinPolicy.requireNew(r.pin());
+        var user=db.find("select id,tenant_id from ap_user where mobile=? and status in ('ACTIVE','PENDING')",r.mobile())
+            .orElseThrow(()->new ApiError(HttpStatus.NOT_FOUND,"No active account uses this mobile number. Ask your apartment admin, or sign up."));
+        UUID id=UUID.fromString(user.get("id").toString()),tenant=UUID.fromString(user.get("tenantId").toString());
+        db.update("update ap_user set pin_hash=? where id=?",encoder.encode(r.pin()),id);
+        db.update("delete from ap_session where user_id=?",id);
+        db.audit(tenant,id,"PIN_RESET",id,null,"Phone verified");
     }
     @Transactional public Map<String,Object> register(Requests.Register r) {
-        requireLocal();
+        requireVerifiedMobile(r.mobile(),r.verificationToken());
         PinPolicy.requireNew(r.pin());
         if(db.find("select id from ap_user where mobile=?",r.mobile()).isPresent())throw ApiError.conflict("An account already exists for these details. Sign in or contact your apartment admin.");
         UUID tenant=UUID.randomUUID(),user=UUID.randomUUID();
@@ -161,7 +187,7 @@ import org.springframework.transaction.annotation.Transactional;
         return Map.of("apartmentName",invite.get("name"),"city",invite.get("city"),"flats",flats);
     }
     @Transactional public Map<String,Object> join(Requests.Join r) {
-        requireLocal();
+        requireVerifiedMobile(r.mobile(),r.verificationToken());
         PinPolicy.requireNew(r.pin());
         var invite=db.one("select tenant_id from ap_invite where code_hash=? and active=true and expires_at>now()",Tokens.digest(r.invite().trim().toUpperCase(Locale.ROOT)));
         UUID tenant=UUID.fromString(invite.get("tenantId").toString());
