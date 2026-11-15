@@ -34,6 +34,10 @@ write_env() {
     echo "BACKEND_IMAGE=$image"
     echo "APP_DOMAIN=$DOMAIN"
     echo "APP_LOCAL_REGISTRATION_ENABLED=${APP_LOCAL_REGISTRATION_ENABLED:-false}"
+    # Server size settings from deploy.env (empty = the 2 GB defaults in docker-compose.prod.yml).
+    for size in APP_MEM_LIMIT DB_MEM_LIMIT DB_SHARED_BUFFERS DB_CACHE_SIZE CADDY_MEM_LIMIT; do
+      if [ -n "${!size:-}" ]; then echo "$size=${!size}"; fi
+    done
   } >> "$tmp"
   mv "$tmp" "$APP_DIR/.env"
 }

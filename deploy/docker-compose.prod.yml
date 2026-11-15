@@ -16,11 +16,12 @@ services:
       POSTGRES_DB: apartmentcare
       POSTGRES_USER: apartmentcare
       POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
-    # Tuned for the 2 GB t4g.small shared with the app and Caddy.
+    # Tuned for the 2 GB t4g.small shared with the app and Caddy. For the 1 GB t4g.micro, deploy.env sets the
+    # smaller values from deploy.env.example (DB_SHARED_BUFFERS, DB_MEM_LIMIT, APP_MEM_LIMIT, CADDY_MEM_LIMIT).
     command: >
       postgres
-      -c shared_buffers=128MB
-      -c effective_cache_size=384MB
+      -c shared_buffers=${DB_SHARED_BUFFERS:-128MB}
+      -c effective_cache_size=${DB_CACHE_SIZE:-384MB}
       -c work_mem=4MB
       -c maintenance_work_mem=32MB
       -c max_connections=30
@@ -28,7 +29,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks: [data]
-    mem_limit: 450m
+    mem_limit: ${DB_MEM_LIMIT:-450m}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U apartmentcare -d apartmentcare"]
       interval: 10s
@@ -70,7 +71,7 @@ services:
       # Written by deploy.sh from SSM /apartmentcare/prod/PLAY_SERVICE_ACCOUNT_JSON ("{}" until it exists).
       - ./secrets/play-service-account.json:/run/secrets/play-service-account.json:ro
     networks: [data, web]
-    mem_limit: 800m
+    mem_limit: ${APP_MEM_LIMIT:-800m}
     logging: *logging
 
   caddy:
@@ -85,7 +86,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     networks: [web]
-    mem_limit: 128m
+    mem_limit: ${CADDY_MEM_LIMIT:-128m}
     logging: *logging
 
 networks:
