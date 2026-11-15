@@ -31,10 +31,20 @@ import org.json.*;
     private JSONObject account;
     private final SessionVault vault;
     private final SessionVault joinVault;
+    // ApartmentCare team (super user) session: its own encrypted store and token, never mixed with the apartment session.
+    private final SessionVault operatorVault;
+    private volatile String operatorToken="";
+    private JSONObject operator;
     public ApiClient(Context context) {
         this.context=context.getApplicationContext();
         vault=new SessionVault(context);
         joinVault=new SessionVault(context,"secure-join");
+        operatorVault=new SessionVault(context,"secure-operator");
+        JSONObject team=operatorVault.load();
+        if(team!=null) {
+            operatorToken=team.optString("token","");
+            operator=team.optJSONObject("operator");
+        }
         JSONObject saved=vault.load();
         if(saved!=null) {
             token=saved.optString("token","");
@@ -90,10 +100,37 @@ import org.json.*;
         base=url.trim().replaceAll("/+$","");
         clear();
         joinVault.clear();
+        clearOperator();
         context.getSharedPreferences("connection",0).edit().putString("url",base).apply();
     }
+    public boolean operatorSignedIn() {
+        return !operatorToken.isEmpty()&&operator!=null;
+    }
+    public JSONObject operator() {
+        return operator;
+    }
+    public synchronized void operatorSession(JSONObject data)throws JSONException {
+        operator=data.getJSONObject("operator");
+        operatorToken=data.getString("token");
+        operatorVault.save(data);
+    }
+    public synchronized void clearOperator() {
+        operatorToken="";
+        operator=null;
+        operatorVault.clear();
+    }
+    private synchronized void clearOperatorIfCurrent(String requestToken) {
+        if(!requestToken.isEmpty()&&requestToken.equals(operatorToken))clearOperator();
+    }
+    /** ApartmentCare team endpoints: sends the team token, never the apartment token. */
+    public void callOperator(String method,String path,JSONObject data,Callback callback) {
+        send(method,path,data,callback,operatorToken,true);
+    }
     public void call(String method,String path,JSONObject data,Callback callback) {
-        String requestBase=base,requestToken=token;
+        send(method,path,data,callback,token,false);
+    }
+    private void send(String method,String path,JSONObject data,Callback callback,String requestToken,boolean team) {
+        String requestBase=base;
         String traceId=UUID.randomUUID().toString(),route=tracePath(path);
         executor.execute(()-> {
             HttpURLConnection c=null;
@@ -136,7 +173,8 @@ import org.json.*;
                 Object parsed=text.isEmpty()?new JSONObject():new JSONTokener(text).nextValue();
                 if(status>=200&&status<300)result=parsed;
                 else if(status==401&&!requestToken.isEmpty()) {
-                    clearIfCurrent(requestToken);
+                    if(team)clearOperatorIfCurrent(requestToken);
+                    else clearIfCurrent(requestToken);
                     error=new Error(401,"Your session expired. Sign in again.");
                 } else error=new Error(status,parsed instanceof JSONObject?((JSONObject)parsed).optString("message","Request failed ("+status+")."):"Request failed ("+status+").");
             } catch(SocketTimeoutException e) {

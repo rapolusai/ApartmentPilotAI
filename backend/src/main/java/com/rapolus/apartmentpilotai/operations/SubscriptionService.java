@@ -15,9 +15,14 @@ import java.security.MessageDigest;
     public record Entitlement(boolean allowed,String state,String trialEndsAt,boolean referralApplied) { }
     private final Db db;
     private final String providerKey;
-    public SubscriptionService(Db db,@Value("${app.provider-key:}")String key) {
+    private final boolean playBilling;
+    public SubscriptionService(Db db,@Value("${app.provider-key:}")String key,@Value("${app.play.enabled:false}")boolean playBilling) {
         this.db=db;
         this.providerKey=key;
+        this.playBilling=playBilling;
+    }
+    public boolean playBilling() {
+        return playBilling;
     }
     public void provider(String supplied) {
         if(providerKey.length()<32||supplied==null||!MessageDigest.isEqual(providerKey.getBytes(StandardCharsets.UTF_8),supplied.getBytes(StandardCharsets.UTF_8)))throw new ApiError(org.springframework.http.HttpStatus.FORBIDDEN,"Provider verification is not configured or authorised.");
@@ -62,10 +67,14 @@ import java.security.MessageDigest;
     @Transactional(readOnly=true) public Entitlement entitlement(UUID tenant) {
         LocalDate today=V.today();
         // The waived trial-month invoice does not count as a paid subscription; the trial state covers that month.
-        var row=db.one("select t.trial_ends_at,t.created_at, exists(select 1 from ap_subscription_invoice i left join ap_subscription s on s.tenant_id=i.tenant_id where i.tenant_id=t.id and i.starts_on<=? and i.ends_on>? and i.credit+i.paid=i.amount and (s.activated_at is null or i.starts_on<>s.activated_at)) as current_invoice_covered, exists(select 1 from ap_referral r where r.referred_id=t.id) as referral_applied from ap_tenant t where t.id=?",V.sql(today),V.sql(today),tenant);
+        // A valid Google Play subscription covers the apartment whoever bought it (Admin handover keeps it active).
+        // CANCELED means auto-renew is off but the paid period still runs to its expiry.
+        var row=db.one("select t.trial_ends_at,t.created_at, exists(select 1 from ap_subscription_invoice i left join ap_subscription s on s.tenant_id=i.tenant_id where i.tenant_id=t.id and i.starts_on<=? and i.ends_on>? and i.credit+i.paid=i.amount and (s.activated_at is null or i.starts_on<>s.activated_at)) as current_invoice_covered, exists(select 1 from ap_play_purchase p where p.tenant_id=t.id and p.replaced_by is null and p.state in ('SUBSCRIPTION_STATE_ACTIVE','SUBSCRIPTION_STATE_IN_GRACE_PERIOD','SUBSCRIPTION_STATE_CANCELED') and p.expiry_at>now()) as play_covered, exists(select 1 from ap_referral r where r.referred_id=t.id) as referral_applied from ap_tenant t where t.id=?",V.sql(today),V.sql(today),tenant);
         LocalDate firstDay=Instant.parse(row.get("createdAt").toString()).atZone(ZoneId.of("Asia/Kolkata")).toLocalDate();
-        Instant trialEndsAt=trialEnd(Instant.parse(row.get("trialEndsAt").toString()),firstDay.plusMonths(1));
-        boolean covered=Boolean.TRUE.equals(row.get("currentInvoiceCovered"));
+        Instant stored=Instant.parse(row.get("trialEndsAt").toString());
+        // With Play Billing the stored trial end is final (5 days for new apartments; V16 kept existing apartments' end).
+        Instant trialEndsAt=playBilling?stored:trialEnd(stored,firstDay.plusMonths(1));
+        boolean covered=Boolean.TRUE.equals(row.get("currentInvoiceCovered"))||playBilling&&Boolean.TRUE.equals(row.get("playCovered"));
         var state=SubscriptionAccessPolicy.state(Instant.now(),trialEndsAt,covered);
         return new Entitlement(SubscriptionAccessPolicy.allowed(state),state.name(),trialEndsAt.toString(),Boolean.TRUE.equals(row.get("referralApplied")));
     }

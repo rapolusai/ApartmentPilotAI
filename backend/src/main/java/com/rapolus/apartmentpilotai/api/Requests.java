@@ -9,6 +9,10 @@ public final class Requests {
     }
     public record Login(@Pattern(regexp="[6-9][0-9]{9}") @NotNull String mobile, @Pattern(regexp="[0-9]{4,6}") @NotNull String pin,@Pattern(regexp="ADMIN|TREASURER|RESIDENT") @NotNull String role) {
     }
+    public record OperatorLogin(@Pattern(regexp="[6-9][0-9]{9}") @NotNull String mobile,@Pattern(regexp="[0-9]{6}",message="must be 6 digits") @NotNull String pin) {
+    }
+    public record OperatorSave(@NotBlank @Size(max=80) String name,@Pattern(regexp="[6-9][0-9]{9}") @NotNull String mobile,@Pattern(regexp="[0-9]{6}",message="must be 6 digits") String pin,Boolean active) {
+    }
     public record Register(@NotBlank @Size(max=80) String name,@Pattern(regexp="[6-9][0-9]{9}") @NotNull String mobile, @Pattern(regexp="[0-9]{6}",message="must be 6 digits") @NotNull String pin,@NotBlank @Size(max=80) String apartmentName, @NotBlank @Size(max=80) String city,@NotNull @Min(5) @Max(50) Integer flats,@Size(max=300) String address,@Pattern(regexp="|[0-9]{6}") String pinCode) {
         // Existing local clients may omit the additive address fields. New Android setup requires them.
         public Register(String name,String mobile,String pin,String apartmentName,String city,Integer flats) {

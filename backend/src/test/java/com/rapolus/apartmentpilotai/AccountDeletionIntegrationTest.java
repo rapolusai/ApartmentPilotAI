@@ -103,7 +103,7 @@ class AccountDeletionIntegrationTest {
     }
 
     @Test void migrationV13AddsDeletionColumnsWithoutTouchingExistingRows() {
-        assertEquals("13",db.one("select max(version::int)::text as v from flyway_schema_history where success").get("v"));
+        assertTrue(db.count("select count(*) from flyway_schema_history where success and version='13'")==1);
         assertEquals(1,db.count("select count(*) from information_schema.columns where table_name='ap_user' and column_name='deleted_at'"));
         assertEquals(1,db.count("select count(*) from information_schema.tables where table_name='ap_deletion_request'"));
     }

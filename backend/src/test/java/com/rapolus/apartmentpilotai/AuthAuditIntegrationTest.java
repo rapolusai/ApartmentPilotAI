@@ -118,14 +118,14 @@ class AuthAuditIntegrationTest {
 
     // ---- Migration ----
     @Test void freshDatabaseMigratesThroughV13AndAV10SchemaUpgrades() {
-        assertEquals("13",db.one("select max(version::int)::text as v from flyway_schema_history where success").get("v"));
+        assertTrue(db.count("select count(*) from flyway_schema_history where success and version='13'")==1);
         String schema="apai5_upgrade_"+key().substring(0,8).replace("-","");
         String url=System.getenv("APT_TEST_DB_URL"),user=Optional.ofNullable(System.getenv("APT_TEST_DB_USER")).orElse("postgres"),password=Optional.ofNullable(System.getenv("APT_TEST_DB_PASSWORD")).orElse("");
         try {
             Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).createSchemas(true).target("10").load().migrate();
             assertEquals("10",Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).load().info().current().getVersion().getVersion());
             Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).load().migrate();
-            assertEquals("13",Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).load().info().current().getVersion().getVersion());
+            assertEquals(db.one("select max(version::int)::text as v from flyway_schema_history where success").get("v"),Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).load().info().current().getVersion().getVersion());
         } finally {
             db.update("drop schema if exists "+schema+" cascade");
         }

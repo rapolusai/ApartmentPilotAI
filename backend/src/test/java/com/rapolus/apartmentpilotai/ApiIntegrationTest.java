@@ -74,7 +74,7 @@ class ApiIntegrationTest {
         return login.body().get("token").asText();
     }
     @Test void freshDatabaseMigratesThroughV13() {
-        assertEquals("13",db.one("select max(version::int)::text as v from flyway_schema_history where success").get("v"));
+        assertTrue(db.count("select count(*) from flyway_schema_history where success and version='13'")==1);
     }
     @Test void staleTokenDoesNotBlockPublicRoutesButStillExpiresProtectedOnes() throws Exception {
         String stale="not-a-real-session-token";

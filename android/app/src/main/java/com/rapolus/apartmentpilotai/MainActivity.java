@@ -31,6 +31,7 @@ import java.util.*;
 */
 public final class MainActivity extends AppCompatActivity implements FeatureHost {
     private FeatureScreens featureScreens;
+    private com.rapolus.apartmentpilotai.ui.TeamScreens teamScreens;
     private LocalFiles localFiles;
     private String operationKey=UUID.randomUUID().toString(),attachmentKind="",attachmentParent="";
     private String saveAttachmentId="",saveAttachmentAccount="";
@@ -89,6 +90,23 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             render();
         });
         featureScreens=new FeatureScreens(this);
+        teamScreens=new com.rapolus.apartmentpilotai.ui.TeamScreens(this,ui,api,content,new com.rapolus.apartmentpilotai.ui.TeamScreens.Host() {
+            @Override public void open(String p) {
+                // Signing in or out of the team view starts a fresh history, like the apartment logins.
+                if(p.equals("team-dashboard")||p.equals("welcome")) {
+                    history.clear();
+                    page=p;
+                    id="";
+                    render();
+                } else go(p);
+            }
+            @Override public void title(String text) {
+                header(text);
+            }
+            @Override public int generation() {
+                return generation;
+            }
+        });
         localFiles=new LocalFiles(this);
         View root=findViewById(R.id.root);
         ViewCompat.setOnApplyWindowInsetsListener(root,(v,insets)-> {
@@ -151,6 +169,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             resumeId=b.getString("resumeId","");
             resumeAccount=b.getString("resumeAccount","");
         } else if(api.signedIn())page="home";
+        else if(api.operatorSignedIn())page="team-dashboard";
         else if(api.pendingJoin()!=null)page="signup-pending";
         render();
     }
@@ -331,7 +350,9 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         content.removeAllViews();
         inlineError=null;
         fields=null;
-        boolean authPage=Arrays.asList("welcome","login","admin-login","treasurer-login","resident-login","forgot-pin","verify-reset","reset-pin","invite-invalid","admin-signup","setup-apartment","setup-done","join","signup","choose-flat","signup-pending","connection","status","offline","session-expired","error-state","not-found","loading-state").contains(page);
+        // Only the ApartmentCare team dashboard blocks screenshots; it sets the flag again when it draws.
+        getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+        boolean authPage=Arrays.asList("welcome","login","admin-login","treasurer-login","resident-login","forgot-pin","verify-reset","reset-pin","invite-invalid","admin-signup","setup-apartment","setup-done","join","signup","choose-flat","signup-pending","connection","status","offline","session-expired","error-state","not-found","loading-state","team-login","team-dashboard").contains(page);
         if(!api.signedIn()&&!authPage) {
             page="welcome";
             id="";
@@ -354,6 +375,10 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         subtitle.setText(api.signedIn()?api.account().optString("apartmentName","ApartmentCare"):"ApartmentCare");
         subtitle.setVisibility(homeShell?View.VISIBLE:View.GONE);
         header(page.substring(0,1).toUpperCase(Locale.ROOT)+page.substring(1).replace('-',' '));
+        if(!api.signedIn()&&com.rapolus.apartmentpilotai.ui.TeamScreens.handles(page)) {
+            teamScreens.render(page);
+            return;
+        }
         if(featureScreens.render(page,id)) {
             if(fields!=null&&restoreFields!=null) {
                 fields.restore(restoreFields);
@@ -719,6 +744,10 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         join.setLayoutParams(new LinearLayout.LayoutParams(0,ui.dp(48),1));
         ((LinearLayout.LayoutParams)join.getLayoutParams()).leftMargin=ui.dp(8);
         content.addView(actions);
+        MaterialButton team=ui.button(content,"ApartmentCare team login",0,false,()->go(api.operatorSignedIn()?"team-dashboard":"team-login"));
+        team.setTextSize(12);
+        team.setTextColor(ui.color(R.color.ap_sub));
+        team.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
         if(BuildConfig.DEBUG)ui.note(content,"Local testing build · use test accounts only.");
         if(BuildConfig.DEBUG)ui.button(content,"Local server",R.drawable.ic_settings,false,()->go("connection"));
     }
