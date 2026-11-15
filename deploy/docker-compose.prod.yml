@@ -55,10 +55,20 @@ services:
       SUPPORT_EMAIL: ${SUPPORT_EMAIL:-}
       APP_BILLING_JOB_ENABLED: ${APP_BILLING_JOB_ENABLED:-true}
       APP_LOCAL_REGISTRATION_ENABLED: ${APP_LOCAL_REGISTRATION_ENABLED:-false}
+      # Phone verification (Firebase Authentication). Empty = sign-up, join and Forgot PIN stay off.
+      APP_FIREBASE_PROJECT_ID: ${APP_FIREBASE_PROJECT_ID:-}
+      # Google Play Billing. Off until the Play Console product, service account and Pub/Sub push exist.
+      APP_PLAY_BILLING_ENABLED: ${APP_PLAY_BILLING_ENABLED:-false}
+      APP_PLAY_PRODUCT_ID: ${APP_PLAY_PRODUCT_ID:-apartmentcare_monthly}
+      APP_PLAY_NOTIFICATION_SECRET: ${APP_PLAY_NOTIFICATION_SECRET:-}
+      APP_PLAY_SERVICE_ACCOUNT_FILE: /run/secrets/play-service-account.json
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65 -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError"
       TZ: Asia/Kolkata
     # Loopback only, for deploy.sh health checks. The security group never opens 8080.
     ports: ["127.0.0.1:8080:8080"]
+    volumes:
+      # Written by deploy.sh from SSM /apartmentcare/prod/PLAY_SERVICE_ACCOUNT_JSON ("{}" until it exists).
+      - ./secrets/play-service-account.json:/run/secrets/play-service-account.json:ro
     networks: [data, web]
     mem_limit: 800m
     logging: *logging
