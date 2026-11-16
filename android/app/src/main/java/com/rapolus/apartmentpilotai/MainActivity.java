@@ -13,6 +13,7 @@ import com.google.android.material.button.MaterialButton;
 import com.rapolus.apartmentpilotai.data.ApiClient;
 import com.rapolus.apartmentpilotai.data.HttpFailurePolicy;
 import com.rapolus.apartmentpilotai.data.NavigationPolicy;
+import com.rapolus.apartmentpilotai.data.PhoneAuth;
 import com.rapolus.apartmentpilotai.data.LoginPolicy;
 import com.rapolus.apartmentpilotai.data.RegistrationPolicy;
 import com.rapolus.apartmentpilotai.ui.Ui;
@@ -31,6 +32,11 @@ import java.util.*;
 */
 public final class MainActivity extends AppCompatActivity implements FeatureHost {
     private FeatureScreens featureScreens;
+    private com.rapolus.apartmentpilotai.ui.TeamScreens teamScreens;
+    private com.rapolus.apartmentpilotai.ui.SetupScreens setupScreens;
+    /** Latest guided-setup state from the server; null when unknown. Only drives the Home card while setup is unfinished. */
+    private JSONObject setupState;
+    private int spotlightRun=0;
     private LocalFiles localFiles;
     private String operationKey=UUID.randomUUID().toString(),attachmentKind="",attachmentParent="";
     private String saveAttachmentId="",saveAttachmentAccount="";
@@ -89,6 +95,24 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             render();
         });
         featureScreens=new FeatureScreens(this);
+        teamScreens=new com.rapolus.apartmentpilotai.ui.TeamScreens(this,ui,api,content,new com.rapolus.apartmentpilotai.ui.TeamScreens.Host() {
+            @Override public void open(String p) {
+                // Signing in or out of the team view starts a fresh history, like the apartment logins.
+                if(p.equals("team-dashboard")||p.equals("welcome")) {
+                    history.clear();
+                    page=p;
+                    id="";
+                    render();
+                } else go(p);
+            }
+            @Override public void title(String text) {
+                header(text);
+            }
+            @Override public int generation() {
+                return generation;
+            }
+        });
+        setupScreens=new com.rapolus.apartmentpilotai.ui.SetupScreens(this);
         localFiles=new LocalFiles(this);
         View root=findViewById(R.id.root);
         ViewCompat.setOnApplyWindowInsetsListener(root,(v,insets)-> {
@@ -151,6 +175,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             resumeId=b.getString("resumeId","");
             resumeAccount=b.getString("resumeAccount","");
         } else if(api.signedIn())page="home";
+        else if(api.operatorSignedIn())page="team-dashboard";
         else if(api.pendingJoin()!=null)page="signup-pending";
         render();
     }
@@ -298,11 +323,11 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     }
     /** Pages whose job ends when their command is saved; they must not stay reachable with Back. */
     private static boolean isFormPage(String p) {
-        return p.endsWith("-form")||p.endsWith("-edit")||p.endsWith("-reverse")||p.endsWith("-settings")||p.endsWith("-preview")||Arrays.asList("mark-paid","payment-reject","bulk-review","change-pin","ticket-update","service-complete","join-reject","referral-claim","handover","opening-balance","opening-dues","transparency","booking-alternative","billing-options","payee","verification","reminders","booking-policy").contains(p);
+        return p.endsWith("-form")||p.endsWith("-edit")||p.endsWith("-reverse")||p.endsWith("-settings")||p.endsWith("-preview")||Arrays.asList("mark-paid","payment-reject","bulk-review","change-pin","ticket-update","service-complete","join-reject","referral-claim","handover","opening-balance","opening-dues","transparency","booking-alternative","billing-options","payee","verification","reminders","booking-policy","member-pin").contains(p);
     }
     private void back() {
         if(busy)return;
-        if(page.equals("subscription-required"))return;
+        if(page.equals("subscription-required")||page.equals("setup"))return;
         if(history.isEmpty()) {
             if(api.signedIn()&&!page.equals("home")) {
                 page="home";
@@ -331,7 +356,9 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         content.removeAllViews();
         inlineError=null;
         fields=null;
-        boolean authPage=Arrays.asList("welcome","login","admin-login","treasurer-login","resident-login","forgot-pin","verify-reset","reset-pin","invite-invalid","admin-signup","setup-apartment","setup-done","join","signup","choose-flat","signup-pending","connection","status","offline","session-expired","error-state","not-found","loading-state").contains(page);
+        // Only the ApartmentCare team dashboard blocks screenshots; it sets the flag again when it draws.
+        getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+        boolean authPage=Arrays.asList("welcome","login","admin-login","treasurer-login","resident-login","forgot-pin","verify-reset","reset-pin","verify-phone","invite-invalid","admin-signup","setup-apartment","setup-done","join","signup","choose-flat","signup-pending","connection","status","offline","session-expired","error-state","not-found","loading-state","team-login","team-dashboard").contains(page);
         if(!api.signedIn()&&!authPage) {
             page="welcome";
             id="";
@@ -339,8 +366,8 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         if(api.signedIn()&&!staff()&&page.equals("payment"))page="payment-status";
         renderSidePane();
         // Forms are never reloaded by a pull, so typed entries cannot be lost.
-        refresher.setEnabled(api.signedIn()&&!isFormPage(page));
-        nav.setVisibility(api.signedIn()&&!page.equals("subscription-required")?View.VISIBLE:View.GONE);
+        refresher.setEnabled(api.signedIn()&&!isFormPage(page)&&!page.equals("setup"));
+        nav.setVisibility(api.signedIn()&&!page.equals("subscription-required")&&!page.equals("setup")?View.VISIBLE:View.GONE);
         nav.getMenu().findItem(R.id.nav_money).setTitle(staff()?R.string.money:R.string.dues);
         if(api.signedIn()) {
             NavigationPolicy.Group group=NavigationPolicy.group(page,id);
@@ -350,10 +377,16 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         boolean homeShell=api.signedIn()&&page.equals("home");
         // Root pages (signed-in Home, the sign-in chooser) have nowhere to go back to.
         findViewById(R.id.back).setVisibility(homeShell&&history.isEmpty()||!api.signedIn()&&page.equals("welcome")?View.INVISIBLE:View.VISIBLE);
-        findViewById(R.id.notifications).setVisibility(homeShell?View.VISIBLE:View.GONE);
+        findViewById(R.id.notificationsBox).setVisibility(homeShell?View.VISIBLE:View.GONE);
+        if(homeShell)refreshBellBadge();
         subtitle.setText(api.signedIn()?api.account().optString("apartmentName","ApartmentCare"):"ApartmentCare");
         subtitle.setVisibility(homeShell?View.VISIBLE:View.GONE);
         header(page.substring(0,1).toUpperCase(Locale.ROOT)+page.substring(1).replace('-',' '));
+        if(!api.signedIn()&&com.rapolus.apartmentpilotai.ui.TeamScreens.handles(page)) {
+            teamScreens.render(page);
+            return;
+        }
+        if(api.signedIn()&&setupScreens.render(page))return;
         if(featureScreens.render(page,id)) {
             if(fields!=null&&restoreFields!=null) {
                 fields.restore(restoreFields);
@@ -372,7 +405,13 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             break;
             case "resident-login":loginRole="RESIDENT";login();
             break;
-            case "forgot-pin":case "verify-reset":case "reset-pin":recoveryUnavailable();
+            case "forgot-pin":forgotPin();
+            break;
+            case "verify-phone":case "verify-reset":verifyPhone();
+            break;
+            case "reset-pin":resetPin();
+            break;
+            case "member-pin":memberPin();
             break;
             case "invite-invalid":systemState("Check your invite","The code is invalid, expired or revoked.",R.drawable.ic_error,true,R.color.ap_amber,R.color.ap_ambg,()->go("join"),"Try another code");
             break;
@@ -479,6 +518,30 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             restoreFields=null;
         }
     }
+    /** Red number on the bell: unread notifications for this login (9+ when more). */
+    private void refreshBellBadge() {
+        TextView badge=findViewById(R.id.notificationBadge);
+        quietGet("/notifications",r->{
+            JSONArray arr=(JSONArray)r;
+            int unread=0;
+            for(int i=0;i<arr.length();i++)if(arr.getJSONObject(i).isNull("readAt"))unread++;
+            badge.setText(unread>9?"9+":String.valueOf(unread));
+            badge.setVisibility(unread>0?View.VISIBLE:View.GONE);
+            findViewById(R.id.notifications).setContentDescription(unread>0?"Notifications, "+unread+" unread":"Notifications");
+        });
+    }
+    /** Extra Home fetch that runs beside the main request: no spinner, no busy lock, errors ignored. */
+    private void quietGet(String path,Success onSuccess) {
+        if(!api.signedIn())return;
+        final int version=generation;
+        api.call("GET",path,null,(result,error)-> {
+            if(isFinishing()||isDestroyed()||version!=generation||error!=null)return;
+            try {
+                onSuccess.accept(result);
+            } catch(Exception ignored) {
+            }
+        });
+    }
     private void request(String method,String path,JSONObject data,Success onSuccess) {
         if(busy)return;
         final boolean authenticatedRequest=api.signedIn();
@@ -580,6 +643,11 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             history.clear();
             page="subscription-required";
         }
+        else if(destination==HttpFailurePolicy.Destination.SETUP_REQUIRED) {
+            // The server holds the setup lock: go back to the wizard, which resumes at the open step.
+            history.clear();
+            page="setup";
+        }
         else if(destination==HttpFailurePolicy.Destination.NOT_FOUND)page="not-found";
         else page="error-state";
         id="";
@@ -609,7 +677,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             busy=false;
             progress.setVisibility(View.GONE);
             setButtons(content,true);
-            if(error==null&&result instanceof JSONObject&&((JSONObject)result).optBoolean("localRegistration")) {
+            if(error==null&&result instanceof JSONObject&&(((JSONObject)result).optBoolean("localRegistration")||((JSONObject)result).optBoolean("releaseReady"))) {
                 offlineDetail="The connection dropped. Check the previous action before submitting it again.";
                 resumePrevious();
                 return;
@@ -652,6 +720,13 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             throw new IllegalArgumentException(e);
         }
         return out;
+    }
+    private static void put(JSONObject target,String key,Object value) {
+        try {
+            target.put(key,value);
+        } catch(JSONException e) {
+            throw new IllegalArgumentException(e);
+        }
     }
     private void safe(Runnable action) {
         try {
@@ -719,6 +794,10 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         join.setLayoutParams(new LinearLayout.LayoutParams(0,ui.dp(48),1));
         ((LinearLayout.LayoutParams)join.getLayoutParams()).leftMargin=ui.dp(8);
         content.addView(actions);
+        MaterialButton team=ui.button(content,"ApartmentCare team login",0,false,()->go(api.operatorSignedIn()?"team-dashboard":"team-login"));
+        team.setTextSize(12);
+        team.setTextColor(ui.color(R.color.ap_sub));
+        team.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
         if(BuildConfig.DEBUG)ui.note(content,"Local testing build · use test accounts only.");
         if(BuildConfig.DEBUG)ui.button(content,"Local server",R.drawable.ic_settings,false,()->go("connection"));
     }
@@ -759,7 +838,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             tool.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
         }
         content.addView(tools);
-        ui.note(content,"Use your server account. Mobile verification and recovery are not configured in this local build.");
+        ui.note(content,"Sign in with your mobile number and 6-digit PIN. Forgot it? Tap Forgot PIN.");
         ui.button(content,"Sign in",R.drawable.ic_arrow_right,true,()-> {
             String validation=LoginPolicy.validationMessage(fields.get("mobile"),fields.get("pin"));
             if(!validation.isEmpty()) {showError(validation);return;}
@@ -784,10 +863,120 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         else if(loginRole.equals("RESIDENT"))ui.button(content,"New resident? Join",R.drawable.ic_users,false,()->go("join"));
         else ui.note(content,"Treasurer access is assigned by your apartment admin.");
     }
+    /**
+     * Sign-up and join prove the mobile number by SMS code (Firebase) when the server has it switched on. A server with
+     * open registration (or a local debug server) goes straight on; the Admin still approves every resident's flat.
+     * Forgot PIN never skips: without a verified number it shows the Admin reset message instead.
+     */
+    private void verifyThen(String next) {
+        signupDraft.remove("verificationToken");
+        put(signupDraft,"verifyNext",next);
+        ((PilotApplication)getApplication()).transientSignup=signupDraft;
+        request("GET","/status",null,r-> {
+            JSONObject status=(JSONObject)r;
+            if(status.optBoolean("phoneVerification")&&PhoneAuth.configured())go("verify-phone");
+            else if(next.equals("reset-pin"))recoveryUnavailable();
+            else if(status.optBoolean("localRegistration")||status.optBoolean("openRegistration"))go(next);
+            else showError("Mobile verification is not available yet. Your details have not been submitted; please try again later.");
+        });
+    }
+    private void verifyPhone() {
+        header("Verify mobile");
+        String mobile=signupDraft.optString("mobile"),next=signupDraft.optString("verifyNext");
+        if(mobile.isEmpty()||next.isEmpty()||!PhoneAuth.configured()) {
+            ui.empty(content,R.drawable.ic_key,"Start again","Your details were cleared when the app restarted.");
+            ui.button(content,"Back to start",R.drawable.ic_arrow_left,true,()->go("welcome"));
+            return;
+        }
+        if(!signupDraft.optString("verificationToken").isEmpty()) {
+            // Back from the next step: the number is already verified, so do not send another SMS.
+            ui.state(content,R.drawable.ic_check,"Mobile verified","+91 "+mobile,R.color.ap_green,R.color.ap_mint);
+            ui.button(content,"Continue",R.drawable.ic_arrow_right,true,()->go(next));
+            return;
+        }
+        ui.heading(content,"Enter the 6-digit code");
+        ui.note(content,"We send a code by SMS to +91 "+mobile+". It can take up to a minute to arrive.");
+        formStart();
+        fields.field("otp","SMS code","",NUMBER);
+        fields.limit("otp",6);
+        PhoneAuth phone=PhoneAuth.get(this);
+        final String shownPage=page;
+        PhoneAuth.Callback callback=new PhoneAuth.Callback() {
+            @Override public void codeSent() {}
+            @Override public void verified(String idToken) {
+                if(!page.equals(shownPage))return;
+                put(signupDraft,"verificationToken",idToken);
+                ((PilotApplication)getApplication()).transientSignup=signupDraft;
+                go(next);
+            }
+            @Override public void failed(String message) {
+                if(page.equals(shownPage))showError(message);
+            }
+        };
+        ui.button(content,"Verify",R.drawable.ic_check,true,()-> {
+            String code=fields.get("otp").trim();
+            if(!code.matches("[0-9]{6}")) {showError("Enter the 6-digit code from the SMS.");return;}
+            phone.confirm(code,callback);
+        });
+        ui.button(content,"Resend code",R.drawable.ic_clock,false,()->phone.send(this,mobile,true,callback));
+        ui.note(content,"Standard SMS rates may apply. Google verifies the number for ApartmentCare.");
+        if(!phone.sentTo(mobile))phone.send(this,mobile,false,callback);
+    }
+    private void forgotPin() {
+        header("Reset PIN");
+        ui.heading(content,"Forgot your PIN?");
+        request("GET","/status",null,r-> {
+            if(((JSONObject)r).optBoolean("phoneVerification")&&PhoneAuth.configured())forgotPinBySms();
+            else adminResetHelp();
+        });
+    }
+    private void adminResetHelp() {
+        ui.note(content,"Residents and Treasurers: ask your apartment Admin to reset your PIN. The Admin opens Members, picks your name and taps Reset PIN, then tells you the new PIN.");
+        ui.note(content,"Admins: email support@rapolu.in from the contact you registered with, giving your apartment name and mobile number. We confirm it is you before resetting the PIN.");
+        ui.button(content,"Back to sign in",R.drawable.ic_arrow_left,true,()->go(LoginPolicy.routeForRole(loginRole)));
+    }
+    private void forgotPinBySms() {
+        ui.note(content,"Verify your registered mobile number by SMS, then choose a new 6-digit PIN.");
+        formStart();
+        fields.field("mobile","Registered mobile number","",InputType.TYPE_CLASS_PHONE);
+        fields.limit("mobile",10);
+        ui.button(content,"Send code",R.drawable.ic_arrow_right,true,()-> {
+            String mobile=fields.get("mobile").trim();
+            if(!mobile.matches("[6-9][0-9]{9}")) {showError("Enter your 10-digit mobile number.");return;}
+            signupDraft=json("mobile",mobile);
+            verifyThen("reset-pin");
+        });
+        ui.button(content,"Back to sign in",R.drawable.ic_arrow_left,false,()->go(LoginPolicy.routeForRole(loginRole)));
+    }
+    private void resetPin() {
+        header("New PIN");
+        String mobile=signupDraft.optString("mobile"),token=signupDraft.optString("verificationToken");
+        if(mobile.isEmpty()||token.isEmpty()) {
+            recoveryUnavailable();
+            return;
+        }
+        ui.note(content,"Mobile +91 "+mobile+" verified. Choose a new PIN. You will be signed out on other phones.");
+        formStart();
+        fields.field("pin","New 6-digit PIN","",NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        fields.field("pin2","Enter the new PIN again","",NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        fields.limit("pin",6);fields.limit("pin2",6);
+        ui.button(content,"Save new PIN",R.drawable.ic_key,true,()-> {
+            String pin=fields.get("pin");
+            if(!pin.matches("[0-9]{6}")) {showError("Create a 6-digit PIN.");return;}
+            if(!pin.equals(fields.get("pin2"))) {showError("The two PINs do not match.");return;}
+            request("POST","/auth/reset-pin",json("mobile",mobile,"pin",pin,"verificationToken",token),r-> {
+                signupDraft=new JSONObject();
+                ((PilotApplication)getApplication()).transientSignup=signupDraft;
+                Toast.makeText(this,"PIN changed. Sign in with your new PIN.",Toast.LENGTH_LONG).show();
+                history.clear();
+                go(LoginPolicy.routeForRole(loginRole));
+            });
+        });
+    }
     private void recoveryUnavailable() {
         header("Reset PIN");
-        ui.state(content,R.drawable.ic_shield,"Reset PIN unavailable","Verified mobile recovery is not configured. Contact your apartment administrator; no test code can reset a release account.",R.color.ap_amber,R.color.ap_ambg);
-        ui.button(content,"Back to sign in",R.drawable.ic_arrow_left,true,()->go(LoginPolicy.routeForRole(loginRole)));
+        ui.state(content,R.drawable.ic_shield,"Ask your Admin","PIN reset by SMS is not switched on for ApartmentCare.",R.color.ap_amber,R.color.ap_ambg);
+        adminResetHelp();
     }
     private void register() {
         header("Create apartment");
@@ -804,7 +993,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             if(!validation.isEmpty()) {showError(validation);return;}
             signupDraft=fields.values();
             ((PilotApplication)getApplication()).transientSignup=signupDraft;
-            go("setup-apartment");
+            verifyThen("setup-apartment");
         }
         );
         if(BuildConfig.DEBUG)ui.note(content,"Local test accounts only. Do not use a real PIN.");
@@ -828,18 +1017,19 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         fields.field("otherCity","City name · if you chose Other","",TEXT);
         fields.field("address","Address","",TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         fields.field("pinCode","PIN code","",NUMBER);
-        fields.field("flats","Number of flats · 5–50","10",NUMBER);
-        fields.limit("apartmentName",80);fields.limit("otherCity",80);fields.limit("address",300);fields.limit("pinCode",6);fields.limit("flats",2);
-        ui.note(content,"Flats start at A-101. You can rename them after setup.");
+        fields.field("flats","Number of flats · 5–200","10",NUMBER);
+        fields.limit("apartmentName",80);fields.limit("otherCity",80);fields.limit("address",300);fields.limit("pinCode",6);fields.limit("flats",3);
+        ui.note(content,"Next, a short guided setup builds your real flat numbers in a few taps.");
         ui.button(content,"Create apartment",R.drawable.ic_building,true,()->safe(()-> {
             String validation=RegistrationPolicy.apartment(fields.get("apartmentName"),fields.get("address"),fields.get("pinCode"),fields.get("flats"));
             if(!validation.isEmpty()) {showError(validation);return;}
             String city=fields.get("city").equals("Other")?fields.get("otherCity").trim():fields.get("city");
             if(city.isEmpty()) {showError("Enter the city name.");return;}
             JSONObject body=json("name",signupDraft.optString("name"),"mobile",signupDraft.optString("mobile"),"pin",signupDraft.optString("pin"),"apartmentName",fields.get("apartmentName"),"city",city,"flats",Integer.parseInt(fields.get("flats")),"address",fields.get("address"),"pinCode",fields.get("pinCode"));
+            if(!signupDraft.optString("verificationToken").isEmpty())put(body,"verificationToken",signupDraft.optString("verificationToken"));
             request("GET","/status",null,statusResult-> {
                 JSONObject status=(JSONObject)statusResult;
-                if(!status.optBoolean("localRegistration")) {
+                if(!status.optBoolean("localRegistration")&&!status.optBoolean("phoneVerification")&&!status.optBoolean("openRegistration")) {
                     showError("Apartment registration is not available on this server. Contact support; your details have not been submitted.");
                     return;
                 }
@@ -847,7 +1037,8 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                     api.session((JSONObject)r);
                     signupDraft=new JSONObject();
                     ((PilotApplication)getApplication()).transientSignup=new JSONObject();
-                    go("setup-done");
+                    history.clear();
+                    go("setup");
                 }
                 );
             }
@@ -911,7 +1102,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             if(!validation.isEmpty()) {showError(validation);return;}
             signupDraft=fields.values();
             ((PilotApplication)getApplication()).transientSignup=signupDraft;
-            go("choose-flat");
+            verifyThen("choose-flat");
         }
         );
     }
@@ -956,7 +1147,9 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         }
         ui.button(content,"Request to join",R.drawable.ic_users,true,()-> {
             if(selectedFlat.isEmpty()||!Arrays.asList(labels).contains(selectedFlat)) {showError("Choose a flat.");return;}
-            request("POST","/auth/join",json("invite",inviteCode,"name",signupDraft.optString("name"),"mobile",signupDraft.optString("mobile"),"pin",signupDraft.optString("pin"),"residentType",signupDraft.optString("residentType"),"flatLabel",selectedFlat),r-> {
+            JSONObject joinBody=json("invite",inviteCode,"name",signupDraft.optString("name"),"mobile",signupDraft.optString("mobile"),"pin",signupDraft.optString("pin"),"residentType",signupDraft.optString("residentType"),"flatLabel",selectedFlat);
+            if(!signupDraft.optString("verificationToken").isEmpty())put(joinBody,"verificationToken",signupDraft.optString("verificationToken"));
+            request("POST","/auth/join",joinBody,r-> {
             api.pendingJoin((JSONObject)r);
             signupDraft=new JSONObject();
             ((PilotApplication)getApplication()).transientSignup=signupDraft;
@@ -1005,12 +1198,32 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         );
         ui.gap(content,12);
     }
+    /** Home first asks the server about guided setup: open required steps go to the wizard, otherwise Home shows. */
     private void home() {
         header("Home");
+        final int version=generation;
+        api.call("GET","/setup",null,(result,error)-> {
+            if(isFinishing()||isDestroyed()||version!=generation||!page.equals("home"))return;
+            if(error==null&&result instanceof JSONObject) {
+                JSONObject state=(JSONObject)result;
+                if(!state.optBoolean("requiredComplete",true)) {
+                    history.clear();
+                    page="setup";
+                    id="";
+                    render();
+                    return;
+                }
+                setupState=state;
+            } else setupState=null;
+            homeMain();
+        });
+    }
+    private void homeMain() {
         content.addView(ui.text(LocalDate.now(ZoneId.of("Asia/Kolkata")).format(DateTimeFormatter.ofPattern("EEEE, d MMMM",Locale.ENGLISH)),11,false,R.color.ap_muted));
         ui.gap(content,5);
         content.addView(ui.text("Hello, "+api.account().optString("name").split(" ")[0]+" ✦",26,true,R.color.ap_ink));
         ui.gap(content,16);
+        setupCard();
         if(!staff()) {
             request("GET","/bills?month="+month,null,r->{
                 JSONArray bills=(JSONArray)r;
@@ -1128,18 +1341,60 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     private void homeCommunity() {
         ui.heading(content,staff()?"Needs attention":"In your building");
         LinearLayout issues=ui.column();content.addView(issues);
+        // Open polls for everyone, in green, so residents see them and vote without hunting in Community.
+        LinearLayout polls=ui.column();content.addView(polls);
+        quietGet("/ops/polls",p->{
+            JSONArray list=(JSONArray)p;
+            java.time.Instant now=java.time.Instant.now();
+            int shown=0;
+            for(int i=0;i<list.length()&&shown<3;i++) {
+                JSONObject poll=list.getJSONObject(i);
+                if(poll.optBoolean("closed"))continue;
+                String closes=poll.optString("closesAt");
+                try{if(!closes.isEmpty()&&java.time.OffsetDateTime.parse(closes).toInstant().isBefore(now))continue;}catch(RuntimeException ignored){}
+                shown++;
+                LinearLayout card=ui.card(polls);
+                ui.iconRow(card,"Poll: "+poll.optString("title"),"Vote now · Ends "+com.rapolus.apartmentpilotai.data.DateText.humanize(closes),R.drawable.ic_check,()->go("poll",poll.optString("id")));
+                ui.calm(card);
+            }
+        });
         String kind=admin()?"COMPLAINT":"ISSUE";
         request("GET","/ops/tickets?kind="+kind,null,r->{
-            JSONArray rows=(JSONArray)r;JSONObject current=null;int activeCount=0;
+            JSONArray rows=(JSONArray)r;JSONObject current=null;int activeCount=0,urgentCount=0;
             for(int i=0;i<rows.length();i++) {
                 JSONObject issue=rows.getJSONObject(i);
                 if(!Arrays.asList("RESOLVED","CLOSED").contains(issue.optString("status"))) {
                     activeCount++;
-                    if(current==null)current=issue;
+                    boolean urgent="URGENT".equals(issue.optString("priority"));
+                    if(urgent)urgentCount++;
+                    // Show an urgent issue first when there is one.
+                    if(current==null||urgent&&!"URGENT".equals(current.optString("priority")))current=issue;
                 }
             }
+            String urgentNote=urgentCount>0?" · "+urgentCount+" urgent":"";
             if(admin()) {
-                ui.iconRow(ui.card(issues),"Active complaints",activeCount+" open · View all",R.drawable.ic_tools,()->go("complaints"));
+                LinearLayout complaints=ui.card(issues);
+                ui.iconRow(complaints,"Active complaints",activeCount+" open"+urgentNote+" · View all",R.drawable.ic_tools,()->go("complaints"));
+                // Open complaints show in red so they get attention first.
+                if(activeCount>0)ui.urgent(complaints);
+                // Common building issues (water, lift, power) are a separate list; show them in red too when open.
+                LinearLayout building=ui.column();
+                issues.addView(building);
+                quietGet("/ops/tickets?kind=ISSUE",b->{
+                    JSONArray list=(JSONArray)b;
+                    int open=0,urgent=0;
+                    for(int i=0;i<list.length();i++) {
+                        JSONObject t=list.getJSONObject(i);
+                        if(Arrays.asList("RESOLVED","CLOSED").contains(t.optString("status")))continue;
+                        open++;
+                        if("URGENT".equals(t.optString("priority")))urgent++;
+                    }
+                    if(open>0) {
+                        LinearLayout card=ui.card(building);
+                        ui.iconRow(card,"Building issues",open+" open"+(urgent>0?" · "+urgent+" urgent":"")+" · View all",R.drawable.ic_tools,()->go("issues"));
+                        ui.urgent(card);
+                    }
+                });
                 // Pending flat claims block residents from using the app, so surface them on Home.
                 LinearLayout joins=ui.column();
                 issues.addView(joins);
@@ -1147,18 +1402,32 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                     JSONArray list=(JSONArray)members;
                     int pending=0;
                     for(int i=0;i<list.length();i++)if("PENDING".equals(list.getJSONObject(i).optString("status")))pending++;
-                    if(pending>0)ui.iconRow(ui.card(joins),"Join requests",Ui.count(pending,"resident is","residents are")+" waiting for approval",R.drawable.ic_users,()->go("join-requests"));
+                    if(pending>0) {
+                        LinearLayout card=ui.card(joins);
+                        ui.iconRow(card,"Join requests",Ui.count(pending,"resident is","residents are")+" waiting for approval",R.drawable.ic_users,()->go("join-requests"));
+                        ui.calm(card);
+                    }
                 });
             }
             else if(current==null)ui.empty(issues,R.drawable.ic_check,"All caught up","No open common issues.");
-            else {JSONObject issue=current;ui.iconRow(ui.card(issues),issue.optString("title"),pretty(issue.optString("status")),R.drawable.ic_tools,()->go("issue",issue.optString("id")));}
+            else {
+                JSONObject issue=current;
+                LinearLayout open=ui.card(issues);
+                ui.iconRow(open,issue.optString("title"),pretty(issue.optString("status"))+("URGENT".equals(issue.optString("priority"))?" · Urgent":"")+(activeCount>1?" · "+activeCount+" open issues":""),R.drawable.ic_tools,()->go("issue",issue.optString("id")));
+                ui.urgent(open);
+            }
             if(!staff()) {
                 ui.heading(content,"Community update");
                 LinearLayout notices=ui.column();content.addView(notices);
                 request("GET","/notices",null,n->{
                     JSONArray items=(JSONArray)n;
                     if(items.length()==0)ui.empty(notices,R.drawable.ic_notice,"No notices yet","");
-                    else {JSONObject notice=items.getJSONObject(0);ui.iconRow(ui.card(notices),notice.optString("title"),notice.optString("createdAt"),R.drawable.ic_notice,()->go("notice",notice.optString("id")));}
+                    else {
+                        JSONObject notice=items.getJSONObject(0);
+                        LinearLayout card=ui.card(notices);
+                        ui.iconRow(card,notice.optString("title"),notice.optString("createdAt"),R.drawable.ic_notice,()->go("notice",notice.optString("id")));
+                        ui.calm(card);
+                    }
                 });
             }
         });
@@ -1583,7 +1852,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             getLayoutInflater().inflate(R.layout.view_brand_footer,c,true);
             ui.button(content,"Share PDF",R.drawable.ic_receipt,true,()->exportReport(receiptReport(p)));
             ui.button(content,"Share text",R.drawable.ic_receipt,false,()-> {
-                String text=p.optString("apartmentName")+(p.optBoolean("reversed")?"\nREVERSED ":"\nPAID ")+Ui.money(p.opt("amount"))+"\nFlat "+p.optString("flatLabel")+"\nMonth "+p.optString("billingMonth")+"\nReceipt "+p.optString("receiptNumber")+"\nPowered By @Rapolu`s";
+                String text=p.optString("apartmentName")+(p.optBoolean("reversed")?"\nREVERSED ":"\nPAID ")+Ui.money(p.opt("amount"))+"\nFlat "+p.optString("flatLabel")+"\nMonth "+p.optString("billingMonth")+"\nReceipt "+p.optString("receiptNumber")+"\nPowered By @Rapolus";
                 startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,text),"Share receipt"));
             }
             );
@@ -1623,6 +1892,8 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         EditText search=searchFields.field("search","Search spending","",TEXT);
         LinearLayout filters=ui.row();
         content.addView(filters);
+        // Space between the filter buttons and the first expense card, so they never touch.
+        ui.gap(content,12);
         LinearLayout list=ui.column();
         content.addView(list);
         String[] selected={"All"};
@@ -1644,7 +1915,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                 renderExpenseRows(expenses, list, search.getText().toString(), selected[0]);
             });
             filter.setSingleLine(true);
-            filter.setTextSize(11);
+            filter.setTextSize(14);
             filter.setPadding(ui.dp(4),0,ui.dp(4),0);
             LinearLayout.LayoutParams params=(LinearLayout.LayoutParams)filter.getLayoutParams();
             params.width=0;params.weight=1;params.setMarginEnd(ui.dp(6));filter.setLayoutParams(params);
@@ -1762,8 +2033,33 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             } else if("ACTIVE".equals(m.optString("status"))&&"RESIDENT".equals(m.optString("role"))) {
                 ui.button(content,"Assign treasurer",R.drawable.ic_shield,false,()->ui.confirm("Grant financial access?","Treasurer can approve payments, add expenses and view financial records. Existing sessions are revoked.","Grant access",()->request("POST","/members/"+id+"/treasurer",json(),x->render())));
             }
+            if(admin()&&"ACTIVE".equals(m.optString("status"))&&("RESIDENT".equals(m.optString("role"))||"TREASURER".equals(m.optString("role"))))
+                ui.button(content,"Reset PIN",R.drawable.ic_key,false,()->go("member-pin",id));
         }
         );
+    }
+    /** Admin sets a new PIN for a resident or Treasurer who forgot theirs (when SMS reset is off). */
+    private void memberPin() {
+        header("Reset PIN");
+        if(!admin()) {
+            ui.empty(content,R.drawable.ic_shield,"Admin access required","Only your apartment Admin can reset a member's PIN.");
+            return;
+        }
+        ui.note(content,"Confirm it is really this person (in person or by a call to their registered number) before you reset. They are signed out on every phone and sign in with the new PIN; ask them to change it afterwards in Change PIN.");
+        formStart();
+        fields.field("pin","New 6-digit PIN","",NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        fields.field("pin2","Enter the new PIN again","",NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        fields.limit("pin",6);fields.limit("pin2",6);
+        final String member=id;
+        ui.button(content,"Reset PIN",R.drawable.ic_key,true,()-> {
+            String pin=fields.get("pin");
+            if(!pin.matches("[0-9]{6}")) {showError("Enter a 6-digit PIN.");return;}
+            if(!pin.equals(fields.get("pin2"))) {showError("The two PINs do not match.");return;}
+            request("POST","/members/"+member+"/reset-pin",json("pin",pin),r-> {
+                Toast.makeText(this,"PIN reset. Tell the member their new PIN privately.",Toast.LENGTH_LONG).show();
+                go("member",member);
+            });
+        });
     }
     private void invite() {
         header("Invite residents");
@@ -1906,6 +2202,9 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
                     go("notification",n.optString("id"));
                 }
                 ));
+                // Issue updates in red, every other notification in green.
+                if(n.optString("target").startsWith("ticket:"))ui.urgent(c);
+                else ui.calm(c);
             }
         }
         );
@@ -2079,6 +2378,68 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     }
     @Override public void monthControl() {
         monthSelector();
+    }
+    /** Until setup is 100% complete: the next step banner and the progress card. Gone for good afterwards. */
+    private void setupCard() {
+        JSONObject s=setupState;
+        if(s==null||s.optBoolean("setupComplete",true))return;
+        JSONObject next=s.optJSONObject("next");
+        if(next!=null) {
+            LinearLayout banner=ui.column();
+            banner.setPadding(ui.dp(16),ui.dp(14),ui.dp(16),ui.dp(10));
+            android.graphics.drawable.GradientDrawable bg=new android.graphics.drawable.GradientDrawable();
+            bg.setColor(ui.color(R.color.ap_lime));
+            bg.setCornerRadius(ui.dp(18));
+            banner.setBackground(bg);
+            banner.addView(ui.text("YOUR NEXT STEP",10,true,R.color.ap_onlime));
+            ui.gap(banner,4);
+            banner.addView(ui.text(next.optString("title"),16,true,R.color.ap_onlime));
+            if(!next.optString("detail").isEmpty())banner.addView(ui.text(next.optString("detail"),12,false,R.color.ap_onlime));
+            ui.button(banner,"Do it now",R.drawable.ic_arrow_right,true,()->spotlight(next.optString("route"),next.optString("target"),next.optString("tip"),"next-"+next.optString("key")));
+            content.addView(banner);
+            ui.gap(content,12);
+        }
+        LinearLayout card=ui.card(content);
+        int percent=s.optInt("overallPercent");
+        card.addView(ui.text("Setup "+percent+"% complete",15,true,R.color.ap_ink));
+        ui.gap(card,8);
+        ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);
+        bar.setMax(100);
+        bar.setProgress(Math.max(4,percent));
+        bar.setProgressTintList(android.content.res.ColorStateList.valueOf(ui.color(R.color.ap_pine)));
+        bar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(ui.color(R.color.ap_line)));
+        bar.setContentDescription("Setup "+percent+" percent complete");
+        card.addView(bar,new LinearLayout.LayoutParams(-1,ui.dp(8)));
+        ui.gap(card,6);
+        JSONArray items=s.optJSONArray("readiness");
+        if(items!=null)for(int i=0; i<items.length(); i++) {
+            JSONObject item=items.optJSONObject(i);
+            boolean done=item.optBoolean("done");
+            ui.statusIconRow(card,item.optString("title"),done?"Done":"To do",item.optString("detail"),done?R.drawable.ic_check:R.drawable.ic_clock,done?null:()->spotlight(item.optString("route"),item.optString("target"),item.optString("tip"),"next-"+item.optString("key")));
+        }
+        if(admin())ui.iconRow(card,"Members setup","See which flats have joined",R.drawable.ic_users,()->go("setup-members"));
+    }
+    /** Opens a screen and lights up the button to tap (or shows the tip alone when there is no button). */
+    @Override public void spotlight(String route,String target,String tip,String tipKey) {
+        if(route==null||route.isEmpty())return;
+        go(route);
+        if(tip==null||tip.isEmpty())return;
+        JSONArray seen=setupState==null?null:setupState.optJSONArray("tipsSeen");
+        if(seen!=null)for(int i=0; i<seen.length(); i++)if(tipKey.equals(seen.optString(i)))return;
+        final int run=++spotlightRun,screen=generation;
+        final long until=System.currentTimeMillis()+4000;
+        Runnable[] look=new Runnable[1];
+        look[0]=()-> {
+            if(isFinishing()||isDestroyed()||run!=spotlightRun||screen!=generation)return;
+            View found=com.rapolus.apartmentpilotai.ui.Spotlight.findByText(content,target);
+            if(found==null&&target!=null&&!target.isEmpty()&&System.currentTimeMillis()<until) {
+                content.postDelayed(look[0],250);
+                return;
+            }
+            com.rapolus.apartmentpilotai.ui.Spotlight.show(this,found,tip,null);
+            if(tipKey.matches("[a-z0-9_-]{1,30}"))api.call("POST","/setup/tips/"+tipKey+"/seen",new JSONObject(),(r,e)-> { });
+        };
+        content.postDelayed(look[0],500);
     }
     @Override public void requestApi(String method,String path,JSONObject payload,FeatureHost.Reply reply) {
         request(method,path,payload,reply::done);

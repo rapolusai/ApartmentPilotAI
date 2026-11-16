@@ -24,7 +24,12 @@ class OperationsRulesTest {
         assertEquals(99,OperationsRules.planPrice(10));
         assertEquals(149,OperationsRules.planPrice(30));
         assertEquals(249,OperationsRules.planPrice(50));
-        assertThrows(IllegalArgumentException.class,()->OperationsRules.planPrice(51));
+        assertEquals(349,OperationsRules.planPrice(51));
+        assertEquals(349,OperationsRules.planPrice(100));
+        assertEquals(499,OperationsRules.planPrice(101));
+        assertEquals(499,OperationsRules.planPrice(200));
+        assertThrows(IllegalArgumentException.class,()->OperationsRules.planPrice(201));
+        assertThrows(IllegalArgumentException.class,()->OperationsRules.planPrice(4));
     }
     @Test void residentsCannotResolveTicketThemselves() {
         assertThrows(IllegalArgumentException.class,()->OperationsRules.ticketTransition("OPEN","RESOLVED",false));

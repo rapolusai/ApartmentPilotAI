@@ -10,12 +10,23 @@ compose() { docker compose --env-file "$APP_DIR/.env" -f "$APP_DIR/docker-compos
 
 # Writes .env from SSM Parameter Store (/apartmentcare/prod/*, SecureString) plus the image to run.
 # Expected parameters: DB_PASSWORD, APP_INVITE_DISPLAY_KEY, APP_PROVIDER_KEY, SUPPORT_EMAIL.
+# Optional: APP_FIREBASE_PROJECT_ID, APP_PLAY_BILLING_ENABLED, APP_PLAY_NOTIFICATION_SECRET, and
+# PLAY_SERVICE_ACCOUNT_JSON (written to secrets/play-service-account.json, never into .env).
 write_env() {
   local image="$1" tmp="$APP_DIR/.env.tmp" required
   umask 077
   aws ssm get-parameters-by-path --region "$AWS_REGION" --path "$SSM_PREFIX/" --with-decryption \
     --query 'Parameters[].[Name,Value]' --output text \
-  | while IFS=$'\t' read -r name value; do printf '%s=%s\n' "${name##*/}" "$value"; done > "$tmp"
+  | while IFS=$'\t' read -r name value; do
+      [ "${name##*/}" = PLAY_SERVICE_ACCOUNT_JSON ] && continue
+      printf '%s=%s\n' "${name##*/}" "$value"
+    done > "$tmp"
+  mkdir -p "$APP_DIR/secrets"; chmod 700 "$APP_DIR/secrets"
+  aws ssm get-parameter --region "$AWS_REGION" --name "$SSM_PREFIX/PLAY_SERVICE_ACCOUNT_JSON" --with-decryption \
+    --query Parameter.Value --output text > "$APP_DIR/secrets/play-service-account.json" 2>/dev/null \
+    || echo '{}' > "$APP_DIR/secrets/play-service-account.json"
+  # Readable by the non-root app user through the bind mount; the folder itself stays root-only.
+  chmod 644 "$APP_DIR/secrets/play-service-account.json"
   for required in DB_PASSWORD APP_INVITE_DISPLAY_KEY; do
     grep -q "^${required}=" "$tmp" || { log "Missing $SSM_PREFIX/$required in Parameter Store" >&2; rm -f "$tmp"; return 1; }
   done
@@ -23,6 +34,10 @@ write_env() {
     echo "BACKEND_IMAGE=$image"
     echo "APP_DOMAIN=$DOMAIN"
     echo "APP_LOCAL_REGISTRATION_ENABLED=${APP_LOCAL_REGISTRATION_ENABLED:-false}"
+    # Server size settings from deploy.env (empty = the 2 GB defaults in docker-compose.prod.yml).
+    for size in APP_MEM_LIMIT DB_MEM_LIMIT DB_SHARED_BUFFERS DB_CACHE_SIZE CADDY_MEM_LIMIT; do
+      if [ -n "${!size:-}" ]; then echo "$size=${!size}"; fi
+    done
   } >> "$tmp"
   mv "$tmp" "$APP_DIR/.env"
 }

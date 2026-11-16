@@ -6,6 +6,14 @@ def keystoreFile = rootProject.file('keystore.properties')
 if (keystoreFile.exists()) keystoreFile.withInputStream { keystoreProperties.load(it) }
 def signing = { String key, String env -> keystoreProperties.getProperty(key) ?: System.getenv(env) }
 def releaseApiBaseUrl = project.findProperty('apiBaseUrl') ?: System.getenv('APT_API_BASE_URL')
+// Firebase phone verification (SMS code for sign-up, join and Forgot PIN). These are the public app identifiers from the
+// Firebase console (Project settings > Your apps), not secrets, but kept out of git like the server address:
+// firebaseApiKey=, firebaseAppId=, firebaseProjectId= in android/keystore.properties (git-ignored), or -P / APT_FIREBASE_*.
+// Missing = phone verification off in the app (a local debug server can still register without it).
+def firebase = { String key, String env -> (keystoreProperties.getProperty(key) ?: project.findProperty(key) ?: System.getenv(env) ?: '').toString() }
+def firebaseApiKey = firebase('firebaseApiKey', 'APT_FIREBASE_API_KEY')
+def firebaseAppId = firebase('firebaseAppId', 'APT_FIREBASE_APP_ID')
+def firebaseProjectId = firebase('firebaseProjectId', 'APT_FIREBASE_PROJECT_ID')
 android {
  namespace 'com.rapolus.apartmentpilotai'
  compileSdk 36
@@ -13,9 +21,12 @@ android {
   applicationId 'com.rapolus.apartmentpilotai'
   minSdk 26
   targetSdk 36
-  versionCode 3
-  versionName '0.3.0'
+  versionCode 5
+  versionName '1.0.0'
   testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+  buildConfigField 'String','FIREBASE_API_KEY','"' + firebaseApiKey + '"'
+  buildConfigField 'String','FIREBASE_APP_ID','"' + firebaseAppId + '"'
+  buildConfigField 'String','FIREBASE_PROJECT_ID','"' + firebaseProjectId + '"'
  }
  buildFeatures { buildConfig true }
  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
@@ -52,6 +63,8 @@ tasks.configureEach { t ->
   t.doFirst {
    if (releaseApiBaseUrl == null || !releaseApiBaseUrl.startsWith('https://') || releaseApiBaseUrl.contains('example.invalid'))
     throw new GradleException('Release build needs the live API address: -PapiBaseUrl=https://api.apartmentcare.rapolu.in/api/v1 (or APT_API_BASE_URL).')
+   if (firebaseAppId.isEmpty() || firebaseApiKey.isEmpty() || firebaseProjectId.isEmpty())
+    throw new GradleException('Release build needs the Firebase app settings for phone verification: -PfirebaseApiKey, -PfirebaseAppId, -PfirebaseProjectId. See docs/RELEASE.md.')
    if (signing('storeFile', 'APT_KEYSTORE_FILE') == null)
     throw new GradleException('Release build needs the upload keystore: android/keystore.properties or APT_KEYSTORE_* variables. See docs/RELEASE.md.')
   }
@@ -62,5 +75,9 @@ dependencies {
  implementation 'androidx.core:core:1.16.0'
  implementation 'com.google.android.material:material:1.13.0'
  implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+ implementation 'com.android.billingclient:billing:8.0.0'
+ implementation 'com.google.firebase:firebase-auth:23.2.1'
  testImplementation 'junit:junit:4.13.2'
+ // Real org.json for JVM unit tests (android.jar's copy is stubbed out off-device).
+ testImplementation 'org.json:json:20231013'
 }

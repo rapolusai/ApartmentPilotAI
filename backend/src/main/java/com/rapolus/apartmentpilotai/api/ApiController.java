@@ -19,7 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
     private final RateGate gate;
     private final LoginGuard guard;
     private final boolean local;
-    public ApiController(com.rapolus.apartmentpilotai.operations.NoticeService noticeService,AuthService auth,FinanceService finance,Db db,RateGate gate,LoginGuard guard,@Value("${app.local-registration-enabled:false}")boolean local) {
+    private final String version;
+    public ApiController(com.rapolus.apartmentpilotai.operations.NoticeService noticeService,AuthService auth,FinanceService finance,Db db,RateGate gate,LoginGuard guard,@Value("${app.local-registration-enabled:false}")boolean local,@Value("${app.version:1.0.0}")String version) {
+        this.version=version;
         this.noticeService=noticeService;
         this.auth=auth;
         this.finance=finance;
@@ -29,7 +31,9 @@ import org.springframework.transaction.annotation.Transactional;
         this.local=local;
     }
     @GetMapping("/status") Map<String,Object> status() {
-        return Map.of("application","ApartmentPilotAI","version","0.2.0","localRegistration",local,"releaseReady",false);
+        // Release ready = a production server (no local shortcut) where people can verify their phone and sign up.
+        boolean phone=auth.phoneVerificationEnabled(),open=auth.openRegistrationEnabled();
+        return Map.of("application","ApartmentPilotAI","version",version,"localRegistration",local,"phoneVerification",phone,"openRegistration",open,"releaseReady",!local&&(phone||open));
     }
     @PostMapping("/auth/register") Object register(@Valid @RequestBody Requests.Register r,HttpServletRequest req) {
         RateGate.enforce(gate.count("register:"+req.getRemoteAddr()),10);
@@ -62,6 +66,14 @@ import org.springframework.transaction.annotation.Transactional;
         RateGate.enforce(gate.count("join:"+req.getRemoteAddr()),20);
         return auth.join(r);
     }
+    @PostMapping("/auth/reset-pin") Object resetPin(@Valid @RequestBody Requests.ResetPin r,HttpServletRequest req) {
+        RateGate.enforce(gate.count("reset-pin:"+req.getRemoteAddr()),10);
+        RateGate.enforce(gate.count("reset-pin-mobile:"+r.mobile()),5);
+        auth.resetPin(r);
+        // A proven owner of the number gets a clean slate on the login lockout too.
+        if(guard.enabled())guard.succeeded(r.mobile(),req.getRemoteAddr());
+        return Map.of("status","PIN_RESET");
+    }
     @PostMapping("/auth/join-status") Object joinStatus(@Valid @RequestBody Requests.JoinStatus r,HttpServletRequest req) {
         RateGate.enforce(gate.count("join-status:"+req.getRemoteAddr()),60);
         return auth.joinStatus(r.receipt());
@@ -75,7 +87,7 @@ import org.springframework.transaction.annotation.Transactional;
     }
     @GetMapping("/flats") Object flats(@AuthenticationPrincipal Account a) {
         a.requireStaff();
-        return db.rows("select f.id,f.label,f.active,f.occupied,u.name,u.status from ap_flat f left join ap_user u on u.tenant_id=f.tenant_id and u.flat_id=f.id and u.status in ('ACTIVE','PENDING') where f.tenant_id=? order by f.label",a.tenantId());
+        return db.rows("select f.id,f.label,f.active,f.occupied,u.name,u.status from ap_flat f left join ap_user u on u.tenant_id=f.tenant_id and u.flat_id=f.id and u.status in ('ACTIVE','PENDING') where f.tenant_id=? order by regexp_replace(f.label,'[0-9]+$',''),coalesce(substring(f.label from '([0-9]+)$')::numeric,0),f.label",a.tenantId());
     }
     @GetMapping("/members") Object members(@AuthenticationPrincipal Account a) {
         a.requireAdmin();
@@ -105,6 +117,10 @@ import org.springframework.transaction.annotation.Transactional;
     }
     @PostMapping("/members/{id}/reject") Object rejectMember(@AuthenticationPrincipal Account a,@PathVariable UUID id,@Valid @RequestBody Requests.Reject r) {
         auth.reject(a,id,r.reason());
+        return Map.of("ok",true);
+    }
+    @PostMapping("/members/{id}/reset-pin") Object resetMemberPin(@AuthenticationPrincipal Account a,@PathVariable UUID id,@Valid @RequestBody Requests.AdminPinReset r) {
+        auth.adminResetPin(a,id,r.pin());
         return Map.of("ok",true);
     }
     @PostMapping("/members/{id}/treasurer") Object treasurer(@AuthenticationPrincipal Account a,@PathVariable UUID id) {
