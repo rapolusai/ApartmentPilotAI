@@ -1768,7 +1768,7 @@ import java.util.*;
             f.field("scheduledAt","Schedule · IST YYYY-MM-DDTHH:mm · optional",val(n,"scheduledAt").trim().isEmpty()?"":local(val(n,"scheduledAt")),TEXT);
             f.check("acknowledge","Request acknowledgement",n.optBoolean("acknowledge"));
             f.check("pinned","Pin notice",n.optBoolean("pinned"));
-            f.check("phoneNotify","Notify on phone · external delivery not configured",n.optBoolean("phoneNotify"));
+            f.check("phoneNotify","Notify on phone · coming soon; in-app inbox only for now",n.optBoolean("phoneNotify"));
             u.note(b,"Preview first. Publishing sends the notice to residents' in-app inbox. Phone (SMS/push) delivery is not set up yet.");
             submit("Preview notice",()-> {
                 JSONObject body=f.values();
@@ -1981,7 +1981,7 @@ import java.util.*;
                     f.field("reminderDays","Days of month · e.g. 5,9,11,15",x.optString("reminderDays","5,9,11,15"),TEXT);
                     f.field("quietStart","Quiet hours start · HH:mm",x.optString("quietStart","21:00"),TEXT);
                     f.field("quietEnd","Quiet hours end · HH:mm",x.optString("quietEnd","08:00"),TEXT);
-                    u.note(b,"Reminders pause during payment review. In-app inbox is available; phone push is not configured.");
+                    u.note(b,"Reminders go to the in-app inbox and pause while a payment is under review.");
                     break;
                 default:
                     f.field("bookingRules","Rules",x.optString("bookingRules"),TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
@@ -2710,7 +2710,7 @@ import java.util.*;
         String[] topics={"Payment approval","Account access","Flat mapping","Something else"};
         f.select("topic","Topic",topics,topics);
         f.field("message","Message","",TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        u.note(b,"Saved privately in this application. External support delivery is not configured. Do not include PINs or passwords.");
+        u.note(b,"This saves a private note in your account only. To reach the ApartmentCare team, email support@rapolu.in. Do not include PINs or passwords.");
         submit("Save request",()->write("/ops/support",f.values(),r->{
             u.message("Help request saved privately",true);
             h.refreshPage();

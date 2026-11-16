@@ -802,7 +802,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             tool.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
         }
         content.addView(tools);
-        ui.note(content,"Use your server account. Mobile verification and recovery are not configured in this local build.");
+        ui.note(content,"Sign in with your mobile number and 6-digit PIN. Forgot it? Tap Forgot PIN.");
         ui.button(content,"Sign in",R.drawable.ic_arrow_right,true,()-> {
             String validation=LoginPolicy.validationMessage(fields.get("mobile"),fields.get("pin"));
             if(!validation.isEmpty()) {showError(validation);return;}
