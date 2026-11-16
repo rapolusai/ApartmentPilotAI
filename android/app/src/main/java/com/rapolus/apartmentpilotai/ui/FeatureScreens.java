@@ -798,15 +798,17 @@ import java.util.*;
                 h.refreshPage();
             });
             button.setSingleLine(true);
-            button.setTextSize(11);
+            button.setTextSize(14);
             button.setMinWidth(0);
             button.setMinimumWidth(0);
             button.setPadding(u.dp(4),0,u.dp(4),0);
             LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(0,-2,1);
-            params.setMarginEnd(u.dp(6));
+            if(!option.equals("REJECTED"))params.setMarginEnd(u.dp(6));
             button.setLayoutParams(params);
         }
         b.addView(filters);
+        // Space between the filter buttons and the first request card, so they never touch.
+        u.gap(b,12);
         get("/members",value-> {
             JSONArray rows=(JSONArray)value;
             int requestCount=0;
@@ -847,12 +849,12 @@ import java.util.*;
                 Button approve=u.button(actions,"Approve resident",R.drawable.ic_check,true,()->approveResident(member));
                 for(Button button:new Button[] {reject,approve}) {
                     button.setSingleLine(true);
-                    button.setTextSize(11);
+                    button.setTextSize(14);
                     button.setMinWidth(0);
                     button.setMinimumWidth(0);
                     button.setPadding(u.dp(4),0,u.dp(4),0);
                     LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(0,-2,1);
-                    params.setMarginEnd(u.dp(6));
+                    if(button==reject)params.setMarginEnd(u.dp(6));
                     button.setLayoutParams(params);
                 }
                 b.addView(actions);
@@ -1068,7 +1070,7 @@ import java.util.*;
                     renderTicketRows(arr,list,search.getText().toString(),selected[0],kind);
                 });
                 button.setSingleLine(true);
-                button.setTextSize(12);
+                button.setTextSize(14);
                 button.setMinHeight(u.dp(50));
                 button.setPadding(u.dp(4),0,u.dp(4),0);
                 LinearLayout.LayoutParams params=(LinearLayout.LayoutParams)button.getLayoutParams();
@@ -1325,6 +1327,7 @@ import java.util.*;
         EditText search=searchFields.field("search","Search events or spaces",h.pageDraft("booking-list").optString("search"),TEXT);
         LinearLayout filters=u.row();
         b.addView(filters);
+        u.gap(b,12);
         LinearLayout list=u.column();
         b.addView(list);
         get("/ops/bookings",r-> {
@@ -1348,7 +1351,7 @@ import java.util.*;
                     render.run();
                 });
                 button.setSingleLine(true);
-                button.setTextSize(10);
+                button.setTextSize(14);
                 button.setPadding(u.dp(2),0,u.dp(2),0);
                 LinearLayout.LayoutParams params=(LinearLayout.LayoutParams)button.getLayoutParams();
                 params.width=0;params.weight=1;params.setMarginEnd(u.dp(4));button.setLayoutParams(params);
@@ -1639,6 +1642,7 @@ import java.util.*;
         EditText search=searchFields.field("search","Search notices","",TEXT);
         LinearLayout filters=u.row();
         b.addView(filters);
+        u.gap(b,12);
         LinearLayout list=u.column();
         b.addView(list);
         get("/notices",r-> {
@@ -1659,7 +1663,7 @@ import java.util.*;
                     renderNoticeRows(rows,list,search.getText().toString(),selected[0]);
                 });
                 button.setSingleLine(true);
-                button.setTextSize(11);
+                button.setTextSize(14);
                 button.setPadding(u.dp(4),0,u.dp(4),0);
                 LinearLayout.LayoutParams params=(LinearLayout.LayoutParams)button.getLayoutParams();
                 params.width=0;params.weight=1;params.setMarginEnd(u.dp(6));button.setLayoutParams(params);
@@ -1821,7 +1825,10 @@ import java.util.*;
         JSONObject draft=h.pageDraft("document-list");
         EditText search=h.newFields().field("search","Search documents",draft.optString("search"),TEXT);
         LinearLayout filters=u.row();
-        if(h.isStaff())b.addView(filters);
+        if(h.isStaff()) {
+            b.addView(filters);
+            u.gap(b,12);
+        }
         LinearLayout list=u.column();
         b.addView(list);
         get("/ops/documents",r-> {
@@ -1844,7 +1851,7 @@ import java.util.*;
                     renderDocumentRows(a,list,search.getText().toString(),selected[0]);
                 });
                 button.setSingleLine(true);
-                button.setTextSize(11);
+                button.setTextSize(14);
                 LinearLayout.LayoutParams params=(LinearLayout.LayoutParams)button.getLayoutParams();
                 params.width=0;params.weight=1;params.setMarginEnd(u.dp(6));button.setLayoutParams(params);
                 buttons.add(button);
@@ -2061,13 +2068,15 @@ import java.util.*;
                 found++;
                 row(card(),x.optString("title"),x.optString("flatLabel")+" · "+Ui.money(Ui.decimal(x.opt("amount")).subtract(Ui.decimal(x.opt("paid")))),R.drawable.ic_receipt,"bill",x.optString("id"));
             }
-            if(found==0)u.empty(b,R.drawable.ic_expense,"No contributions for "+h.selectedMonth(),"Regular monthly maintenance remains separate.");
+            if(found==0)u.empty(b,R.drawable.ic_expense,"No contributions for "+h.selectedMonth(),"For example water tank repair, painting, festival celebration or a new CCTV camera. Monthly maintenance stays separate.");
         }
         );
     }
     private void charge(String kind) {
         title(kind.equals("OPENING_DUE")?"Opening flat dues":"One-time collection");
         get("/ops/flats",r-> {
+            if(kind.equals("OPENING_DUE"))u.note(b,"Example: Before using this app, flat 302 still owed ₹6,000 (3 months of ₹2,000). Choose flat 302 and enter ₹6,000. It shows in that flat's dues and is paid and approved like maintenance.");
+            if(kind.equals("CONTRIBUTION"))u.note(b,"Example: Water tank repair costs ₹30,000 and there are 30 flats. Enter \"Water tank repair\" with ₹1,000 per flat for all active flats. Each flat gets a one-time ₹1,000 due, separate from monthly maintenance. You can then record and approve payments the same way as maintenance.");
             Ui.Fields f=h.newFields();
             if(kind.equals("CONTRIBUTION")) {
                 f.select("scope","Charge to",new String[] {"All active flats","Selected flats"},new String[] {"ALL","SELECTED"});
@@ -2075,6 +2084,12 @@ import java.util.*;
             } else choices(f,"flatId","Flat",(JSONArray)r,"label",false,null);
             f.field("title","Charge description",kind.equals("OPENING_DUE")?"Opening maintenance due":"",TEXT);
             f.field("amount","Amount per selected flat","",MONEY);
+            if(kind.equals("OPENING_DUE"))f.placeholder("amount","e.g. 6000");
+            if(kind.equals("CONTRIBUTION")) {
+                f.placeholder("title","e.g. Water tank repair");
+                f.placeholder("amount","e.g. 1000");
+                f.placeholder("flatLabels","e.g. 101, 102, 205");
+            }
             f.field("month","Bill month · YYYY-MM",h.selectedMonth(),TEXT);
             f.field("dueDate","Due date · YYYY-MM-DD",today(),TEXT);
             u.note(b,kind.equals("OPENING_DUE")?"One opening-due entry per flat. Enter verified outstanding only.":"This charge does not change monthly maintenance rates.");
@@ -2210,7 +2225,7 @@ import java.util.*;
         u.button(b,"Add recurring expense",R.drawable.ic_plus,true,()->go("recurring-form"));
         get("/ops/recurring",r-> {
             JSONArray arr=(JSONArray)r;
-            if(arr.length()==0)u.empty(b,R.drawable.ic_expense,"No recurring templates","Recurring entries are drafts until payment is confirmed.");
+            if(arr.length()==0)u.empty(b,R.drawable.ic_expense,"No recurring expenses yet","For example watchman salary, electricity bill, lift maintenance or housekeeping. Each cycle becomes a draft until payment is confirmed.");
             for(int i=0; i<arr.length(); i++) {
                 JSONObject x=arr.getJSONObject(i);
                 row(card(),x.optString("title"),Ui.money(x.opt("amount"))+" · "+x.optString("nextOn")+" · "+(x.optBoolean("active")?"Active":"Paused"),R.drawable.ic_clock,"recurring-detail",x.optString("id"));
@@ -2247,10 +2262,16 @@ import java.util.*;
     }
     private void recurringFields(JSONObject x) {
         get("/ops/contacts?kind=VENDOR",r-> {
+            boolean fresh=id.isEmpty();
+            if(fresh)u.note(b,"Example: Watchman salary · Security · ₹12,000 · Monthly · next due on the 1st. Each month the app prepares a draft expense for it, and it's counted only after you confirm the payment.");
             Ui.Fields f=h.newFields();
             f.field("title","Description",val(x,"title"),TEXT);
             expenseCategory(f,x.optString("category","Security"));
             f.field("amount","Expected amount",val(x,"amount"),MONEY);
+            if(fresh) {
+                f.placeholder("title","e.g. Watchman salary");
+                f.placeholder("amount","e.g. 12000");
+            }
             pick(f,"frequency","Frequency",FREQUENCIES,x.optString("frequency","MONTHLY"));
             f.field("nextOn","Next due · YYYY-MM-DD",x.optString("nextOn",today()),TEXT);
             choices(f,"vendorId","Vendor · optional",(JSONArray)r,"name",true,val(x,"vendorId"));

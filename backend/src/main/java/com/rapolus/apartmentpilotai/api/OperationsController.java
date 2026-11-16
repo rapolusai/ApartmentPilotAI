@@ -51,6 +51,9 @@ import java.util.*;
     @PostMapping("/flats") Object flat(@AuthenticationPrincipal Account a,@RequestBody Map<String,Object> p) {
         return community.saveFlat(a,null,p);
     }
+    @PostMapping("/flats/bulk") Object flatsBulk(@AuthenticationPrincipal Account a,@RequestBody Map<String,Object> p) {
+        return community.saveFlats(a,p);
+    }
     @PostMapping("/flats/{id}") Object flat(@AuthenticationPrincipal Account a,@PathVariable UUID id,@RequestBody Map<String,Object> p) {
         return community.saveFlat(a,id,p);
     }

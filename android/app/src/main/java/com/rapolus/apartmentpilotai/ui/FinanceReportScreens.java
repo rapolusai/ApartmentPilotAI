@@ -140,7 +140,7 @@ public final class FinanceReportScreens {
                 csv.add(Arrays.asList(apartment,h.selectedMonth(),key[1],report.optString(key[0])));
                 text.append(key[1]).append(": ").append(Ui.money(report.opt(key[0]))).append('\n');
             }
-            text.append("Powered By @Rapolu`s");
+            text.append("Powered By @Rapolus");
             u.button(b,"Export CSV",R.drawable.ic_report,false,()->h.exportCsv("Monthly summary · "+h.selectedMonth(),csv));
             u.button(b,"Save / share PDF",R.drawable.ic_receipt,false,()->h.exportReport(monthlyReport(apartment,report,keys)));
             u.button(b,"Share summary",R.drawable.ic_copy,false,()->{

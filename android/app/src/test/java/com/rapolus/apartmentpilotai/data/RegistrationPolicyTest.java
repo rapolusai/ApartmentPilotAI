@@ -25,7 +25,9 @@ public class RegistrationPolicyTest {
     @Test public void apartmentRequiresReferenceDetails() {
         assertEquals("",RegistrationPolicy.apartment("Community","Street 1","500001","5"));
         assertEquals("",RegistrationPolicy.apartment("Community","Street 1","500001","50"));
-        for(String count:new String[]{"4","51","","five","99999999999"})assertFalse(RegistrationPolicy.apartment("Community","Street 1","500001",count).isEmpty());
+        assertEquals("",RegistrationPolicy.apartment("Community","Street 1","500001","200"));
+        assertFalse(RegistrationPolicy.apartment("Community","Street 1","500001","201").isEmpty());
+        for(String count:new String[]{"4","201","","five","99999999999"})assertFalse(RegistrationPolicy.apartment("Community","Street 1","500001",count).isEmpty());
         assertFalse(RegistrationPolicy.apartment("Community","","500001","5").isEmpty());
         assertFalse(RegistrationPolicy.apartment("Community","Street 1","50001","5").isEmpty());
         assertFalse(RegistrationPolicy.apartment(null,"Street 1","500001","5").isEmpty());

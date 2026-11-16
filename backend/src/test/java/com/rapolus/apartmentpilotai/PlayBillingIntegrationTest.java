@@ -47,6 +47,7 @@ class PlayBillingIntegrationTest {
         r.add("spring.datasource.password",()->Optional.ofNullable(System.getenv("APT_TEST_DB_PASSWORD")).orElse(""));
         byte[] inviteKey=new byte[32];
         new java.security.SecureRandom().nextBytes(inviteKey);
+        r.add("app.setup-enforced",()->"false");
         r.add("app.invite-display-key",()->Base64.getEncoder().encodeToString(inviteKey));
     }
     private static final ObjectMapper JSON=new ObjectMapper();

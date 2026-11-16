@@ -63,3 +63,5 @@ app:
     product-id: ${APP_PLAY_PRODUCT_ID:apartmentcare_monthly}
     service-account-file: ${APP_PLAY_SERVICE_ACCOUNT_FILE:}
     notification-secret: ${APP_PLAY_NOTIFICATION_SECRET:}
+  # Guided setup lock (HTTP 428 until required steps are done). Set APP_SETUP_ENFORCED=false to switch it off at once.
+  setup-enforced: ${APP_SETUP_ENFORCED:true}
