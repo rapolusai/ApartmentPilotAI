@@ -14,11 +14,23 @@ import org.springframework.transaction.annotation.Transactional;
     private final InviteCipher inviteCipher;
     private final boolean localRegistration;
     private final PhoneVerifier phone;
+    private boolean openRegistration;
     private final int hours;
     // Unknown mobiles are compared against this hash so they take as long as a wrong PIN and do not reveal registration.
     // Same cost as SecurityConfig's encoder; generated per process, it matches no PIN anyone can know.
     private static final class Dummy {
         static final String HASH=new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(12).encode(Tokens.create());
+    }
+    /**
+     * Open registration: sign-up and join work without phone verification (owner's choice for launch, to avoid SMS
+     * costs). Residents still need the Admin's approval; the Admin resets forgotten PINs. Off by default.
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    public void setOpenRegistration(@Value("${app.open-registration-enabled:false}")boolean open) {
+        this.openRegistration=open;
+    }
+    public boolean openRegistrationEnabled() {
+        return openRegistration;
     }
     public AuthService(Db db,PasswordEncoder encoder,InviteCipher inviteCipher,boolean localRegistration,int hours) {
         this(db,encoder,inviteCipher,localRegistration,hours,PhoneVerifier.disabled());
@@ -37,16 +49,41 @@ import org.springframework.transaction.annotation.Transactional;
      * local development profile skips this. With neither, registration stays off (the safe default).
      */
     private void requireVerifiedMobile(String mobile,String verificationToken) {
-        if(localRegistration&&(!phone.enabled()||verificationToken==null||verificationToken.isBlank()))return;
+        if((localRegistration||openRegistration)&&(!phone.enabled()||verificationToken==null||verificationToken.isBlank()))return;
         if(!phone.enabled())throw new ApiError(HttpStatus.SERVICE_UNAVAILABLE,"Account verification has not been configured. Registration is disabled outside the local profile.");
         phone.requireSameMobile(mobile,verificationToken);
     }
     public boolean phoneVerificationEnabled() {
         return phone.enabled();
     }
+    /** Admin resets a resident's or treasurer's forgotten PIN; that person is signed out everywhere. */
+    @Transactional public void adminResetPin(Account a,UUID id,String pin) {
+        a.requireAdmin();
+        if(id.equals(a.id()))throw new ApiError(HttpStatus.BAD_REQUEST,"Use Change PIN in More to change your own PIN.");
+        PinPolicy.requireNew(pin);
+        var target=db.find("select role,status from ap_user where id=? and tenant_id=? and deleted_at is null",id,a.tenantId()).orElseThrow(ApiError::missing);
+        if(!"ACTIVE".equals(target.get("status"))||!List.of("RESIDENT","TREASURER").contains(target.get("role")))
+            throw ApiError.conflict("Only an active resident's or treasurer's PIN can be reset here.");
+        db.update("update ap_user set pin_hash=? where id=? and tenant_id=?",encoder.encode(pin),id,a.tenantId());
+        db.update("delete from ap_session where user_id=?",id);
+        db.audit(a.tenantId(),a.id(),"PIN_RESET_BY_ADMIN",id,null,"PIN reset");
+        db.notify(a.tenantId(),id,"PIN_RESET:"+id+":"+UUID.randomUUID(),"PIN reset","Your apartment Admin set a new PIN. Change it in More > Change PIN after signing in.","more");
+    }
+    /** Support resets an apartment Admin's forgotten PIN (caller already checked the provider key). */
+    @Transactional public void supportResetPin(String mobile,String pin) {
+        PinPolicy.requireNew(pin);
+        var user=db.find("select id,tenant_id from ap_user where mobile=? and status='ACTIVE' and deleted_at is null",mobile)
+            .orElseThrow(()->new ApiError(HttpStatus.NOT_FOUND,"No active account uses this mobile number."));
+        UUID id=UUID.fromString(user.get("id").toString()),tenant=UUID.fromString(user.get("tenantId").toString());
+        db.update("update ap_user set pin_hash=? where id=?",encoder.encode(pin),id);
+        db.update("delete from ap_session where user_id=?",id);
+        db.audit(tenant,id,"PIN_RESET_BY_SUPPORT",id,null,"PIN reset");
+    }
     /** Forgot PIN: sets a new PIN after phone verification and signs the account out everywhere. */
     @Transactional public void resetPin(Requests.ResetPin r) {
-        requireVerifiedMobile(r.mobile(),r.verificationToken());
+        // Open registration never skips this: resetting a PIN always needs proof of the phone.
+        if(!phone.enabled())throw new ApiError(HttpStatus.SERVICE_UNAVAILABLE,"Ask your apartment Admin to reset your PIN.");
+        phone.requireSameMobile(r.mobile(),r.verificationToken());
         PinPolicy.requireNew(r.pin());
         var user=db.find("select id,tenant_id from ap_user where mobile=? and status in ('ACTIVE','PENDING')",r.mobile())
             .orElseThrow(()->new ApiError(HttpStatus.NOT_FOUND,"No active account uses this mobile number. Ask your apartment admin, or sign up."));

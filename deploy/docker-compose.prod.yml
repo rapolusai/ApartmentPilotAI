@@ -56,8 +56,10 @@ services:
       SUPPORT_EMAIL: ${SUPPORT_EMAIL:-}
       APP_BILLING_JOB_ENABLED: ${APP_BILLING_JOB_ENABLED:-true}
       APP_LOCAL_REGISTRATION_ENABLED: ${APP_LOCAL_REGISTRATION_ENABLED:-false}
-      # Phone verification (Firebase Authentication). Empty = sign-up, join and Forgot PIN stay off.
+      # Phone verification (Firebase Authentication). Empty = no SMS check; sign-up and join then need
+      # APP_OPEN_REGISTRATION_ENABLED=true (Admin approves each resident; Admin resets forgotten PINs).
       APP_FIREBASE_PROJECT_ID: ${APP_FIREBASE_PROJECT_ID:-}
+      APP_OPEN_REGISTRATION_ENABLED: ${APP_OPEN_REGISTRATION_ENABLED:-false}
       # Google Play Billing. Off until the Play Console product, service account and Pub/Sub push exist.
       APP_PLAY_BILLING_ENABLED: ${APP_PLAY_BILLING_ENABLED:-false}
       APP_PLAY_PRODUCT_ID: ${APP_PLAY_PRODUCT_ID:-apartmentcare_monthly}

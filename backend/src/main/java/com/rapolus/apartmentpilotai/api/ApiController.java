@@ -32,8 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
     }
     @GetMapping("/status") Map<String,Object> status() {
         // Release ready = a production server (no local shortcut) where people can verify their phone and sign up.
-        boolean phone=auth.phoneVerificationEnabled();
-        return Map.of("application","ApartmentPilotAI","version",version,"localRegistration",local,"phoneVerification",phone,"releaseReady",!local&&phone);
+        boolean phone=auth.phoneVerificationEnabled(),open=auth.openRegistrationEnabled();
+        return Map.of("application","ApartmentPilotAI","version",version,"localRegistration",local,"phoneVerification",phone,"openRegistration",open,"releaseReady",!local&&(phone||open));
     }
     @PostMapping("/auth/register") Object register(@Valid @RequestBody Requests.Register r,HttpServletRequest req) {
         RateGate.enforce(gate.count("register:"+req.getRemoteAddr()),10);
@@ -117,6 +117,10 @@ import org.springframework.transaction.annotation.Transactional;
     }
     @PostMapping("/members/{id}/reject") Object rejectMember(@AuthenticationPrincipal Account a,@PathVariable UUID id,@Valid @RequestBody Requests.Reject r) {
         auth.reject(a,id,r.reason());
+        return Map.of("ok",true);
+    }
+    @PostMapping("/members/{id}/reset-pin") Object resetMemberPin(@AuthenticationPrincipal Account a,@PathVariable UUID id,@Valid @RequestBody Requests.AdminPinReset r) {
+        auth.adminResetPin(a,id,r.pin());
         return Map.of("ok",true);
     }
     @PostMapping("/members/{id}/treasurer") Object treasurer(@AuthenticationPrincipal Account a,@PathVariable UUID id) {

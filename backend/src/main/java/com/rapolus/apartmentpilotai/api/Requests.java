@@ -29,6 +29,12 @@ public final class Requests {
             this(invite,flatLabel,name,mobile,pin,residentType,null);
         }
     }
+    /** Admin sets a new PIN for a resident or treasurer who forgot theirs (no SMS needed). */
+    public record AdminPinReset(@Pattern(regexp="[0-9]{6}",message="must be 6 digits") @NotNull String pin) {
+    }
+    /** Support (provider key) sets a new PIN for an apartment Admin who forgot theirs. */
+    public record SupportPinReset(@Pattern(regexp="[6-9][0-9]{9}") @NotNull String mobile,@Pattern(regexp="[0-9]{6}",message="must be 6 digits") @NotNull String pin) {
+    }
     /** Forgot PIN: the Firebase phone verification token proves the caller holds the mobile number. */
     public record ResetPin(@Pattern(regexp="[6-9][0-9]{9}") @NotNull String mobile,@Pattern(regexp="[0-9]{6}",message="must be 6 digits") @NotNull String pin,@NotBlank @Size(max=4096) String verificationToken) {
     }

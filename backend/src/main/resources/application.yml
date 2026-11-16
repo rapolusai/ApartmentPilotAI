@@ -51,6 +51,8 @@ app:
     ip-failures-per-15-minutes: 30
     decay-hours: 24
   version: 1.0.0
+  # Sign-up and join without phone verification (no SMS cost). Admin approves residents and resets forgotten PINs.
+  open-registration-enabled: ${APP_OPEN_REGISTRATION_ENABLED:false}
   # Phone verification for sign-up, join and Forgot PIN (Firebase Authentication project id; public, not a secret).
   firebase:
     project-id: ${APP_FIREBASE_PROJECT_ID:}

@@ -2634,7 +2634,7 @@ import java.util.*;
         para(c,"Name, mobile, optional email, flat and owner/tenant type; bills, payments and the proofs you upload; notices, polls, bookings and requests; vehicle numbers for your flat.");
         u.heading(c,"Who sees it");
         para(c,"You; your apartment's Admin and Treasurer for their own apartment; other residents see shared notices, polls, apartment totals and the directory the Admin shares, never your payment proofs or private requests.");
-        para(c,"Google checks your mobile number with a one-time SMS code at sign-up, join and PIN reset (Firebase Authentication). Subscription payments go through Google Play; we receive the purchase status, not your card or UPI details.");
+        para(c,"If SMS verification is switched on, Google checks your mobile number with a one-time code (Firebase Authentication). Subscription payments go through Google Play; we receive the purchase status, not your card or UPI details.");
         u.heading(c,"Stored");
         para(c,"On a server in India, over encrypted connections only. Your PIN is kept as a one-way hash.");
         u.heading(c,"Kept for");

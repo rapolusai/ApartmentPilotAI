@@ -318,7 +318,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     }
     /** Pages whose job ends when their command is saved; they must not stay reachable with Back. */
     private static boolean isFormPage(String p) {
-        return p.endsWith("-form")||p.endsWith("-edit")||p.endsWith("-reverse")||p.endsWith("-settings")||p.endsWith("-preview")||Arrays.asList("mark-paid","payment-reject","bulk-review","change-pin","ticket-update","service-complete","join-reject","referral-claim","handover","opening-balance","opening-dues","transparency","booking-alternative","billing-options","payee","verification","reminders","booking-policy").contains(p);
+        return p.endsWith("-form")||p.endsWith("-edit")||p.endsWith("-reverse")||p.endsWith("-settings")||p.endsWith("-preview")||Arrays.asList("mark-paid","payment-reject","bulk-review","change-pin","ticket-update","service-complete","join-reject","referral-claim","handover","opening-balance","opening-dues","transparency","booking-alternative","billing-options","payee","verification","reminders","booking-policy","member-pin").contains(p);
     }
     private void back() {
         if(busy)return;
@@ -403,6 +403,8 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             case "verify-phone":case "verify-reset":verifyPhone();
             break;
             case "reset-pin":resetPin();
+            break;
+            case "member-pin":memberPin();
             break;
             case "invite-invalid":systemState("Check your invite","The code is invalid, expired or revoked.",R.drawable.ic_error,true,R.color.ap_amber,R.color.ap_ambg,()->go("join"),"Try another code");
             break;
@@ -639,7 +641,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             busy=false;
             progress.setVisibility(View.GONE);
             setButtons(content,true);
-            if(error==null&&result instanceof JSONObject&&((JSONObject)result).optBoolean("localRegistration")) {
+            if(error==null&&result instanceof JSONObject&&(((JSONObject)result).optBoolean("localRegistration")||((JSONObject)result).optBoolean("releaseReady"))) {
                 offlineDetail="The connection dropped. Check the previous action before submitting it again.";
                 resumePrevious();
                 return;
@@ -826,8 +828,9 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         else ui.note(content,"Treasurer access is assigned by your apartment admin.");
     }
     /**
-     * Sign-up, join and Forgot PIN first prove the mobile number by SMS code (Firebase). Only a local debug server that
-     * allows unverified registration skips this step.
+     * Sign-up and join prove the mobile number by SMS code (Firebase) when the server has it switched on. A server with
+     * open registration (or a local debug server) goes straight on; the Admin still approves every resident's flat.
+     * Forgot PIN never skips: without a verified number it shows the Admin reset message instead.
      */
     private void verifyThen(String next) {
         signupDraft.remove("verificationToken");
@@ -836,7 +839,8 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
         request("GET","/status",null,r-> {
             JSONObject status=(JSONObject)r;
             if(status.optBoolean("phoneVerification")&&PhoneAuth.configured())go("verify-phone");
-            else if(status.optBoolean("localRegistration"))go(next);
+            else if(next.equals("reset-pin"))recoveryUnavailable();
+            else if(status.optBoolean("localRegistration")||status.optBoolean("openRegistration"))go(next);
             else showError("Mobile verification is not available yet. Your details have not been submitted; please try again later.");
         });
     }
@@ -885,6 +889,17 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     private void forgotPin() {
         header("Reset PIN");
         ui.heading(content,"Forgot your PIN?");
+        request("GET","/status",null,r-> {
+            if(((JSONObject)r).optBoolean("phoneVerification")&&PhoneAuth.configured())forgotPinBySms();
+            else adminResetHelp();
+        });
+    }
+    private void adminResetHelp() {
+        ui.note(content,"Residents and Treasurers: ask your apartment Admin to reset your PIN. The Admin opens Members, picks your name and taps Reset PIN, then tells you the new PIN.");
+        ui.note(content,"Admins: email support@rapolu.in from the contact you registered with, giving your apartment name and mobile number. We confirm it is you before resetting the PIN.");
+        ui.button(content,"Back to sign in",R.drawable.ic_arrow_left,true,()->go(LoginPolicy.routeForRole(loginRole)));
+    }
+    private void forgotPinBySms() {
         ui.note(content,"Verify your registered mobile number by SMS, then choose a new 6-digit PIN.");
         formStart();
         fields.field("mobile","Registered mobile number","",InputType.TYPE_CLASS_PHONE);
@@ -924,8 +939,8 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
     }
     private void recoveryUnavailable() {
         header("Reset PIN");
-        ui.state(content,R.drawable.ic_shield,"Reset PIN unavailable","Verified mobile recovery is not configured. Contact your apartment administrator; no test code can reset a release account.",R.color.ap_amber,R.color.ap_ambg);
-        ui.button(content,"Back to sign in",R.drawable.ic_arrow_left,true,()->go(LoginPolicy.routeForRole(loginRole)));
+        ui.state(content,R.drawable.ic_shield,"Ask your Admin","PIN reset by SMS is not switched on for ApartmentCare.",R.color.ap_amber,R.color.ap_ambg);
+        adminResetHelp();
     }
     private void register() {
         header("Create apartment");
@@ -978,7 +993,7 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             if(!signupDraft.optString("verificationToken").isEmpty())put(body,"verificationToken",signupDraft.optString("verificationToken"));
             request("GET","/status",null,statusResult-> {
                 JSONObject status=(JSONObject)statusResult;
-                if(!status.optBoolean("localRegistration")&&!status.optBoolean("phoneVerification")) {
+                if(!status.optBoolean("localRegistration")&&!status.optBoolean("phoneVerification")&&!status.optBoolean("openRegistration")) {
                     showError("Apartment registration is not available on this server. Contact support; your details have not been submitted.");
                     return;
                 }
@@ -1903,8 +1918,33 @@ public final class MainActivity extends AppCompatActivity implements FeatureHost
             } else if("ACTIVE".equals(m.optString("status"))&&"RESIDENT".equals(m.optString("role"))) {
                 ui.button(content,"Assign treasurer",R.drawable.ic_shield,false,()->ui.confirm("Grant financial access?","Treasurer can approve payments, add expenses and view financial records. Existing sessions are revoked.","Grant access",()->request("POST","/members/"+id+"/treasurer",json(),x->render())));
             }
+            if(admin()&&"ACTIVE".equals(m.optString("status"))&&("RESIDENT".equals(m.optString("role"))||"TREASURER".equals(m.optString("role"))))
+                ui.button(content,"Reset PIN",R.drawable.ic_key,false,()->go("member-pin",id));
         }
         );
+    }
+    /** Admin sets a new PIN for a resident or Treasurer who forgot theirs (when SMS reset is off). */
+    private void memberPin() {
+        header("Reset PIN");
+        if(!admin()) {
+            ui.empty(content,R.drawable.ic_shield,"Admin access required","Only your apartment Admin can reset a member's PIN.");
+            return;
+        }
+        ui.note(content,"Confirm it is really this person (in person or by a call to their registered number) before you reset. They are signed out on every phone and sign in with the new PIN; ask them to change it afterwards in Change PIN.");
+        formStart();
+        fields.field("pin","New 6-digit PIN","",NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        fields.field("pin2","Enter the new PIN again","",NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        fields.limit("pin",6);fields.limit("pin2",6);
+        final String member=id;
+        ui.button(content,"Reset PIN",R.drawable.ic_key,true,()-> {
+            String pin=fields.get("pin");
+            if(!pin.matches("[0-9]{6}")) {showError("Enter a 6-digit PIN.");return;}
+            if(!pin.equals(fields.get("pin2"))) {showError("The two PINs do not match.");return;}
+            request("POST","/members/"+member+"/reset-pin",json("pin",pin),r-> {
+                Toast.makeText(this,"PIN reset. Tell the member their new PIN privately.",Toast.LENGTH_LONG).show();
+                go("member",member);
+            });
+        });
     }
     private void invite() {
         header("Invite residents");
